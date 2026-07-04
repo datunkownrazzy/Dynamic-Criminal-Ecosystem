@@ -14,6 +14,9 @@ dependencies {
 
 shared_scripts {
     'config.lua',
+}
+
+server_scripts {
     'models/region.lua',
     'models/world-state.lua',
     'simulation/layer0.lua',
@@ -21,9 +24,6 @@ shared_scripts {
     'simulation/time.lua',
     'simulation/weather.lua',
     'data/regions.lua',
-}
-
-server_scripts {
     'services/world.lua',
     'init.lua',
 }

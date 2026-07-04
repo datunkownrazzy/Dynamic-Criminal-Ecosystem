@@ -14,12 +14,13 @@ dependencies {
 
 shared_scripts {
     'config.lua',
-    'models/evidence.lua',
-    'models/custody.lua',
 }
 
 server_scripts {
+    'models/evidence.lua',
+    'models/custody.lua',
     'services/evidence.lua',
     'services/evidence-factory.lua',
+    'adapters/ers.lua',
     'init.lua',
 }

@@ -234,4 +234,4 @@ local function log(level, module, message, ...)
     end
 end
 
-return Scheduler
+_G.DCEScheduler = Scheduler

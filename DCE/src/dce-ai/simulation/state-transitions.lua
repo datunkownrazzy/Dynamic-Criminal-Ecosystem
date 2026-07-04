@@ -83,4 +83,4 @@ function StateTransitions.ForceTransition(org, newState)
     return org:SetState(newState)
 end
 
-return StateTransitions
+_G.DCEStateTransitions = StateTransitions

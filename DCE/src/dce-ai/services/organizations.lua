@@ -3,8 +3,8 @@
 -- Per ADR-0001: shares dce-ai resource with AI Director.
 -- Spec: docs/05_Organizations/Organizations.md
 
-local Organization = require("models.organization")
-local StateTransitions = require("simulation.state-transitions")
+local Organization = DCEOrganization
+local StateTransitions = DCEStateTransitions
 
 local OrganizationsService = {}
 local organizations = {}  -- orgId -> Organization instance
@@ -18,7 +18,7 @@ function OrganizationsService.Initialize()
 
     DCE:Log("ai", "info", "Organizations Service initializing...")
 
-    local orgData = require("data.organizations")
+    local orgData = DCEOrganizations
     for id, data in pairs(orgData) do
         organizations[id] = Organization.New(id, data)
         DCE:Log("ai", "info", "  Organization loaded: %s (%s)", id, data.displayName)
@@ -191,4 +191,4 @@ function OrganizationsService.Shutdown()
     DCE:Log("ai", "info", "Organizations Service shutdown complete")
 end
 
-return OrganizationsService
+_G.DCEOrganizationsService = OrganizationsService

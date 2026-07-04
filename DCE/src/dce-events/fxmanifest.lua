@@ -15,13 +15,13 @@ dependencies {
 
 shared_scripts {
     'config.lua',
-    'models/scenario.lua',
-    'data/scenarios.lua',
 }
 
 server_scripts {
-    'services/scenario-engine.lua',
+    'models/scenario.lua',
     'simulation/state-machine.lua',
     'simulation/escalation.lua',
+    'data/scenarios.lua',
+    'services/scenario-engine.lua',
     'init.lua',
 }

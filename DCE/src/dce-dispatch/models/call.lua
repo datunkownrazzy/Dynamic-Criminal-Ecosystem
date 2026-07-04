@@ -98,4 +98,4 @@ function Call:HasTimedOut()
     return elapsed >= Config.Dispatch.CallTimeout
 end
 
-return Call
+_G.DCECall = Call

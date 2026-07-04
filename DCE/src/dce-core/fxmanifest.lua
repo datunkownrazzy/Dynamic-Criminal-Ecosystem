@@ -11,15 +11,15 @@ version '1.0.0'
 
 shared_scripts {
     'config.lua',
+}
+
+server_scripts {
     'core/logger.lua',
     'core/registry.lua',
     'core/eventbus.lua',
     'core/scheduler.lua',
     'core/config.lua',
     'core/plugin-manager.lua',
-}
-
-server_scripts {
     'init.lua',
 }
 

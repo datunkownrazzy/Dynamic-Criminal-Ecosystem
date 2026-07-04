@@ -1,6 +1,6 @@
 -- DCE Scenario Engine - Resource Entry Point
 
-local ScenarioEngine = require("services.scenario-engine")
+local ScenarioEngine = DCEScenarioEngine
 
 -- ============================================================================
 -- Resource Lifecycle

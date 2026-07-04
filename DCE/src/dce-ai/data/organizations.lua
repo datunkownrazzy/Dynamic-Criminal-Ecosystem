@@ -26,4 +26,4 @@ Organizations["families"] = {
 -- Additional organizations can be added below for the full vertical slice.
 -- For the initial vertical slice, one organization is sufficient.
 
-return Organizations
+_G.DCEOrganizations = Organizations

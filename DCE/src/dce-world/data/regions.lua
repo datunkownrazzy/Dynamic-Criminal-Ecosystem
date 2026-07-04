@@ -23,4 +23,4 @@ Regions["davis"] = {
 -- Additional regions can be added below for the full vertical slice.
 -- For the initial vertical slice, one region is sufficient.
 
-return Regions
+_G.DCERegions = Regions

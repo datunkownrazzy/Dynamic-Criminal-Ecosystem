@@ -2,12 +2,14 @@
 -- Authoritative owner of evidence state. Manages the Evidence Registry,
 -- evidence lifecycle, confidence scoring, and chain of custody.
 
-local Evidence = require("models.evidence")
-local Custody = require("models.custody")
+local Evidence = DCEEvidence
+local Custody = DCECustody
+local ERSAdapter = DCERSAdapter
 
 local EvidenceService = {}
 local evidenceRegistry = {}  -- evidenceId -> Evidence instance
 local custodyRecords = {}   -- evidenceId -> array of Custody records
+local activeAdapter = nil
 local isInitialized = false
 
 function EvidenceService.Initialize()
@@ -17,6 +19,48 @@ function EvidenceService.Initialize()
     DCE:Log("evidence", "info", "Evidence Service initializing...")
     isInitialized = true
     DCE:Log("evidence", "info", "Evidence Service initialized")
+end
+
+--- Set the active evidence adapter.
+---@param adapter table|nil Optional adapter implementing CreateEvidence, TransferEvidence, VerifyEvidence, LinkToCase
+function EvidenceService.SetAdapter(adapter)
+    activeAdapter = adapter
+    if adapter then
+        DCE:Log("evidence", "info", "Evidence adapter set")
+    else
+        DCE:Log("evidence", "warn", "Evidence adapter cleared (using local standalone registry)")
+    end
+end
+
+--- Get the current evidence adapter.
+---@return table|nil
+function EvidenceService.GetAdapter()
+    return activeAdapter
+end
+
+--- Resolve the configured evidence adapter or fall back to the local standalone registry.
+function EvidenceService.InitializeAdapter()
+    local integration = Config.Evidence.Integration or {}
+    local mode = integration.Mode or "native"
+
+    if mode == "custom" and integration.Adapter then
+        EvidenceService.SetAdapter(integration.Adapter)
+        return
+    end
+
+    if mode == "ers" then
+        local adapter = ERSAdapter.New(integration)
+        if adapter:IsAvailable() then
+            EvidenceService.SetAdapter(adapter)
+            return
+        end
+
+        if integration.EnableStandaloneFallback ~= false then
+            DCE:Log("evidence", "warn", "ERS evidence adapter unavailable; using local standalone registry")
+        end
+    end
+
+    EvidenceService.SetAdapter(nil)
 end
 
 -- ============================================================================
@@ -46,6 +90,10 @@ function EvidenceService.CreateEvidence(data)
         correlationId = evidence.id,
         payload = evidence:GetSummary(),
     })
+
+    if activeAdapter and activeAdapter.CreateEvidence then
+        activeAdapter.CreateEvidence(evidence:GetSummary())
+    end
 
     return evidence:GetSummary()
 end
@@ -120,6 +168,10 @@ function EvidenceService.TransferEvidence(evidenceId, from, to, reason)
         payload = custody:GetSummary(),
     })
 
+    if activeAdapter and activeAdapter.TransferEvidence then
+        activeAdapter.TransferEvidence(custody:GetSummary())
+    end
+
     return true
 end
 
@@ -156,6 +208,10 @@ function EvidenceService.VerifyEvidence(evidenceId)
         payload = evidence:GetSummary(),
     })
 
+    if activeAdapter and activeAdapter.VerifyEvidence then
+        activeAdapter.VerifyEvidence(evidence:GetSummary())
+    end
+
     return true
 end
 
@@ -169,6 +225,11 @@ function EvidenceService.LinkToCase(evidenceId, caseId)
         return false
     end
     evidence:LinkToCase(caseId)
+
+    if activeAdapter and activeAdapter.LinkToCase then
+        activeAdapter.LinkToCase(evidenceId, caseId)
+    end
+
     return true
 end
 
@@ -186,4 +247,4 @@ function EvidenceService.Shutdown()
     DCE:Log("evidence", "info", "Evidence Service shutdown complete")
 end
 
-return EvidenceService
+_G.DCEEvidenceService = EvidenceService

@@ -14,11 +14,12 @@ dependencies {
 
 shared_scripts {
     'config.lua',
-    'models/call.lua',
 }
 
 server_scripts {
+    'models/call.lua',
     'services/dispatch.lua',
     'adapters/native.lua',
+    'adapters/ers.lua',
     'init.lua',
 }

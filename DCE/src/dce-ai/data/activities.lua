@@ -25,4 +25,4 @@ Activities["drug_sale"] = {
 -- Additional activities can be added below for the full vertical slice.
 -- For the initial vertical slice, one activity is sufficient.
 
-return Activities
+_G.DCEActivities = Activities

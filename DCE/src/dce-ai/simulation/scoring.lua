@@ -133,4 +133,4 @@ function Scoring.SelectWeighted(candidates)
     return valid[#valid]
 end
 
-return Scoring
+_G.DCEScoring = Scoring

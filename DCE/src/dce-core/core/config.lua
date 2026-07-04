@@ -161,4 +161,4 @@ local function log(level, module, message, ...)
     end
 end
 
-return ConfigLoader
+_G.DCEConfigLoader = ConfigLoader

@@ -1,9 +1,9 @@
 -- DCE Scenario Engine Service
 -- Manages scenario lifecycle: creation, progression, and resolution.
 
-local Scenario = require("models.scenario")
-local StateMachine = require("simulation.state-machine")
-local Escalation = require("simulation.escalation")
+local Scenario = DCEScenario
+local StateMachine = DCEStateMachine
+local Escalation = DCEEscalation
 
 local ScenarioEngine = {}
 local scenarios = {}       -- scenarioId -> Scenario instance
@@ -228,4 +228,4 @@ function ScenarioEngine.Shutdown()
     DCE:Log("events", "info", "Scenario Engine shutdown complete")
 end
 
-return ScenarioEngine
+_G.DCEScenarioEngine = ScenarioEngine

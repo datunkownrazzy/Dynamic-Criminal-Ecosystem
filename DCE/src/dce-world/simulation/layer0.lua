@@ -74,4 +74,4 @@ function HasSignificantChange(before, after)
         or math.abs((after.economicHealth or 0) - (before.economicHealth or 0)) >= threshold.EconomicHealth
 end
 
-return Layer0
+_G.DCELayer0 = Layer0

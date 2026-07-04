@@ -2,8 +2,8 @@
 -- Registers both the Organizations and AI Director services.
 -- Per ADR-0001: they share this resource but are registered as separate services.
 
-local OrganizationsService = require("services.organizations")
-local AIDirectorService = require("services.ai-director")
+local OrganizationsService = DCEOrganizationsService
+local AIDirectorService = DCEAIDirectorService
 
 -- ============================================================================
 -- Resource Lifecycle

@@ -39,4 +39,4 @@ function Custody:GetSummary()
     }
 end
 
-return Custody
+_G.DCECustody = Custody

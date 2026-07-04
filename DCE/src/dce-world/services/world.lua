@@ -3,12 +3,12 @@
 -- Other systems query this through the Service Registry — they never mutate it directly.
 -- Spec: docs/04_Simulation/World_Engine.md
 
-local Region = require("models.region")
-local WorldState = require("models.world-state")
-local Layer0 = require("simulation.layer0")
-local Layer1 = require("simulation.layer1")
-local TimeSim = require("simulation.time")
-local WeatherSim = require("simulation.weather")
+local Region = DCERegion
+local WorldState = DCEWorldState
+local Layer0 = DCELayer0
+local Layer1 = DCELayer1
+local TimeSim = DCETimeSim
+local WeatherSim = DCEWeatherSim
 
 local WorldService = {}
 local regions = {}        -- regionId -> Region instance
@@ -24,7 +24,7 @@ function WorldService.Initialize()
     DCE:Log("world", "info", "World Engine initializing...")
 
     -- Load region definitions
-    local regionData = require("data.regions")
+    local regionData = DCERegions
     for id, data in pairs(regionData) do
         regions[id] = Region.New(id, data)
         DCE:Log("world", "info", "  Region loaded: %s (%s)", id, data.displayName)
@@ -217,4 +217,4 @@ function WorldService.Shutdown()
     DCE:Log("world", "info", "World Engine shutdown complete")
 end
 
-return WorldService
+_G.DCEWorldService = WorldService

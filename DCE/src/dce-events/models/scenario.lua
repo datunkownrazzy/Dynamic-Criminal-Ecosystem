@@ -170,4 +170,4 @@ function Scenario:GetSummary()
     }
 end
 
-return Scenario
+_G.DCEScenario = Scenario

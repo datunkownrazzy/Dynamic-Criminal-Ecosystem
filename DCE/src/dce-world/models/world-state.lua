@@ -101,4 +101,4 @@ function WorldState:MaybeChangeWeather()
     return true
 end
 
-return WorldState
+_G.DCEWorldState = WorldState

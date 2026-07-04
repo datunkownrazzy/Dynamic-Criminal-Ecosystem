@@ -38,4 +38,4 @@ function Weather.Tick(worldState)
     return nil
 end
 
-return Weather
+_G.DCEWeatherSim = Weather

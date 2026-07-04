@@ -15,3 +15,11 @@ Config.Dispatch.Native = {
     BlipColor = 1,        -- red
     NotificationPrefix = "[DCE Dispatch] ",
 }
+
+-- Integration settings
+Config.Dispatch.Integration = {
+    Mode = "native", -- "native", "ers", or "custom"
+    ResourceName = "ers",
+    ExportName = "DCEDispatchAdapter",
+    EnableStandaloneFallback = true,
+}

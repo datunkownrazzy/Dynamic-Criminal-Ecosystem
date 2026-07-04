@@ -2,7 +2,7 @@
 -- Manages dispatch call lifecycle: created -> updated -> resolved.
 -- Adapter-based: works with native fallback or third-party CAD/MDT.
 
-local Call = require("models.call")
+local Call = DCECall
 
 local DispatchService = {}
 local calls = {}  -- callId -> Call instance
@@ -236,4 +236,4 @@ function DispatchService.Shutdown()
     DCE:Log("dispatch", "info", "Dispatch Service shutdown complete")
 end
 
-return DispatchService
+_G.DCEDispatchService = DispatchService

@@ -1,13 +1,7 @@
 -- DCE Core - Resource Entry Point
 -- Initializes Service Registry, Event Bus, Scheduler, Logger, Config Loader, and Plugin Manager.
 -- Registers the DCE global table that all other resources use.
-
-local Logger = require("core.logger")
-local Registry = require("core.registry")
-local EventBus = require("core.eventbus")
-local Scheduler = require("core.scheduler")
-local ConfigLoader = require("core.config")
-local PluginManager = require("core.plugin-manager")
+-- Files are loaded in dependency order via fxmanifest.lua, so globals are available.
 
 -- ============================================================================
 -- Global DCE Table
@@ -29,6 +23,13 @@ DCE = {}
 -- 6. Plugin Manager (depends on Logger, Config)
 
 local function InitializeCore()
+    local Logger = DCELogger
+    local Registry = DCERegistry
+    local EventBus = DCEEventBus
+    local Scheduler = DCEScheduler
+    local ConfigLoader = DCEConfigLoader
+    local PluginManager = DCEPluginManager
+
     -- Step 1: Initialize Logger
     Logger.Init()
     Logger.Info("core", "=== DCE v1.0.0 Core Initializing ===")
@@ -136,6 +137,12 @@ end
 -- This is required per AGENTS.md: "Clean up all registrations and subscriptions on onResourceStop."
 
 local function ShutdownCore()
+    local Logger = DCELogger
+    local Registry = DCERegistry
+    local EventBus = DCEEventBus
+    local Scheduler = DCEScheduler
+    local PluginManager = DCEPluginManager
+
     Logger.Info("core", "=== DCE Core Shutting Down ===")
 
     -- 1. Clear all scheduled tasks (this stops all running timers)
@@ -173,8 +180,7 @@ else
     -- Register restart handler
     AddEventHandler("onResourceStart", function(resourceName)
         if resourceName == GetCurrentResourceName() then
-            -- Re-initialize is handled by FiveM's resource lifecycle
-            -- This just logs that the resource was (re)started
+            local Logger = DCELogger
             Logger.Info("core", "Resource restarted: %s", resourceName)
         end
     end)

@@ -3,9 +3,9 @@
 -- scores activities, and selects what organizations do.
 -- Spec: docs/08_AI/AIDirector.md
 
-local Activity = require("models.activity")
-local Scoring = require("simulation.scoring")
-local OrganizationsService = require("services.organizations")
+local Activity = DCEActivity
+local Scoring = DCEScoring
+local OrganizationsService = DCEOrganizationsService
 
 local AIDirectorService = {}
 local activities = {}     -- activityId -> Activity definition
@@ -22,7 +22,7 @@ function AIDirectorService.Initialize()
     DCE:Log("ai", "info", "AI Director initializing...")
 
     -- Load activity definitions
-    local activityData = require("data.activities")
+    local activityData = DCEActivities
     for id, data in pairs(activityData) do
         activities[id] = Activity.New(id, data)
         DCE:Log("ai", "info", "  Activity loaded: %s", id)
@@ -201,4 +201,4 @@ function AIDirectorService.Shutdown()
     DCE:Log("ai", "info", "AI Director shutdown complete")
 end
 
-return AIDirectorService
+_G.DCEAIDirectorService = AIDirectorService

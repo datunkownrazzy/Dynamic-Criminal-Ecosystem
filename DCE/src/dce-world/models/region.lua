@@ -152,4 +152,4 @@ function Region:IsControlledBy(orgId, threshold)
     return (self.runtime.gangInfluence[orgId] or 0) >= threshold
 end
 
-return Region
+_G.DCERegion = Region

@@ -1,7 +1,7 @@
 -- DCE World Engine - Resource Entry Point
 -- Registers the World service and schedules simulation ticks.
 
-local WorldService = require("services.world")
+local WorldService = DCEWorldService
 
 -- ============================================================================
 -- Resource Lifecycle

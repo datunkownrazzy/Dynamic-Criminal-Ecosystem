@@ -39,4 +39,4 @@ function Time.Tick(worldState)
     return nil
 end
 
-return Time
+_G.DCETimeSim = Time

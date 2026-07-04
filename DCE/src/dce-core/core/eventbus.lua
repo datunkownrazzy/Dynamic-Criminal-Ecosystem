@@ -169,4 +169,4 @@ local function log(level, module, message, ...)
     end
 end
 
-return EventBus
+_G.DCEEventBus = EventBus

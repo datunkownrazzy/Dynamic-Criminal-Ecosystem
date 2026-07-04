@@ -1,6 +1,5 @@
 -- DCE AI Director & Organizations
--- Organization state, AI decision-making, and activity selection.
--- Per ADR-0001: Organizations and AI Director share this resource.
+-- Activity scoring, organization state machine, AI Director decision loop.
 
 fx_version 'cerulean'
 game 'gta5'
@@ -16,16 +15,16 @@ dependencies {
 
 shared_scripts {
     'config.lua',
+}
+
+server_scripts {
     'models/organization.lua',
     'models/activity.lua',
     'data/organizations.lua',
     'data/activities.lua',
-}
-
-server_scripts {
-    'services/organizations.lua',
-    'services/ai-director.lua',
     'simulation/scoring.lua',
     'simulation/state-transitions.lua',
+    'services/organizations.lua',
+    'services/ai-director.lua',
     'init.lua',
 }

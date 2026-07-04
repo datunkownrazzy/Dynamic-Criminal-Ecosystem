@@ -70,4 +70,4 @@ function StateMachine.Tick(scenarios)
     return events
 end
 
-return StateMachine
+_G.DCEStateMachine = StateMachine

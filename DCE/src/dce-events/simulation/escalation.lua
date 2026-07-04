@@ -56,4 +56,4 @@ function Escalation.CalculateImpact(scenario)
     }
 end
 
-return Escalation
+_G.DCEEscalation = Escalation

@@ -1,7 +1,8 @@
 -- DCE Evidence Service - Resource Entry Point
 
-local EvidenceService = require("services.evidence")
-local EvidenceFactory = require("services.evidence-factory")
+local EvidenceService = DCEEvidenceService
+local EvidenceFactory = DCEEvidenceFactory
+local ERSAdapter = DCERSAdapter
 
 -- ============================================================================
 -- Resource Lifecycle
@@ -11,6 +12,7 @@ local function OnEvidenceStart()
     DCE:Log("evidence", "info", "=== DCE Evidence Service Starting ===")
 
     EvidenceService.Initialize()
+    EvidenceService.InitializeAdapter()
 
     -- Register the Evidence service
     DCE:RegisterService("Evidence", {
@@ -23,6 +25,8 @@ local function OnEvidenceStart()
         GetCustodyChain = function(evidenceId) return EvidenceService.GetCustodyChain(evidenceId) end,
         VerifyEvidence = function(evidenceId) return EvidenceService.VerifyEvidence(evidenceId) end,
         LinkToCase = function(evidenceId, caseId) return EvidenceService.LinkToCase(evidenceId, caseId) end,
+        SetAdapter = function(adapter) EvidenceService.SetAdapter(adapter) end,
+        GetAdapter = function() return EvidenceService.GetAdapter() end,
     })
 
     -- Subscribe to scenario completion events to create evidence

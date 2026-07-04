@@ -79,4 +79,4 @@ function Evidence:ApplyDecay()
     end
 end
 
-return Evidence
+_G.DCEEvidence = Evidence

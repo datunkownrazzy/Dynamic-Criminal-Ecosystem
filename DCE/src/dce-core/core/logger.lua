@@ -15,10 +15,6 @@ function Logger.Init(cfg)
 end
 
 --- Format a log message with the configured template.
----@param module string The module tag (e.g., "core", "world", "ai")
----@param level string The log level
----@param message string The log message
----@param ... any Additional values to format into the message
 function Logger.Format(module, level, message, ...)
     if ... then
         message = string.format(message, ...)
@@ -38,10 +34,6 @@ function Logger.Format(module, level, message, ...)
 end
 
 --- Log a message at the specified level.
----@param module string Module identifier
----@param level string "debug" | "info" | "warn" | "error"
----@param message string Log message (supports string.format patterns)
----@param ... any Optional format arguments
 function Logger.Log(module, level, message, ...)
     local minLevel = LogLevels[level]
     if not minLevel or minLevel < currentLevel then
@@ -79,7 +71,6 @@ function Logger.Error(module, message, ...)
 end
 
 --- Set the log level at runtime.
----@param level string "debug" | "info" | "warn" | "error" | "off"
 function Logger.SetLevel(level)
     if LogLevels[level] then
         currentLevel = LogLevels[level]
@@ -87,4 +78,4 @@ function Logger.SetLevel(level)
     end
 end
 
-return Logger
+_G.DCELogger = Logger

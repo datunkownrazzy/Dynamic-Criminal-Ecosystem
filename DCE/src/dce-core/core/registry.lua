@@ -139,4 +139,4 @@ function Registry.Clear()
     end
 end
 
-return Registry
+_G.DCERegistry = Registry

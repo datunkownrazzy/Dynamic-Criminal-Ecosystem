@@ -108,4 +108,4 @@ function Layer1.Clear()
     end
 end
 
-return Layer1
+_G.DCELayer1 = Layer1

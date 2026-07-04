@@ -13,4 +13,4 @@ Scenarios["drug_sale"] = {
     evidenceOutput = 1,
 }
 
-return Scenarios
+_G.DCEScenarios = Scenarios

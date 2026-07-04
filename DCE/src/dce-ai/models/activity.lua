@@ -61,4 +61,4 @@ function Activity:MeetsRequirements(orgRuntime)
     return true
 end
 
-return Activity
+_G.DCEActivity = Activity

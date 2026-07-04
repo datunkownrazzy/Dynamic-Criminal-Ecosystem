@@ -165,4 +165,4 @@ local function log(level, module, message, ...)
     end
 end
 
-return PluginManager
+_G.DCEPluginManager = PluginManager

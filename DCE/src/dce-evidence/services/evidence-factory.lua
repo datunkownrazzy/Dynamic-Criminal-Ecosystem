@@ -65,4 +65,4 @@ function EvidenceFactory.FromDispatchCall(dispatchData)
     }
 end
 
-return EvidenceFactory
+_G.DCEEvidenceFactory = EvidenceFactory

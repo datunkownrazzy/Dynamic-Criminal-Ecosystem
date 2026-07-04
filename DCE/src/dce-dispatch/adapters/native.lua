@@ -107,4 +107,4 @@ function NativeAdapter.CancelCall(callData)
     end
 end
 
-return NativeAdapter
+_G.DCENativeAdapter = NativeAdapter

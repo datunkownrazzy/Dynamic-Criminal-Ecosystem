@@ -1,19 +1,41 @@
 -- DCE Dispatch Service - Resource Entry Point
 
-local DispatchService = require("services.dispatch")
-local NativeAdapter = require("adapters.native")
+local DispatchService = DCEDispatchService
+local NativeAdapter = DCENativeAdapter
+local ERSAdapter = DCERSAdapter
 
 -- ============================================================================
 -- Resource Lifecycle
 -- ============================================================================
+
+local function GetConfiguredAdapter()
+    local integration = Config.Dispatch.Integration or {}
+    local mode = integration.Mode or "native"
+
+    if mode == "custom" and integration.Adapter then
+        return integration.Adapter
+    end
+
+    if mode == "ers" then
+        local adapter = ERSAdapter.New(integration)
+        if adapter:IsAvailable() then
+            return adapter
+        end
+
+        if integration.EnableStandaloneFallback ~= false then
+            DCE:Log("dispatch", "warn", "ERS dispatch adapter unavailable; falling back to native standalone")
+        end
+    end
+
+    return NativeAdapter
+end
 
 local function OnDispatchStart()
     DCE:Log("dispatch", "info", "=== DCE Dispatch Service Starting ===")
 
     DispatchService.Initialize()
 
-    -- Set the native adapter as the default (fallback)
-    DispatchService.SetAdapter(NativeAdapter)
+    DispatchService.SetAdapter(GetConfiguredAdapter())
 
     -- Register the Dispatch service
     DCE:RegisterService("Dispatch", {

@@ -196,4 +196,4 @@ function Organization:HasTerritory(regionId)
     return self.runtime.territories[regionId] == true
 end
 
-return Organization
+_G.DCEOrganization = Organization

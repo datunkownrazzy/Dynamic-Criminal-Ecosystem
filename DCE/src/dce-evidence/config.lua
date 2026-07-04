@@ -23,3 +23,11 @@ Config.Evidence.Types = {
 -- Default evidence decay (seconds before confidence starts dropping)
 Config.Evidence.DecayInterval = 86400  -- 24 hours
 Config.Evidence.DecayRate = 5          -- confidence points lost per interval
+
+-- Integration settings
+Config.Evidence.Integration = {
+    Mode = "native", -- "native", "ers", or "custom"
+    ResourceName = "ers",
+    ExportName = "DCEEvidenceAdapter",
+    EnableStandaloneFallback = true,
+}
