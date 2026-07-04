@@ -40,6 +40,15 @@ Everything sits underneath three foundational mechanisms, described in their own
 - **Event Bus** — how modules talk to each other (`DCE-0002`)
 - **Persistence Layer** — how state survives restarts (own spec, later milestone)
 
+For the next milestone, the architecture foundation is being documented in the following contracts:
+
+- [SimulationScheduler.md](SimulationScheduler.md) — master timing model and update loop contract
+- [StateMachine.md](StateMachine.md) — lifecycle and state transition rules for Services and entities
+- [ServiceContracts.md](ServiceContracts.md) — Service Registry interface and dependency contract
+- [EventContracts.md](EventContracts.md) — event naming, payload, and compatibility rules
+- [DataOwnership.md](DataOwnership.md) — module ownership of state and change-request boundaries
+- [SimulationBudget.md](SimulationBudget.md) — performance budgets, LOD behavior, and graceful degradation
+
 No module is permitted to reach into another module's internal tables or call its private functions. All cross-module interaction goes through a registered Service interface or the Event Bus. This is not a style preference — it's what makes the plugin system and adapter pattern possible at all (see `PROJECT_PRINCIPLES.md` #4).
 
 ---
@@ -54,7 +63,7 @@ DCE ships as multiple independently loadable FiveM resources rather than one mon
 | `dce-world` | World state, statistical simulation (Layer 0), Ambient simulation (Layer 1) |
 | `dce-ai` | AI Director, Organization decision-making, Event Escalation |
 | `dce-dispatch` | Generic Dispatch service + adapter loading |
-| `dce-evidence` | Evidence generation, decay, Investigation Graph |
+| `dce-evidence` | Evidence registry, lifecycle, confidence, chain of custody, Investigation Graph |
 | `dce-territories` | Territory state and lifecycle |
 | `dce-economy` | Organization finances, supply chain modeling |
 | `dce-investigations` | Higher-level detective/case tooling built on Evidence |

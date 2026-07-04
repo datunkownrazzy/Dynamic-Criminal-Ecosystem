@@ -1,55 +1,83 @@
-# DCE Evidence
+# Evidence Service
 
-**Status:** Accepted
-**Version:** 1.1
+**Status:** Draft
+**Version:** 1.0
 **Owner:** Datunkownrazzy
-**Dependencies:** Integration Manager, World Engine, Event Escalation
+**Dependencies:** Service Registry, Event Bus, Integration Manager, Investigation Engine
 
 ---
 
 ## Purpose
 
-The Evidence Service (`dce-evidence`) manages the lifecycle of forensic material. It acts as the internal system of record while using the `IntegrationManager` to mirror data to external police CAD/MDT/Forensics systems. It ensures that criminal actions have lasting, "investigatable" consequences regardless of which police tools the server uses.
+The Evidence Service is the authoritative owner of evidence state in DCE. It manages the Evidence Registry, evidence lifecycle, confidence scoring, chain of custody, evidence relationships, and persistence. It exposes evidence to investigations, MDT systems, and inventory integrations without allowing those integrations to become the source of truth.
 
-## The Evidence Model
+This follows the DCE ownership rule that state belongs to exactly one Service and that adapters only translate data.
 
-Evidence is a discrete entity tied to an `incidentId`. The schema is optimized for serialization, allowing the `IntegrationManager` to translate DCE's internal model into any external system's format.
+## Core Model
 
-| Type | Definition |
-|---|---|
-| `Physical` | Casings, blood, prints, DNA. |
-| `Digital` | Surveillance footage, phone metadata, hacked logs. |
-| `Witness` | Civilian statements or victim reports. |
+Evidence is modeled as a registry-backed record rather than as an inventory item payload. The Evidence Service owns the canonical record and exposes a stable interface for:
 
-## Integration: Adapter-Based Forensics
+- creating evidence records,
+- updating lifecycle state,
+- recording custody events,
+- linking evidence to investigations and entities,
+- querying evidence by case, scenario, or entity,
+- and surfacing evidence to inventory and MDT adapters.
 
-Evidence tracking does not rely on hardcoded CAD/MDT support. Instead:
+## Evidence Registry
 
-1. **Discovery:** On startup, `IntegrationManager` detects if a dedicated Forensics/Evidence resource is present (e.g., `ers_evidence`, `ps-mdt` forensics module).
-2. **Adapter Mapping:** 
-   * **If a compatible resource is found:** The Evidence Service triggers the external system’s exports/events via the detected Adapter.
-   * **If no resource is found:** The Evidence Service activates `DCE Native Evidence`, providing a lightweight, built-in system for forensic management.
-3. **Synchronization:** Any change in evidence `integrity` or `association` triggers a sync call to the active Adapter, keeping external logs updated in real-time.
+The Evidence Registry is the single source of truth for evidence. Every evidence item receives a unique EvidenceID, is stored with confidence and reliability metadata, and is linked into an investigation graph.
 
-## API Surface
+The registry is responsible for:
 
-```lua
-local Evidence = DCE:GetService("Evidence")
+- identity and persistence,
+- ownership and custody history,
+- confidence and verification status,
+- relationship mapping,
+- and cross-system lookup.
 
--- The Service automatically routes this to the active Adapter
-Evidence.CollectEvidence(officerId, evidenceId)
+More detail is documented in [Evidence_Registry.md](Evidence_Registry.md).
 
--- Used by Investigations to pull data from whichever system is active
-Evidence.GetEvidenceByIncident(incidentId)
+## Evidence Factory
 
-Emitted Events
-evidence:collected — { evidenceId, officerId, adapterUsed }
+Scenarios and simulation systems may generate evidence requests, but they do not persist evidence directly. The Evidence Factory prepares evidence candidates for registration and hands them to the Evidence Service.
 
-evidence:decayed — { evidenceId }
+This separates scenario generation from evidence ownership and prevents integration logic from becoming authoritative.
 
-evidence:associated — { evidenceId, agentId }
+## Inventory Adapters
 
-What This Document Does Not Cover
-The internal dispatch calls → docs/10_Dispatch/Dispatch.md
+Inventory systems are presentation layers. They may display evidence, store an EvidenceID or reference code, and resolve a full evidence record when examined, but they do not own evidence state.
 
-Casework management → docs/12_Investigations/Investigations.md
+The adapter contract is documented in [Inventory_Integration.md](../16_Intergrations/Inventory_Integration.md).
+
+## Evidence Graph and Confidence
+
+The Evidence Service maintains relationships between evidence and the entities that make investigations meaningful:
+
+- organizations,
+- NPCs and agents,
+- vehicles,
+- properties,
+- scenarios,
+- cases,
+- dispatch calls,
+- and other evidence records.
+
+Each evidence object carries a confidence profile that reflects reliability, freshness, and verification status rather than guaranteeing a conclusion.
+
+## Service Boundaries
+
+The Evidence Service is the only module that mutates evidence state. Other systems may:
+
+- request evidence creation,
+- query evidence data,
+- subscribe to evidence events,
+- or render evidence to users.
+
+They must not rewrite evidence state directly.
+
+## Related Documents
+
+- [Evidence_Registry.md](Evidence_Registry.md)
+- [../16_Intergrations/Inventory_Integration.md](../16_Intergrations/Inventory_Integration.md)
+- [../02_Arcitecture/Architecture_Overview.md](../02_Arcitecture/Architecture_Overview.md)

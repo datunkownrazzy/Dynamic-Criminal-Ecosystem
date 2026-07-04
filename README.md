@@ -1,87 +1,55 @@
 # DCE — Dynamic Criminal Ecosystem
-A modular simulation framework for FiveM that creates a persistent, evolving criminal underworld for roleplay servers. Organizations make autonomous decisions based on resources, territory, law enforcement pressure, and environmental conditions — dispatch calls, investigations, and pursuits emerge from the world's state instead of being spawned as standalone scripted events.
 
-Start here: docs/01_Project/Vision.md
+DCE is a modular simulation framework for FiveM that aims to make criminal organizations feel persistent, adaptive, and consequential rather than scripted. The project is built around the idea that crime should be simulated from underlying state — resources, territory, heat, time, weather, and pressure — so that dispatches, investigations, and pursuits emerge naturally from the world instead of being spawned as isolated events.
 
+> Core principle: crime is simulated, not spawned.
 
-# Status
+## What this repository contains
 
-🚧 Pre-implementation. Foundation and Architecture documentation complete. Core implementation in progress.
+This repository currently focuses on the design and engineering foundation of DCE:
 
-Documentation Map
+- Architecture and product documentation in [DCE/docs](DCE/docs)
+- Engineering specifications in [DCE/specifications](DCE/specifications)
+- Architecture decision records in [DCE/architecture](DCE/architecture)
+- Project guidance and contribution standards in [DCE/CONTRIBUTING.md](DCE/CONTRIBUTING.md) and [DCE/STYLE_GUIDE.md](DCE/STYLE_GUIDE.md)
 
-Phase 1 — Foundation (docs/01_Project/)
+This is not yet a drop-in FiveM resource package; it is the planning, architecture, and specification backbone for the framework.
 
+## Current status
 
-Vision — what DCE is and why it exists
-Philosophy — how we reason about design decisions
-Goals — what v1.0 must deliver, what's deferred, what failure looks like
-Glossary — consistent terminology used across code and docs
-PROJECT_PRINCIPLES — the non-negotiables every change is checked against
+- Documentation and architecture foundations are in place.
+- Core implementation work is still in progress.
+- The project is centered on the v1.0 milestone, with goals around background simulation, persistence, evidence handling, escalation, plugin extensibility, and admin visibility.
 
+## Start here
 
-Phase 2 — Architecture (docs/02_Architecture/, specifications/)
+If you are new to the project, the best entry points are:
 
+1. [DCE/docs/01_Project/Vision.md](DCE/docs/01_Project/Vision.md) — the high-level purpose and direction of DCE
+2. [DCE/docs/01_Project/Goals.md](DCE/docs/01_Project/Goals.md) — the v1.0 milestones and deferred work
+3. [DCE/docs/02_Arcitecture/Architecture_Overview.md](DCE/docs/02_Arcitecture/Architecture_Overview.md) — the overall architecture and module boundaries
+4. [DCE/docs/01_Project/AI_Developer_GUDIE.md](DCE/docs/01_Project/AI_Developer_GUDIE.md) — guidance for contributors and AI-assisted development
 
-Architecture Overview — module map and resource boundaries
-DCE-0001: Service Registry
-DCE-0002: Event Bus
-Lifecycle & Dependency Resolution
-Coding Standards & AI Developer Guide
-DCE-0003: Plugin Manifest Specification
-Configuration Philosophy
+## Documentation map
 
+- Foundation: [DCE/docs/01_Project](DCE/docs/01_Project)
+- Architecture: [DCE/docs/02_Arcitecture](DCE/docs/02_Arcitecture)
+- Core systems: [DCE/docs/03_Core](DCE/docs/03_Core)
+- Simulation layers: [DCE/docs/04_Simulation](DCE/docs/04_Simulation)
+- Organizations and territories: [DCE/docs/05_Organizations](DCE/docs/05_Organizations) and [DCE/docs/06_Territories](DCE/docs/06_Territories)
+- Dispatch, evidence, and investigations: [DCE/docs/10_Dispatch](DCE/docs/10_Dispatch), [DCE/docs/11_Evidence](DCE/docs/11_Evidence), and [DCE/docs/12_Investigations](DCE/docs/12_Investigations)
 
-Phase 3 — Core (docs/03_Core/, specifications/) — in progress
+## Repository layout
 
+- [DCE/docs](DCE/docs) — project documentation organized by domain
+- [DCE/specifications](DCE/specifications) — engineering specifications that define the core interfaces and contracts
+- [DCE/architecture](DCE/architecture) — architecture decision records
+- [DCE/CHANGELOG.MD](DCE/CHANGELOG.MD) and [DCE/ROADMAP.md](DCE/ROADMAP.md) — release history and planning notes
 
-Core Overview
-Scheduler
-Logger
-Configuration (implementation spec)
+## Contributing
 
+If you are implementing against these specifications, start with [DCE/docs/02_Arcitecture/Coding_Standards.md](DCE/docs/02_Arcitecture/Coding_Standards.md) and [DCE/docs/01_Project/PROJECT_PRINCIPLES.md](DCE/docs/01_Project/PROJECT_PRINCIPLES.md). They describe the architectural rules, service/event boundaries, and expectations for contributing safely.
 
-Phase 4 — Simulation (docs/04_Simulation/) — planned
+## License
 
-
-World Engine
-Simulation Layers
-Regions
-Weather
-Time
-
-
-# Repository Structure
-
-DCE/
- docs/
-    01_Project/
-    02_Architecture/
-    03_Core/
-    04_Simulation/
-    specifications/    # immutable-until-revised engineering specs (DCE-XXXX)
-    architecture/       # ADRs — Architecture Decision Records
-    diagrams/
-    schemas/            # JSON/YAML config & plugin manifest examples
-    examples/
-    sdk/
-    tests/
-    src/
-    plugins/
-    tools/
-
-Core Principle
-
-
-Crime is simulated, not spawned.
-
-
-
-See PROJECT_PRINCIPLES.md for the full list every design decision is checked against.
-
-Contributing / Working With AI Assistants
-
-If you're implementing against these specs (human or AI), read Coding Standards & AI Developer Guide before writing code — it explains how to work within the Service Registry / Event Bus pattern and what to flag rather than silently work around.
-
-License
-GNU GENERAL PUBLIC LICENSE Version 3
+This project is licensed under the GNU General Public License v3. See [DCE/LICENSE](DCE/LICENSE).
