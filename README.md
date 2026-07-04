@@ -1,2 +1,1 @@
-# Dynamic-Criminal-Ecosystem-DCE-
-Dynamic Criminal Ecosystem doesn't spawn crime. It simulates a living criminal world, and crime emerges naturally from that simulation.
+# Dynamic Criminal Ecosystem (DCE) is a modular simulation framework for FiveM that creates a persistent, evolving criminal underworld. Criminal organizations make autonomous decisions based on resources, territory, pressure from law enforcement, and environmental conditions. Rather than spawning isolated callouts, DCE simulates causes and consequences, allowing dispatches, investigations, pursuits, and emergency responses to emerge naturally from the world's state.
