@@ -43,8 +43,13 @@ local function OnEventsStart()
         InterdictScenario = function(scenarioId) return ScenarioEngine.InterdictScenario(scenarioId) end,
     })
 
-    -- Schedule scenario tick
-    DCE.Schedule("scenario:engine:tick", Config.Scenario.TickInterval, function()
+-- Schedule scenario tick
+    local Config = _G.Config or {}
+    local tickInterval = 10000
+    if Config.Scenario and Config.Scenario.TickInterval then
+        tickInterval = Config.Scenario.TickInterval
+    end
+    DCE.Schedule("scenario:engine:tick", tickInterval, function()
         ScenarioEngine.Tick()
     end, { immediate = true })
 

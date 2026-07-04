@@ -10,12 +10,18 @@ function AdminCommands.Initialize(log)
     logger = log
 end
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 --- Check if a player has admin permission
 local function HasPermission(source)
-    local AdminService = DCE.GetService('Admin')
+    local AdminService = DCE.GetService("Admin")
     if AdminService and AdminService.HasPermission then
         return AdminService.HasPermission(source)
     end
+    local Config = getConfig()
     if Config.Admin and Config.Admin.PermissionCheck then
         return Config.Admin.PermissionCheck(source)
     end

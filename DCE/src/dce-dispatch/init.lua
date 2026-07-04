@@ -24,8 +24,17 @@ local function GetDCEAPI()
     return DCEAPI
 end
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 local function GetConfiguredAdapter()
-    local integration = Config.Dispatch.Integration or {}
+    local Config = getConfig()
+    local integration = {}
+    if Config.Dispatch and Config.Dispatch.Integration then
+        integration = Config.Dispatch.Integration
+    end
     local mode = integration.Mode or "native"
 
     if mode == "custom" and integration.Adapter then

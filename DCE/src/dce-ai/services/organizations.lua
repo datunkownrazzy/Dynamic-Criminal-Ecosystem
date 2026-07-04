@@ -166,13 +166,19 @@ end
 ---@param visible number Visible pressure (0-100)
 ---@param covert number Covert pressure (0-100)
 ---@param source string Description of pressure source
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 function OrganizationsService.SetPerceptionPressure(orgId, visible, covert, source)
     local org = organizations[orgId]
     if not org then
         return
     end
     
-    if not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.Enabled then
+    local Config = getConfig()
+    if not Config.AI or not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.Enabled then
         return
     end
     
@@ -201,7 +207,7 @@ function OrganizationsService.SetPerceptionPressure(orgId, visible, covert, sour
     end
     
     -- Check for spike threshold
-    local spikeThreshold = Config.AI.PerceptionPressure.SpikeThreshold or 60
+    local spikeThreshold = (Config.AI.PerceptionPressure and Config.AI.PerceptionPressure.SpikeThreshold) or 60
     if newPerception >= spikeThreshold and oldPerception < spikeThreshold then
         -- Pressure spiked - emit spike event and set cooldown
         org:ResetPressureCooldown()
@@ -236,7 +242,8 @@ function OrganizationsService.ApplyPerceptionPressure(orgId, visible, covert, so
         return
     end
     
-    if not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.Enabled then
+    local Config = getConfig()
+    if not Config.AI or not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.Enabled then
         return
     end
     
@@ -263,7 +270,7 @@ function OrganizationsService.ApplyPerceptionPressure(orgId, visible, covert, so
     end
     
     -- Check for spike threshold
-    local spikeThreshold = Config.AI.PerceptionPressure.SpikeThreshold or 60
+    local spikeThreshold = (Config.AI.PerceptionPressure and Config.AI.PerceptionPressure.SpikeThreshold) or 60
     if newPerception >= spikeThreshold and oldPerception < spikeThreshold then
         org:ResetPressureCooldown()
         

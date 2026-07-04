@@ -37,18 +37,35 @@ function Organization.New(id, data)
         planning = 50,
     }
 
-    -- Runtime state
+-- Runtime state
+    local Config = _G.Config or {}
+    local defaultMoney = 10000
+    local defaultMembers = 10
+    local defaultHeat = 0
+    local defaultInfluence = 25
+    local defaultMorale = 50
+    local defaultState = "Stable"
+    
+    if Config.AI and Config.AI.Organization then
+        defaultMoney = Config.AI.Organization.DefaultMoney or defaultMoney
+        defaultMembers = Config.AI.Organization.DefaultMembers or defaultMembers
+        defaultHeat = Config.AI.Organization.DefaultHeat or defaultHeat
+        defaultInfluence = Config.AI.Organization.DefaultInfluence or defaultInfluence
+        defaultMorale = Config.AI.Organization.DefaultMorale or defaultMorale
+        defaultState = Config.AI.Organization.DefaultState or defaultState
+    end
+    
     self.runtime = {
-        money = Config.AI.Organization.DefaultMoney,
-        members = Config.AI.Organization.DefaultMembers,
+        money = defaultMoney,
+        members = defaultMembers,
         vehicles = {},
         safehouses = {},
         territories = {},
-        heat = Config.AI.Organization.DefaultHeat,
-        influence = Config.AI.Organization.DefaultInfluence,
-        morale = Config.AI.Organization.DefaultMorale,
+        heat = defaultHeat,
+        influence = defaultInfluence,
+        morale = defaultMorale,
         intelligence = 0,  -- police-held intelligence on this org
-        state = Config.AI.Organization.DefaultState,
+        state = defaultState,
         lastStateChange = 0,
         suppressedSince = 0,
         -- Perception Pressure fields
@@ -228,14 +245,20 @@ function Organization:ApplyPerceptionPressure(visible, covert, source)
     return self.runtime.perceptionPressure
 end
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 --- Decay perception pressure over time.
 ---@param deltaTime number Time elapsed since last tick (seconds)
 function Organization:DecayPerceptionPressure(deltaTime)
-    if not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.Enabled then
+    local Config = getConfig()
+    if not Config.AI or not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.Enabled then
         return
     end
     
-    local decayRate = Config.AI.PerceptionPressure.DecayRate or 1.5
+    local decayRate = (Config.AI.PerceptionPressure and Config.AI.PerceptionPressure.DecayRate) or 1.5
     local decayAmount = decayRate * deltaTime
     
     -- Visible pressure decays faster (more obvious, temporary)
@@ -252,7 +275,8 @@ end
 --- Check if pressure alert is on cooldown.
 ---@return boolean
 function Organization:IsPressureOnCooldown()
-    if not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.CooldownMinutes then
+    local Config = getConfig()
+    if not Config.AI or not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.CooldownMinutes then
         return false
     end
     

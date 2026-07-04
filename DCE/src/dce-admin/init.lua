@@ -112,5 +112,5 @@ end)
 
 --- Get the config table for exports
 function GetConfig()
-    return Config
+    return _G.Config or {}
 end

@@ -45,22 +45,30 @@ local function OnWorldStart()
         GetAllRegionStates = function() return WorldService.GetAllRegionStates() end,
     })
 
-    -- Schedule simulation ticks
-    DCE.Schedule("world:layer0:tick", Config.World.Layer0Interval, function()
+-- Schedule simulation ticks
+    local Config = _G.Config or {}
+    local layer0Interval = 30000
+    local layer1Interval = 5000
+    if Config.World then
+        layer0Interval = Config.World.Layer0Interval or 30000
+        layer1Interval = Config.World.Layer1Interval or 5000
+    end
+    
+    DCE.Schedule("world:layer0:tick", layer0Interval, function()
         WorldService.Layer0Tick()
     end, { immediate = true })
 
-    DCE.Schedule("world:layer1:tick", Config.World.Layer1Interval, function()
+    DCE.Schedule("world:layer1:tick", layer1Interval, function()
         WorldService.Layer1Tick()
     end, { immediate = true })
 
-    if Config.World.Time.Enabled then
+    if Config.World and Config.World.Time and Config.World.Time.Enabled then
         DCE.Schedule("world:time:tick", Config.World.Time.TickInterval, function()
             WorldService.TimeTick()
         end, { immediate = true })
     end
 
-    if Config.World.Weather.Enabled then
+    if Config.World and Config.World.Weather and Config.World.Weather.Enabled then
         DCE.Schedule("world:weather:tick", Config.World.Weather.TickInterval, function()
             WorldService.WeatherTick()
         end, { immediate = true })

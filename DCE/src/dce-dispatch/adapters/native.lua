@@ -4,6 +4,23 @@
 
 local NativeAdapter = {}
 
+--- Get players safely
+local function getPlayers()
+    local players = {}
+    local success, result = pcall(function()
+        return GetPlayers()
+    end)
+    if success and result then
+        players = result
+    end
+    return players
+end
+
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 --- Create a dispatch call in the native UI.
 ---@param callData table Call summary
 function NativeAdapter.CreateCall(callData)
@@ -11,10 +28,14 @@ function NativeAdapter.CreateCall(callData)
         return
     end
 
-    local prefix = Config.Dispatch.Native.NotificationPrefix
+    local prefix = "[DCE Dispatch] "
+    local Config = getConfig()
+    if Config.Dispatch and Config.Dispatch.Native and Config.Dispatch.Native.NotificationPrefix then
+        prefix = Config.Dispatch.Native.NotificationPrefix
+    end
 
     -- Send notification to all police players
-    local players = GetPlayers()
+    local players = getPlayers()
     for _, playerId in ipairs(players) do
         TriggerClientEvent("chat:addMessage", playerId, {
             color = { 255, 0, 0 },
@@ -42,9 +63,13 @@ function NativeAdapter.UpdateCall(callData)
         return
     end
 
-    local prefix = Config.Dispatch.Native.NotificationPrefix
+    local prefix = "[DCE Dispatch] "
+    local Config = getConfig()
+    if Config.Dispatch and Config.Dispatch.Native and Config.Dispatch.Native.NotificationPrefix then
+        prefix = Config.Dispatch.Native.NotificationPrefix
+    end
 
-    local players = GetPlayers()
+    local players = getPlayers()
     for _, playerId in ipairs(players) do
         TriggerClientEvent("chat:addMessage", playerId, {
             color = { 255, 165, 0 },
@@ -68,9 +93,13 @@ function NativeAdapter.ResolveCall(callData)
         return
     end
 
-    local prefix = Config.Dispatch.Native.NotificationPrefix
+    local prefix = "[DCE Dispatch] "
+    local Config = getConfig()
+    if Config.Dispatch and Config.Dispatch.Native and Config.Dispatch.Native.NotificationPrefix then
+        prefix = Config.Dispatch.Native.NotificationPrefix
+    end
 
-    local players = GetPlayers()
+    local players = getPlayers()
     for _, playerId in ipairs(players) do
         TriggerClientEvent("chat:addMessage", playerId, {
             color = { 0, 255, 0 },
@@ -93,9 +122,13 @@ function NativeAdapter.CancelCall(callData)
         return
     end
 
-    local prefix = Config.Dispatch.Native.NotificationPrefix
+    local prefix = "[DCE Dispatch] "
+    local Config = getConfig()
+    if Config.Dispatch and Config.Dispatch.Native and Config.Dispatch.Native.NotificationPrefix then
+        prefix = Config.Dispatch.Native.NotificationPrefix
+    end
 
-    local players = GetPlayers()
+    local players = getPlayers()
     for _, playerId in ipairs(players) do
         TriggerClientEvent("chat:addMessage", playerId, {
             color = { 128, 128, 128 },

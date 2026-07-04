@@ -47,7 +47,9 @@ function Registry.Register(name, serviceTable, options)
 
     services[name] = { table = serviceTable, options = options }
 
-    if Config.Registry.LogRegistrations then
+    -- Config is loaded via shared_scripts before this module runs, but we use _G to be safe
+    local Config = _G.Config or {}
+    if Config.Registry and Config.Registry.LogRegistrations then
         log("info", "core", "Service registered: %s", name)
     end
 
@@ -105,7 +107,8 @@ function Registry.Unregister(name)
 
     services[name] = nil
 
-    if Config.Registry.LogRegistrations then
+    local Config = _G.Config or {}
+    if Config.Registry and Config.Registry.LogRegistrations then
         log("info", "core", "Service unregistered: %s", name)
     end
 

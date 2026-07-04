@@ -6,6 +6,11 @@ local Layer1 = {}
 local promotedRegions = {}  -- regionId -> { lastPlayerCheck, ambientActive }
 local lastTickTime = {}
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 --- Execute a Layer 1 tick: check player proximity and promote/demote regions.
 ---@param regions table All region instances keyed by ID
 ---@return table promotions List of { regionId, fromLayer, toLayer } for regions that changed
@@ -19,22 +24,38 @@ function Layer1.Tick(regions)
     lastTickTime["layer1"] = now
 
     local promotions = {}
-    local players = GetPlayers()
+    
+    -- Get players safely (FiveM server-side native)
+    local players = {}
+    local success, result = pcall(function()
+        return GetPlayers()
+    end)
+    if success and result then
+        players = result
+    end
 
     for regionId, region in pairs(regions) do
         local currentLayer = region:GetLayer()
         local hasNearbyPlayer = false
 
         -- Check if any player is near this region
-        if #players > 0 then
+        if #players > 0 and region.bounds and region.bounds.center then
             for _, playerId in ipairs(players) do
-                local ped = GetPlayerPed(playerId)
-                if ped and ped ~= 0 then
-                    local playerCoords = GetEntityCoords(ped)
-                    local distanceToCenter = #(playerCoords - region.bounds.center)
-                    if distanceToCenter <= Config.World.AmbientRadius then
-                        hasNearbyPlayer = true
-                        break
+                local pedSuccess, ped = pcall(function()
+                    return GetPlayerPed(playerId)
+                end)
+                if pedSuccess and ped and ped ~= 0 then
+                    local coordsSuccess, playerCoords = pcall(function()
+                        return GetEntityCoords(ped)
+                    end)
+                    if coordsSuccess and playerCoords then
+                        local Config = getConfig()
+                        local radius = Config.World and Config.World.AmbientRadius or 150.0
+                        local distanceToCenter = #(playerCoords - region.bounds.center)
+                        if distanceToCenter <= radius then
+                            hasNearbyPlayer = true
+                            break
+                        end
                     end
                 end
             end
@@ -58,9 +79,13 @@ function Layer1.Tick(regions)
                 promotedRegions[regionId] = { lastPlayerCheck = now, ambientActive = true }
             else
                 local timeSinceLastPlayer = now - promoted.lastPlayerCheck
-                local lingerMs = Config.World.AmbientLingerTime / 1000
+                local Config = getConfig()
+                local lingerSeconds = 30  -- default
+                if Config.World and Config.World.AmbientLingerTime then
+                    lingerSeconds = Config.World.AmbientLingerTime / 1000
+                end
 
-                if timeSinceLastPlayer >= lingerMs then
+                if timeSinceLastPlayer >= lingerSeconds then
                     -- Demote: Layer 1 -> Layer 0
                     if region:SetLayer(0) then
                         table.insert(promotions, {

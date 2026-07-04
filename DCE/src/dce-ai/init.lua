@@ -62,8 +62,13 @@ local function OnAIStart()
         ClearDecision = function(orgId) AIDirectorService.ClearDecision(orgId) end,
     })
 
-    -- Schedule AI Director tick (time-sliced)
-    DCE.Schedule("ai:director:tick", Config.AI.DirectorTickInterval, function()
+-- Schedule AI Director tick (time-sliced)
+    local Config = _G.Config or {}
+    local directorTickInterval = 5000
+    if Config.AI and Config.AI.DirectorTickInterval then
+        directorTickInterval = Config.AI.DirectorTickInterval
+    end
+    DCE.Schedule("ai:director:tick", directorTickInterval, function()
         AIDirectorService.Tick()
     end, { immediate = true })
 

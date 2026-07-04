@@ -6,6 +6,11 @@ Call.__index = Call
 
 local callCounter = 0
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 Call.Statuses = {
     Pending = "pending",
     Active = "active",
@@ -17,6 +22,7 @@ Call.Statuses = {
 ---@param data table { incidentId, description, regionId, priority?, organizationId?, scenarioId? }
 ---@return table Call instance
 function Call.New(data)
+    local Config = getConfig()
     callCounter = callCounter + 1
     local self = setmetatable({}, Call)
 
@@ -24,7 +30,11 @@ function Call.New(data)
     self.incidentId = data.incidentId
     self.description = data.description or "Unspecified incident"
     self.regionId = data.regionId
-    self.priority = data.priority or Config.Dispatch.DefaultPriority
+    local defaultPriority = "medium"
+    if Config.Dispatch and Config.Dispatch.DefaultPriority then
+        defaultPriority = Config.Dispatch.DefaultPriority
+    end
+    self.priority = data.priority or defaultPriority
     self.organizationId = data.organizationId
     self.scenarioId = data.scenarioId
     self.status = Call.Statuses.Pending
@@ -33,6 +43,11 @@ function Call.New(data)
     self.resolvedAt = nil
     self.disposition = nil
     self.updates = {}  -- array of update strings
+    local callTimeout = 900
+    if Config.Dispatch and Config.Dispatch.CallTimeout then
+        callTimeout = Config.Dispatch.CallTimeout
+    end
+    self._callTimeout = callTimeout
 
     return self
 end
@@ -95,7 +110,7 @@ function Call:HasTimedOut()
         return false
     end
     local elapsed = os.time() - self.createdAt
-    return elapsed >= Config.Dispatch.CallTimeout
+    return elapsed >= self._callTimeout
 end
 
 _G.DCECall = Call

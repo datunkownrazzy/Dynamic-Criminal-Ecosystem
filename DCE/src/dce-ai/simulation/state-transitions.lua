@@ -4,6 +4,11 @@
 
 local StateTransitions = {}
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 --- Evaluate and apply state transitions for an organization.
 ---@param org table Organization instance
 ---@return string|nil New state if transition occurred, nil otherwise
@@ -29,8 +34,22 @@ function StateTransitions.Evaluate(org)
 
     elseif currentState == "Stable" then
         -- Stable -> Aggressive Expansion: money > 150% baseline, morale > 70, heat < 40
-        local thresholds = Config.AI.StateTransitions.StableToAggressive
-        local moneyRatio = org.runtime.money / Config.AI.Organization.DefaultMoney
+        local Config = getConfig()
+        local thresholds = {
+            MoneyRatio = 1.5,
+            MinMorale = 70,
+            MaxHeat = 40,
+        }
+        if Config.AI and Config.AI.StateTransitions and Config.AI.StateTransitions.StableToAggressive then
+            thresholds = Config.AI.StateTransitions.StableToAggressive
+        end
+        
+        local defaultMoney = 10000
+        if Config.AI and Config.AI.Organization and Config.AI.Organization.DefaultMoney then
+            defaultMoney = Config.AI.Organization.DefaultMoney
+        end
+        
+        local moneyRatio = org.runtime.money / defaultMoney
         if moneyRatio >= thresholds.MoneyRatio
             and org.runtime.morale >= thresholds.MinMorale
             and org.runtime.heat <= thresholds.MaxHeat then
@@ -47,14 +66,31 @@ function StateTransitions.Evaluate(org)
     elseif currentState == "Under Investigation" then
         -- Under Investigation -> Suppressed: triggered by major raid (handled via event)
         -- Under Investigation -> Stable: if intelligence drops below threshold
-        if org.runtime.intelligence < Config.AI.StateTransitions.UnderInvestigationThreshold then
+        local Config = getConfig()
+        local underInvestigationThreshold = 20
+        if Config.AI and Config.AI.StateTransitions and Config.AI.StateTransitions.UnderInvestigationThreshold then
+            underInvestigationThreshold = Config.AI.StateTransitions.UnderInvestigationThreshold
+        end
+        if org.runtime.intelligence < underInvestigationThreshold then
             newState = "Stable"
         end
 
     elseif currentState == "Suppressed" then
         -- Suppressed -> Recovering: heat below threshold and cooldown elapsed
-        if org.runtime.heat <= Config.AI.StateTransitions.SuppressedHeatDecay then
-            local cooldownSeconds = Config.AI.StateTransitions.SuppressedCooldownMinutes * 60
+        local Config = getConfig()
+        local suppressedHeatDecay = 30
+        local suppressedCooldownMinutes = 15
+        if Config.AI and Config.AI.StateTransitions then
+            if Config.AI.StateTransitions.SuppressedHeatDecay then
+                suppressedHeatDecay = Config.AI.StateTransitions.SuppressedHeatDecay
+            end
+            if Config.AI.StateTransitions.SuppressedCooldownMinutes then
+                suppressedCooldownMinutes = Config.AI.StateTransitions.SuppressedCooldownMinutes
+            end
+        end
+        
+        if org.runtime.heat <= suppressedHeatDecay then
+            local cooldownSeconds = suppressedCooldownMinutes * 60
             local timeSinceSuppressed = os.time() - org.runtime.suppressedSince
             if timeSinceSuppressed >= cooldownSeconds then
                 newState = "Recovering"

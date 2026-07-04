@@ -13,6 +13,11 @@ local activeDecisions = {} -- orgId -> current decision state
 local currentOrgIndex = 1
 local isInitialized = false
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 --- Initialize the AI Director.
 function AIDirectorService.Initialize()
     if isInitialized then
@@ -58,7 +63,8 @@ function AIDirectorService.Tick()
     currentOrgIndex = currentOrgIndex + 1
 
     -- Decay perception pressure for this organization
-    local tickInterval = Config.AI.DirectorTickInterval or 5000
+    local Config = getConfig()
+    local tickInterval = (Config.AI and Config.AI.DirectorTickInterval) or 5000
     local deltaTime = tickInterval / 1000.0  -- convert ms to seconds
     OrganizationsService.DecayPerceptionPressure(orgId, deltaTime)
 
@@ -106,7 +112,12 @@ function AIDirectorService.EvaluateOrganization(orgId)
                 end
             end
 
-            if bestScore >= Config.AI.Scoring.MinimumScore then
+            local minScore = 20  -- default
+            local Config = getConfig()
+            if Config.AI and Config.AI.Scoring and Config.AI.Scoring.MinimumScore then
+                minScore = Config.AI.Scoring.MinimumScore
+            end
+            if bestScore >= minScore then
                 table.insert(candidates, {
                     activityId = activityId,
                     activity = activityDef,

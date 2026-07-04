@@ -24,6 +24,11 @@ Scenario.Statuses = {
     TimedOut = "Timed Out",
 }
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 --- Create a new Scenario instance.
 ---@param id string Unique scenario ID
 ---@param data table Scenario definition data
@@ -31,15 +36,42 @@ Scenario.Statuses = {
 function Scenario.New(id, data)
     local self = setmetatable({}, Scenario)
 
+    local Config = getConfig()
+    local defaultStages = {"Planning", "Travel", "Preparation", "Execution", "Reaction", "Escape", "Resolution"}
+    local stageDurations = {
+        Planning = 30,
+        Travel = 60,
+        Preparation = 120,
+        Execution = 180,
+        Reaction = 60,
+        Escape = 120,
+        Resolution = 30,
+    }
+    local dispatchTriggerStages = {"Execution", "Reaction"}
+    local scenarioTimeout = 1800
+
+    if Config.Scenario then
+        if Config.Scenario.Default then
+            defaultStages = Config.Scenario.Default.Stages or defaultStages
+        end
+        if Config.Scenario.StageDurations then
+            stageDurations = Config.Scenario.StageDurations
+        end
+        if Config.Scenario.Escalation then
+            dispatchTriggerStages = Config.Scenario.Escalation.DispatchTriggerStages or dispatchTriggerStages
+            scenarioTimeout = Config.Scenario.Escalation.ScenarioTimeout or scenarioTimeout
+        end
+    end
+
     self.id = id
-    self.type = data.type or Config.Scenario.Default.Type
-    self.displayName = data.displayName or Config.Scenario.Default.DisplayName
+    self.type = data.type or "Unknown"
+    self.displayName = data.displayName or "Activity"
     self.organizationId = data.organizationId
     self.regionId = data.regionId
     self.activityId = data.activityId
 
     -- Stage tracking
-    self.stages = data.stages or Config.Scenario.Default.Stages
+    self.stages = data.stages or defaultStages
     self.currentStageIndex = 1
     self.currentStage = self.stages[1]
     self.stageStartedAt = os.time()
@@ -47,7 +79,7 @@ function Scenario.New(id, data)
 
     -- Initialize stage durations from config
     for _, stageName in ipairs(self.stages) do
-        self.stageDurations[stageName] = Config.Scenario.StageDurations[stageName] or 30
+        self.stageDurations[stageName] = stageDurations[stageName] or 30
     end
 
     -- Status
@@ -65,6 +97,10 @@ function Scenario.New(id, data)
 
     -- Metadata
     self.metadata = data.metadata or {}
+
+    -- Store for later use
+    self._dispatchTriggerStages = dispatchTriggerStages
+    self._scenarioTimeout = scenarioTimeout
 
     return self
 end
@@ -122,7 +158,7 @@ function Scenario:IsDispatchTriggered()
         return true
     end
 
-    for _, triggerStage in ipairs(Config.Scenario.Escalation.DispatchTriggerStages) do
+    for _, triggerStage in ipairs(self._dispatchTriggerStages) do
         if self.currentStage == triggerStage then
             self.dispatchTriggered = true
             return true
@@ -136,7 +172,7 @@ end
 ---@return boolean
 function Scenario:HasTimedOut()
     local elapsed = os.time() - self.createdAt
-    return elapsed >= Config.Scenario.Escalation.ScenarioTimeout
+    return elapsed >= self._scenarioTimeout
 end
 
 --- Complete the scenario with a given status.

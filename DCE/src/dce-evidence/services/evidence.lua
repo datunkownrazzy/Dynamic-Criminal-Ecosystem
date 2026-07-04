@@ -38,9 +38,18 @@ function EvidenceService.GetAdapter()
     return activeAdapter
 end
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 --- Resolve the configured evidence adapter or fall back to the local standalone registry.
 function EvidenceService.InitializeAdapter()
-    local integration = Config.Evidence.Integration or {}
+    local Config = getConfig()
+    local integration = {}
+    if Config.Evidence and Config.Evidence.Integration then
+        integration = Config.Evidence.Integration
+    end
     local mode = integration.Mode or "native"
 
     if mode == "custom" and integration.Adapter then

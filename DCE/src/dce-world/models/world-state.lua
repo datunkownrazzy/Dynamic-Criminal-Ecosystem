@@ -4,6 +4,11 @@
 local WorldState = {}
 WorldState.__index = WorldState
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 --- Create a new WorldState instance.
 ---@return table WorldState instance
 function WorldState.New()
@@ -30,12 +35,17 @@ end
 --- Update the simulated time.
 ---@param deltaTime number Seconds elapsed since last update
 function WorldState:UpdateTime(deltaTime)
-    if not Config.World.Time.Enabled then
+    local Config = getConfig()
+    if not Config.World or not Config.World.Time or not Config.World.Time.Enabled then
         return
     end
 
-    local totalMinutesPerDay = Config.World.Time.DayLengthMinutes
-    local gameMinutesPerRealSecond = (24 * 60) / totalMinutesPerDay
+    local dayLengthMinutes = 20 -- default 20 minutes per in-game day
+    if Config.World.Time and Config.World.Time.DayLengthMinutes then
+        dayLengthMinutes = Config.World.Time.DayLengthMinutes
+    end
+    
+    local gameMinutesPerRealSecond = (24 * 60) / dayLengthMinutes
 
     local totalGameMinutes = self.time.hour * 60 + self.time.minute
     totalGameMinutes = totalGameMinutes + (deltaTime * gameMinutesPerRealSecond)
@@ -48,7 +58,18 @@ function WorldState:UpdateTime(deltaTime)
 
     self.time.hour = math.floor(totalGameMinutes / 60)
     self.time.minute = math.floor(totalGameMinutes % 60)
-    self.time.isNight = self.time.hour >= Config.World.Time.NightStart or self.time.hour < Config.World.Time.NightEnd
+    
+    local nightStart = 20
+    local nightEnd = 6
+    if Config.World.Time then
+        if Config.World.Time.NightStart then
+            nightStart = Config.World.Time.NightStart
+        end
+        if Config.World.Time.NightEnd then
+            nightEnd = Config.World.Time.NightEnd
+        end
+    end
+    self.time.isNight = self.time.hour >= nightStart or self.time.hour < nightEnd
 end
 
 --- Get the current time state.
@@ -75,13 +96,20 @@ function WorldState:SetWeather(weatherType)
         self.weather.previous = self.weather.current
         self.weather.current = weatherType
         self.weather.lastChange = os.time()
-        self.weather.nextScheduledChange = os.time() + (Config.World.Weather.ChangeInterval / 1000)
+        
+        local Config = getConfig()
+        local changeInterval = 3600000 -- default 1 hour
+        if Config.World and Config.World.Weather and Config.World.Weather.ChangeInterval then
+            changeInterval = Config.World.Weather.ChangeInterval
+        end
+        self.weather.nextScheduledChange = os.time() + (changeInterval / 1000)
     end
 end
 
 --- Randomly change the weather based on configured intervals.
 function WorldState:MaybeChangeWeather()
-    if not Config.World.Weather.Enabled then
+    local Config = getConfig()
+    if not Config.World or not Config.World.Weather or not Config.World.Weather.Enabled then
         return false
     end
 
@@ -91,10 +119,14 @@ function WorldState:MaybeChangeWeather()
     end
 
     -- Pick a random weather type different from current
-    local types = Config.World.Weather.Types
+    local weatherTypes = {"CLEAR", "EXTRASUNNY", "CLOUDS", "OVERCAST", "RAIN", "THUNDER"}
+    if Config.World.Weather and Config.World.Weather.Types then
+        weatherTypes = Config.World.Weather.Types
+    end
+    
     local newWeather
     repeat
-        newWeather = types[math.random(#types)]
+        newWeather = weatherTypes[math.random(#weatherTypes)]
     until newWeather ~= self.weather.current
 
     self:SetWeather(newWeather)

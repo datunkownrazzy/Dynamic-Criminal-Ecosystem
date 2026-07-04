@@ -3,12 +3,13 @@
 -- Falls back gracefully if ERS is not available.
 
 local ERSAdapter = {}
+ERSAdapter.__index = ERSAdapter
 
 --- Create a new ERS adapter instance.
 ---@param config table Integration configuration
 ---@return table Adapter instance
 function ERSAdapter.New(config)
-    local self = {}
+    local self = setmetatable({}, ERSAdapter)
     self.config = config or {}
     self.available = false
 
@@ -25,13 +26,13 @@ end
 
 --- Check if the adapter is available.
 ---@return boolean
-function ERSAdapter.IsAvailable()
+function ERSAdapter:IsAvailable()
     return self.available
 end
 
 --- Create a dispatch call in ERS.
 ---@param callData table Call summary
-function ERSAdapter.CreateCall(callData)
+function ERSAdapter:CreateCall(callData)
     if not self.available then
         return
     end
@@ -43,7 +44,7 @@ end
 
 --- Update a dispatch call in ERS.
 ---@param callData table Call summary
-function ERSAdapter.UpdateCall(callData)
+function ERSAdapter:UpdateCall(callData)
     if not self.available then
         return
     end
@@ -55,7 +56,7 @@ end
 
 --- Resolve a dispatch call in ERS.
 ---@param callData table Call summary
-function ERSAdapter.ResolveCall(callData)
+function ERSAdapter:ResolveCall(callData)
     if not self.available then
         return
     end
@@ -67,7 +68,7 @@ end
 
 --- Cancel a dispatch call in ERS.
 ---@param callData table Call summary
-function ERSAdapter.CancelCall(callData)
+function ERSAdapter:CancelCall(callData)
     if not self.available then
         return
     end

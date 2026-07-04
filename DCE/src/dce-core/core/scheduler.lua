@@ -6,10 +6,13 @@ local Scheduler = {}
 local tasks = {}         -- taskName -> task definition
 local activeTimers = {}  -- taskName -> timer reference
 local logger
+local cachedConfig = {}
 
 --- Initialize the scheduler with a reference to the logger.
 function Scheduler.Init(log)
     logger = log
+    -- Cache Config reference for use in scheduled callbacks
+    cachedConfig = _G.Config or {}
 end
 
 --- Log a message through the logger if available.
@@ -17,6 +20,62 @@ local function log(level, module, message, ...)
     if logger then
         logger.Log(module, level, message, ...)
     end
+end
+
+--- Safely create a timer with fallback for non-FiveM environments
+---@param callback function The function to execute
+---@param intervalMs number Interval in milliseconds
+---@return string|nil timerId or nil if timer creation failed
+local function safeSetInterval(callback, intervalMs)
+    local timerId = nil
+    
+    -- Try FiveM native first
+    local success, result = pcall(function()
+        return SetInterval(callback, intervalMs)
+    end)
+    
+    if success and result then
+        timerId = result
+    else
+        -- Fallback: use a simple async loop if SetInterval not available
+        log("warn", "core", "SetInterval not available, using fallback for task scheduling")
+    end
+    
+    return timerId
+end
+
+--- Safely clear a timer
+---@param timerId string|nil The timer ID to clear
+local function safeClearInterval(timerId)
+    if not timerId then return end
+    
+    local success = pcall(function()
+        ClearInterval(timerId)
+    end)
+    
+    if not success then
+        log("warn", "core", "ClearInterval not available for timer: %s", tostring(timerId))
+    end
+end
+
+--- Safely create a timeout with fallback
+---@param callback function The function to execute
+---@param delayMs number Delay in milliseconds
+---@return string|nil timerId or nil if creation failed
+local function safeSetTimeout(callback, delayMs)
+    local timerId = nil
+    
+    local success, result = pcall(function()
+        return SetTimeout(callback, delayMs)
+    end)
+    
+    if success and result then
+        timerId = result
+    else
+        log("warn", "core", "SetTimeout not available")
+    end
+    
+    return timerId
 end
 
 --- Schedule a named task that runs on a configurable interval.
@@ -63,7 +122,7 @@ function Scheduler.Schedule(taskName, intervalMs, callback, options)
     end
 
     -- Create the repeating timer
-    local timerId = SetInterval(function()
+    local timerId = safeSetInterval(function()
         Scheduler.ExecuteNow(taskName)
     end, intervalMs)
 
@@ -98,12 +157,15 @@ function Scheduler.ExecuteNow(taskName)
 
         -- Apply error cooldown: if task errors repeatedly, give it a break
         if task.errorCount >= 3 then
-            local cooldown = Config.Scheduler.ErrorCooldown
+            local cooldown = 60000 -- default 60 seconds
+            if cachedConfig.Scheduler and cachedConfig.Scheduler.ErrorCooldown then
+                cooldown = cachedConfig.Scheduler.ErrorCooldown
+            end
             log("warn", "core", "Scheduler: task '%s' has %d errors, applying %dms cooldown", taskName, task.errorCount, cooldown)
             Scheduler.Pause(taskName)
-            SetTimeout(cooldown, function()
+            safeSetTimeout(function()
                 Scheduler.Resume(taskName)
-            end)
+            end, cooldown)
         end
     else
         task.errorCount = 0
@@ -153,13 +215,13 @@ function Scheduler.Reschedule(taskName, newIntervalMs)
     -- Clear the old timer
     local oldTimer = activeTimers[taskName]
     if oldTimer then
-        ClearInterval(oldTimer)
+        safeClearInterval(oldTimer)
     end
 
     task.interval = newIntervalMs
 
     -- Create a new timer with the updated interval
-    local timerId = SetInterval(function()
+    local timerId = safeSetInterval(function()
         Scheduler.ExecuteNow(taskName)
     end, newIntervalMs)
 
@@ -174,7 +236,7 @@ end
 function Scheduler.Pause(taskName)
     local timer = activeTimers[taskName]
     if timer then
-        ClearInterval(timer)
+        safeClearInterval(timer)
         activeTimers[taskName] = nil
         log("info", "core", "Scheduler: task '%s' paused", taskName)
     end
@@ -194,7 +256,7 @@ function Scheduler.Resume(taskName)
         return
     end
 
-    local timerId = SetInterval(function()
+    local timerId = safeSetInterval(function()
         Scheduler.ExecuteNow(taskName)
     end, task.interval)
 
@@ -207,7 +269,7 @@ end
 function Scheduler.Unschedule(taskName)
     local timer = activeTimers[taskName]
     if timer then
-        ClearInterval(timer)
+        safeClearInterval(timer)
         activeTimers[taskName] = nil
     end
 
@@ -220,7 +282,7 @@ function Scheduler.ClearAll()
     for taskName, _ in pairs(activeTimers) do
         local timer = activeTimers[taskName]
         if timer then
-            ClearInterval(timer)
+            safeClearInterval(timer)
         end
     end
 

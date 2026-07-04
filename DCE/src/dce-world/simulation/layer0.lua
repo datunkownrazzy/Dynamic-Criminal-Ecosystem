@@ -5,6 +5,11 @@
 local Layer0 = {}
 local lastTickTime = {}
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 --- Execute a Layer 0 tick for all regions.
 ---@param regions table All region instances keyed by ID
 ---@param worldState table The global world state
@@ -66,12 +71,24 @@ end
 ---@param after table Current state
 ---@return boolean
 function HasSignificantChange(before, after)
-    local threshold = Config.World.StateChangeThreshold
-    return math.abs((after.policePresence or 0) - (before.policePresence or 0)) >= threshold.PolicePresence
-        or math.abs((after.civilianDensity or 0) - (before.civilianDensity or 0)) >= threshold.CivilianDensity
-        or math.abs((after.heat or 0) - (before.heat or 0)) >= threshold.Heat
-        or math.abs((after.violence or 0) - (before.violence or 0)) >= threshold.Violence
-        or math.abs((after.economicHealth or 0) - (before.economicHealth or 0)) >= threshold.EconomicHealth
+    local Config = getConfig()
+    local threshold = {
+        PolicePresence = 5,
+        CivilianDensity = 10,
+        Heat = 5,
+        Violence = 5,
+        EconomicHealth = 3,
+    }
+    
+    if Config.World and Config.World.StateChangeThreshold then
+        threshold = Config.World.StateChangeThreshold
+    end
+    
+    return math.abs((after.policePresence or 0) - (before.policePresence or 0)) >= (threshold.PolicePresence or 5)
+        or math.abs((after.civilianDensity or 0) - (before.civilianDensity or 0)) >= (threshold.CivilianDensity or 10)
+        or math.abs((after.heat or 0) - (before.heat or 0)) >= (threshold.Heat or 5)
+        or math.abs((after.violence or 0) - (before.violence or 0)) >= (threshold.Violence or 5)
+        or math.abs((after.economicHealth or 0) - (before.economicHealth or 0)) >= (threshold.EconomicHealth or 3)
 end
 
 _G.DCELayer0 = Layer0

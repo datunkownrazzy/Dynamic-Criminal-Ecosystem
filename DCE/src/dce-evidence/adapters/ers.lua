@@ -3,12 +3,13 @@
 -- Falls back gracefully if ERS is not available.
 
 local ERSAdapter = {}
+ERSAdapter.__index = ERSAdapter
 
 --- Create a new ERS adapter instance.
 ---@param config table Integration configuration
 ---@return table Adapter instance
 function ERSAdapter.New(config)
-    local self = {}
+    local self = setmetatable({}, ERSAdapter)
     self.config = config or {}
     self.available = false
 
@@ -25,13 +26,13 @@ end
 
 --- Check if the adapter is available.
 ---@return boolean
-function ERSAdapter.IsAvailable()
+function ERSAdapter:IsAvailable()
     return self.available
 end
 
 --- Create evidence in ERS.
 ---@param evidenceData table Evidence summary
-function ERSAdapter.CreateEvidence(evidenceData)
+function ERSAdapter:CreateEvidence(evidenceData)
     if not self.available then
         return
     end
@@ -44,7 +45,7 @@ end
 
 --- Transfer evidence in ERS.
 ---@param custodyData table Custody record summary
-function ERSAdapter.TransferEvidence(custodyData)
+function ERSAdapter:TransferEvidence(custodyData)
     if not self.available then
         return
     end
@@ -56,7 +57,7 @@ end
 
 --- Verify evidence in ERS.
 ---@param evidenceData table Evidence summary
-function ERSAdapter.VerifyEvidence(evidenceData)
+function ERSAdapter:VerifyEvidence(evidenceData)
     if not self.available then
         return
     end
@@ -69,7 +70,7 @@ end
 --- Link evidence to a case in ERS.
 ---@param evidenceId string
 ---@param caseId string
-function ERSAdapter.LinkToCase(evidenceId, caseId)
+function ERSAdapter:LinkToCase(evidenceId, caseId)
     if not self.available then
         return
     end

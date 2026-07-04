@@ -5,6 +5,11 @@
 local Region = {}
 Region.__index = Region
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 --- Create a new Region instance.
 ---@param id string Unique region identifier
 ---@param data table Static region definition data
@@ -17,10 +22,24 @@ function Region.New(id, data)
     self.displayName = data.displayName or id
     self.bounds = data.bounds or { type = "circle", center = vector3(0, 0, 0), radius = 500.0 }
     self.adjacentRegions = data.adjacentRegions or {}
+
+    local Config = getConfig()
+    local defaultRegion = {
+        CivilianDensity = 50,
+        EconomicHealth = 75,
+        PolicePresence = 30,
+        Heat = 0,
+        Violence = 0,
+    }
+    if Config.World and Config.World.DefaultRegion then
+        defaultRegion = Config.World.DefaultRegion
+    end
+
+    -- Static identity (from data files)
     self.baseValues = {
-        civilianDensity = data.baseValues and data.baseValues.civilianDensity or Config.World.DefaultRegion.CivilianDensity,
-        economicHealth = data.baseValues and data.baseValues.economicHealth or Config.World.DefaultRegion.EconomicHealth,
-        policeBaseline = data.baseValues and data.baseValues.policeBaseline or Config.World.DefaultRegion.PolicePresence,
+        civilianDensity = data.baseValues and data.baseValues.civilianDensity or defaultRegion.CivilianDensity,
+        economicHealth = data.baseValues and data.baseValues.economicHealth or defaultRegion.EconomicHealth,
+        policeBaseline = data.baseValues and data.baseValues.policeBaseline or defaultRegion.PolicePresence,
     }
 
     -- Runtime state (mutated by simulation)
@@ -29,8 +48,8 @@ function Region.New(id, data)
         civilianDensity = self.baseValues.civilianDensity,
         gangInfluence = {},       -- orgId -> influence value (0-100)
         economicHealth = self.baseValues.economicHealth,
-        heat = Config.World.DefaultRegion.Heat,
-        violence = Config.World.DefaultRegion.Violence,
+        heat = defaultRegion.Heat,
+        violence = defaultRegion.Violence,
         layer = 0,                -- 0 = statistical, 1 = ambient
         lastPlayerProximityCheck = 0,
         playersNearby = false,

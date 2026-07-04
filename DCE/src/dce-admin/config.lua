@@ -6,9 +6,16 @@ local Config = {}
 Config.Admin = {
     -- Permission check function (server admin can override this)
     -- Should return true if the player has admin access
+    -- Note: source may be nil during resource start; check at runtime
     PermissionCheck = function(source)
         -- Default: check if player is admin (server can override)
-        if IsPlayerAceAllowed(source, "command") then
+        if source == nil then
+            return false
+        end
+        local success, result = pcall(function()
+            return IsPlayerAceAllowed(source, "command")
+        end)
+        if success and result then
             return true
         end
         return false

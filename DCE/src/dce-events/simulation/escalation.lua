@@ -3,6 +3,11 @@
 
 local Escalation = {}
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 --- Process escalation events from the state machine.
 ---@param events table Array of events from StateMachine.Tick
 ---@return table dispatchEvents Events that should trigger dispatch calls
@@ -44,7 +49,13 @@ end
 ---@param scenario table Scenario instance
 ---@return table { heatDelta, violenceDelta, evidenceCount }
 function Escalation.CalculateImpact(scenario)
-    local activityConfig = Config.AI.Activity[scenario.type]
+    local Config = getConfig()
+    local activityConfig = nil
+    
+    if Config.AI and Config.AI.Activity and Config.AI.Activity[scenario.type] then
+        activityConfig = Config.AI.Activity[scenario.type]
+    end
+    
     if not activityConfig then
         return { heatDelta = 5, violenceDelta = 0, evidenceCount = 1 }
     end
