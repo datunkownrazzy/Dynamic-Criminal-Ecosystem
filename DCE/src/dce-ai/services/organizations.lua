@@ -158,6 +158,160 @@ function OrganizationsService.GetOrgInstance(orgId)
 end
 
 -- ============================================================================
+-- Perception Pressure API
+-- ============================================================================
+
+--- Set perception pressure for an organization from world signals.
+---@param orgId string
+---@param visible number Visible pressure (0-100)
+---@param covert number Covert pressure (0-100)
+---@param source string Description of pressure source
+function OrganizationsService.SetPerceptionPressure(orgId, visible, covert, source)
+    local org = organizations[orgId]
+    if not org then
+        return
+    end
+    
+    if not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.Enabled then
+        return
+    end
+    
+    local oldPerception = org.runtime.perceptionPressure
+    org:SetPerceptionPressure(visible, covert)
+    org.runtime.lastPressureSource = source
+    
+    local newPerception = org.runtime.perceptionPressure
+    
+    -- Emit pressure updated event if changed
+    if newPerception ~= oldPerception then
+        DCE:Emit("organization:perception:pressure_updated", {
+            eventName = "organization:perception:pressure_updated",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-ai",
+            payload = {
+                organizationId = orgId,
+                regionId = source,  -- source contains region context
+                visiblePressure = org.runtime.visiblePressure,
+                covertPressure = org.runtime.covertPressure,
+                perceptionPressure = newPerception,
+                reason = "enforcement_signals",
+            },
+        })
+    end
+    
+    -- Check for spike threshold
+    local spikeThreshold = Config.AI.PerceptionPressure.SpikeThreshold or 60
+    if newPerception >= spikeThreshold and oldPerception < spikeThreshold then
+        -- Pressure spiked - emit spike event and set cooldown
+        org:ResetPressureCooldown()
+        
+        DCE:Emit("organization:perception:pressure_spiked", {
+            eventName = "organization:perception:pressure_spiked",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-ai",
+            payload = {
+                organizationId = orgId,
+                regionId = source,
+                visiblePressure = org.runtime.visiblePressure,
+                covertPressure = org.runtime.covertPressure,
+                perceptionPressure = newPerception,
+                reason = "enforcement_spike",
+            },
+        })
+        
+        DCE:Log("ai", "warning", "Organization '%s' perception pressure spiked: %d (visible: %d, covert: %d)", 
+            orgId, newPerception, org.runtime.visiblePressure, org.runtime.covertPressure)
+    end
+end
+
+--- Apply perception pressure incrementally (adds to existing pressure).
+---@param orgId string
+---@param visible number Visible pressure to add
+---@param covert number Covert pressure to add
+---@param source string Description of pressure source
+function OrganizationsService.ApplyPerceptionPressure(orgId, visible, covert, source)
+    local org = organizations[orgId]
+    if not org then
+        return
+    end
+    
+    if not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.Enabled then
+        return
+    end
+    
+    local oldPerception = org.runtime.perceptionPressure
+    org:ApplyPerceptionPressure(visible, covert, source)
+    local newPerception = org.runtime.perceptionPressure
+    
+    -- Emit pressure updated event if changed
+    if newPerception ~= oldPerception then
+        DCE:Emit("organization:perception:pressure_updated", {
+            eventName = "organization:perception:pressure_updated",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-ai",
+            payload = {
+                organizationId = orgId,
+                regionId = source,
+                visiblePressure = org.runtime.visiblePressure,
+                covertPressure = org.runtime.covertPressure,
+                perceptionPressure = newPerception,
+                reason = "enforcement_increment",
+            },
+        })
+    end
+    
+    -- Check for spike threshold
+    local spikeThreshold = Config.AI.PerceptionPressure.SpikeThreshold or 60
+    if newPerception >= spikeThreshold and oldPerception < spikeThreshold then
+        org:ResetPressureCooldown()
+        
+        DCE:Emit("organization:perception:pressure_spiked", {
+            eventName = "organization:perception:pressure_spiked",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-ai",
+            payload = {
+                organizationId = orgId,
+                regionId = source,
+                visiblePressure = org.runtime.visiblePressure,
+                covertPressure = org.runtime.covertPressure,
+                perceptionPressure = newPerception,
+                reason = "enforcement_spike",
+            },
+        })
+        
+        DCE:Log("ai", "warning", "Organization '%s' perception pressure spiked: %d (visible: %d, covert: %d)", 
+            orgId, newPerception, org.runtime.visiblePressure, org.runtime.covertPressure)
+    end
+end
+
+--- Decay perception pressure for an organization.
+---@param orgId string
+---@param deltaTime number Time elapsed since last tick (seconds)
+function OrganizationsService.DecayPerceptionPressure(orgId, deltaTime)
+    local org = organizations[orgId]
+    if not org then
+        return
+    end
+    
+    org:DecayPerceptionPressure(deltaTime)
+end
+
+--- Get perception pressure state for an organization.
+---@param orgId string
+---@return table|nil { visible, covert, perception, onCooldown, source }
+function OrganizationsService.GetPerceptionPressure(orgId)
+    local org = organizations[orgId]
+    if not org then
+        return nil
+    end
+    return org:GetPerceptionPressure()
+end
+
+-- ============================================================================
 -- Internal: State Transition Evaluation
 -- ============================================================================
 

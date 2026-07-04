@@ -51,6 +51,12 @@ function Organization.New(id, data)
         state = Config.AI.Organization.DefaultState,
         lastStateChange = 0,
         suppressedSince = 0,
+        -- Perception Pressure fields
+        visiblePressure = 0,           -- 0-100, visible law enforcement presence
+        covertPressure = 0,            -- 0-100, covert/undercover presence
+        perceptionPressure = 0,        -- combined pressure value
+        pressureAlertCooldown = 0,     -- timestamp, prevents panic loops
+        lastPressureSource = nil,      -- string describing last pressure source
     }
 
     -- Leadership hierarchy
@@ -194,6 +200,82 @@ end
 ---@return boolean
 function Organization:HasTerritory(regionId)
     return self.runtime.territories[regionId] == true
+end
+
+--- Set perception pressure values for the organization.
+---@param visible number Visible pressure (0-100)
+---@param covert number Covert pressure (0-100)
+function Organization:SetPerceptionPressure(visible, covert)
+    self.runtime.visiblePressure = math.min(100, math.max(0, visible))
+    self.runtime.covertPressure = math.min(100, math.max(0, covert))
+    self.runtime.perceptionPressure = self.runtime.visiblePressure + self.runtime.covertPressure
+end
+
+--- Apply perception pressure from a source (e.g., enforcement signals).
+---@param visible number Visible pressure to add
+---@param covert number Covert pressure to add
+---@param source string Description of pressure source
+function Organization:ApplyPerceptionPressure(visible, covert, source)
+    local oldVisible = self.runtime.visiblePressure
+    local oldCovert = self.runtime.covertPressure
+    
+    -- Add pressure (capped at 100 each)
+    self.runtime.visiblePressure = math.min(100, self.runtime.visiblePressure + visible)
+    self.runtime.covertPressure = math.min(100, self.runtime.covertPressure + covert)
+    self.runtime.perceptionPressure = self.runtime.visiblePressure + self.runtime.covertPressure
+    self.runtime.lastPressureSource = source
+    
+    return self.runtime.perceptionPressure
+end
+
+--- Decay perception pressure over time.
+---@param deltaTime number Time elapsed since last tick (seconds)
+function Organization:DecayPerceptionPressure(deltaTime)
+    if not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.Enabled then
+        return
+    end
+    
+    local decayRate = Config.AI.PerceptionPressure.DecayRate or 1.5
+    local decayAmount = decayRate * deltaTime
+    
+    -- Visible pressure decays faster (more obvious, temporary)
+    self.runtime.visiblePressure = math.max(0, self.runtime.visiblePressure - decayAmount)
+    
+    -- Covert pressure decays slower (more subtle, lingering)
+    local covertDecay = decayAmount * 0.7  -- 70% of normal decay rate
+    self.runtime.covertPressure = math.max(0, self.runtime.covertPressure - covertDecay)
+    
+    -- Recalculate combined pressure
+    self.runtime.perceptionPressure = self.runtime.visiblePressure + self.runtime.covertPressure
+end
+
+--- Check if pressure alert is on cooldown.
+---@return boolean
+function Organization:IsPressureOnCooldown()
+    if not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.CooldownMinutes then
+        return false
+    end
+    
+    local cooldownSeconds = Config.AI.PerceptionPressure.CooldownMinutes * 60
+    local now = os.time()
+    return now < self.runtime.pressureAlertCooldown + cooldownSeconds
+end
+
+--- Reset pressure alert cooldown.
+function Organization:ResetPressureCooldown()
+    self.runtime.pressureAlertCooldown = os.time()
+end
+
+--- Get current perception pressure state.
+---@return table { visible, covert, perception, onCooldown }
+function Organization:GetPerceptionPressure()
+    return {
+        visible = self.runtime.visiblePressure,
+        covert = self.runtime.covertPressure,
+        perception = self.runtime.perceptionPressure,
+        onCooldown = self:IsPressureOnCooldown(),
+        source = self.runtime.lastPressureSource,
+    }
 end
 
 _G.DCEOrganization = Organization

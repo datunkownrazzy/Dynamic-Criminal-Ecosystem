@@ -57,6 +57,11 @@ function AIDirectorService.Tick()
     local orgId = orgIds[currentOrgIndex]
     currentOrgIndex = currentOrgIndex + 1
 
+    -- Decay perception pressure for this organization
+    local tickInterval = Config.AI.DirectorTickInterval or 5000
+    local deltaTime = tickInterval / 1000.0  -- convert ms to seconds
+    OrganizationsService.DecayPerceptionPressure(orgId, deltaTime)
+
     return AIDirectorService.EvaluateOrganization(orgId)
 end
 

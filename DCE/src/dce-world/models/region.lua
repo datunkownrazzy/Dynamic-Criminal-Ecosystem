@@ -35,6 +35,12 @@ function Region.New(id, data)
         lastPlayerProximityCheck = 0,
         playersNearby = false,
         ambientSpawned = false,
+        -- Perception Pressure: enforcement signals from world
+        enforcementSignals = {
+            visible = 0,    -- 0-100, visible law enforcement presence
+            covert = 0,     -- 0-100, covert/undercover presence
+            confidence = 0, -- 0-100, optional reliability rating
+        },
     }
 
     return self

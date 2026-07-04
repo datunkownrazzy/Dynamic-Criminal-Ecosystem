@@ -48,6 +48,61 @@ function Scoring.Compute(activity, orgIdentity, orgRuntime, regionState, timeSta
         end
     end
 
+    -- Perception Pressure deterrents (visible and covert enforcement presence)
+    if Config.AI.PerceptionPressure and Config.AI.PerceptionPressure.Enabled and regionState then
+        -- Safely get enforcement signals with defaults
+        local enforcementSignals = regionState.enforcementSignals or {}
+        local visiblePressure = enforcementSignals.visible or 0
+        local covertPressure = enforcementSignals.covert or 0
+        local perceptionPressure = visiblePressure + covertPressure
+        
+        -- Calculate base deterrents
+        local visibleDeterrent = visiblePressure * Config.AI.PerceptionPressure.VisibleWeight
+        local covertDeterrent = covertPressure * Config.AI.PerceptionPressure.CovertWeight
+        
+        -- Apply heat multiplier if organization is already hot
+        local heatMultiplier = 1.0
+        if orgRuntime.heat > 50 then
+            heatMultiplier = Config.AI.PerceptionPressure.HighHeatMultiplier or 0.6
+        end
+        
+        -- Apply deterrents to score
+        score = score - (visibleDeterrent * heatMultiplier)
+        score = score - (covertDeterrent * heatMultiplier)
+        
+        -- Threshold-based behavior
+        local visibleThreshold = Config.AI.PerceptionPressure.VisibleThreshold or 35
+        local covertThreshold = Config.AI.PerceptionPressure.CovertThreshold or 25
+        local spikeThreshold = Config.AI.PerceptionPressure.SpikeThreshold or 60
+        
+        -- High visible pressure: penalize high-profile activities more heavily
+        if visiblePressure >= visibleThreshold then
+            if activity.heatOutput and activity.heatOutput > 15 then
+                score = score - 10  -- extra penalty for high-heat activities
+            end
+            if activity.violenceOutput and activity.violenceOutput > 10 then
+                score = score - 10  -- extra penalty for violent activities
+            end
+        end
+        
+        -- High covert pressure: penalize suspicious or visible activities
+        if covertPressure >= covertThreshold then
+            if activity.type == "narcotics" or activity.type == "extortion" then
+                score = score - 8  -- penalize street-level crimes
+            end
+        end
+        
+        -- Spike threshold: strongly reduce aggressive/high-heat activity scores
+        if perceptionPressure >= spikeThreshold then
+            if orgRuntime.state == "Aggressive Expansion" then
+                score = score - 20  -- strong penalty during aggressive expansion
+            end
+            if activity.heatOutput and activity.heatOutput > 20 then
+                score = score - 15  -- very strong penalty for extreme heat activities
+            end
+        end
+    end
+
     -- Time of day modifier
     if timeState and timeState.isNight then
         -- Night: bonus for activities that benefit from darkness (smuggling, etc.)

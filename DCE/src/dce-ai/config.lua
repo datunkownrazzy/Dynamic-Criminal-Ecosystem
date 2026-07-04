@@ -52,3 +52,17 @@ Config.AI.Activity = {
         MoneyOutput = 5000,
     },
 }
+
+-- Perception Pressure configuration
+-- Models organization reaction to visible and covert law enforcement presence
+Config.AI.PerceptionPressure = {
+    Enabled = true,
+    VisibleWeight = 1.0,        -- multiplier for visible police presence
+    CovertWeight = 0.7,         -- multiplier for covert/undercover presence
+    DecayRate = 1.5,            -- pressure decay per tick
+    VisibleThreshold = 35,      -- visible pressure level triggering caution
+    CovertThreshold = 25,       -- covert pressure level triggering subtle caution
+    SpikeThreshold = 60,        -- pressure level triggering strong avoidance
+    CooldownMinutes = 10,       -- cooldown to prevent panic loops
+    HighHeatMultiplier = 0.6,   -- additional multiplier when org heat is high
+}
