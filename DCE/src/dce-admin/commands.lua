@@ -1,4 +1,4 @@
-﻿-- DCE Admin Commands
+-- DCE Admin Commands
 -- Chat commands for admin panel access and debugging
 -- v1.0 Required for testing and admin visibility
 
