@@ -54,21 +54,21 @@ Time
 # Repository Structure
 
 DCE/
-├── docs/
-│   ├── 01_Project/
-│   ├── 02_Architecture/
-│   ├── 03_Core/
-│   └── 04_Simulation/
-├── specifications/    # immutable-until-revised engineering specs (DCE-XXXX)
-├── architecture/       # ADRs — Architecture Decision Records
-├── diagrams/
-├── schemas/            # JSON/YAML config & plugin manifest examples
-├── examples/
-├── sdk/
-├── tests/
-├── src/
-├── plugins/
-└── tools/
+ docs/
+    01_Project/
+    02_Architecture/
+    03_Core/
+    04_Simulation/
+    specifications/    # immutable-until-revised engineering specs (DCE-XXXX)
+    architecture/       # ADRs — Architecture Decision Records
+    diagrams/
+    schemas/            # JSON/YAML config & plugin manifest examples
+    examples/
+    sdk/
+    tests/
+    src/
+    plugins/
+    tools/
 
 Core Principle
 
