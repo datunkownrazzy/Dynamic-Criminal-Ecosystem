@@ -12,6 +12,13 @@ function EventBus.Init(log)
     logger = log
 end
 
+--- Log a message through the logger if available.
+local function log(level, module, message, ...)
+    if logger then
+        logger.Log(module, level, message, ...)
+    end
+end
+
 --- Emit an event to all subscribers.
 --- Payload must use the envelope format: { eventName, eventVersion, timestamp, source, correlationId?, payload }
 ---@param eventName string The event name (domain:subject:verb)
@@ -161,12 +168,6 @@ function EventBus.HandlerCount(eventName)
         count = count + 1
     end
     return count
-end
-
-local function log(level, module, message, ...)
-    if logger then
-        logger.Log(module, level, message, ...)
-    end
 end
 
 _G.DCEEventBus = EventBus

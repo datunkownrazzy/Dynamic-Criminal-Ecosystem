@@ -109,7 +109,7 @@ local function InitializeCore()
     end
 
     -- Step 4: Register core services
-    DCE:RegisterService("CoreRegistry", {
+    DCE.RegisterService("CoreRegistry", {
         ListServices = function() return Registry.List() end,
         ListPlugins = function() return PluginManager.List() end,
         ListTasks = function() return Scheduler.ListTasks() end,
@@ -160,6 +160,10 @@ local function ShutdownCore()
     Logger.Info("core", "DCE Core Shutdown Complete")
 end
 
+-- Export DCE table globally so other resources can use it without require()
+-- This MUST be before initialization so dependent resources can access it
+_G.DCE = DCE
+
 -- ============================================================================
 -- Resource Lifecycle Hooks
 -- ============================================================================
@@ -186,5 +190,3 @@ else
     end)
 end
 
--- Export DCE table globally so other resources can use it without require()
-_G.DCE = DCE

@@ -11,6 +11,13 @@ function ConfigLoader.Init(log)
     logger = log
 end
 
+--- Log a message through the logger if available.
+local function log(level, module, message, ...)
+    if logger then
+        logger.Log(module, level, message, ...)
+    end
+end
+
 --- Load a configuration file.
 ---@param path string Path to the config file (relative to resource root)
 ---@return table|nil The loaded config, or nil if it doesn't exist
@@ -153,12 +160,6 @@ function ConfigLoader.Clear()
         loadedConfigs[path] = nil
     end
     log("info", "core", "ConfigLoader: all configs cleared")
-end
-
-local function log(level, module, message, ...)
-    if logger then
-        logger.Log(module, level, message, ...)
-    end
 end
 
 _G.DCEConfigLoader = ConfigLoader

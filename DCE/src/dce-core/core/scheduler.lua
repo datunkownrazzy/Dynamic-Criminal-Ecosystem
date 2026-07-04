@@ -12,6 +12,13 @@ function Scheduler.Init(log)
     logger = log
 end
 
+--- Log a message through the logger if available.
+local function log(level, module, message, ...)
+    if logger then
+        logger.Log(module, level, message, ...)
+    end
+end
+
 --- Schedule a named task that runs on a configurable interval.
 ---@param taskName string Unique name for the task (e.g., "world:layer0:tick")
 ---@param intervalMs number Interval in milliseconds between executions
@@ -226,12 +233,6 @@ function Scheduler.ClearAll()
     end
 
     log("info", "core", "Scheduler: all tasks cleared")
-end
-
-local function log(level, module, message, ...)
-    if logger then
-        logger.Log(module, level, message, ...)
-    end
 end
 
 _G.DCEScheduler = Scheduler
