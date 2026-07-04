@@ -6,13 +6,36 @@ local ScenarioEngine = DCEScenarioEngine
 -- Resource Lifecycle
 -- ============================================================================
 
+local function GetDCEAPI()
+    local DCEAPI = nil
+    local attempts = 0
+    while not DCEAPI and attempts < 50 do
+        attempts = attempts + 1
+        Citizen.Wait(100)
+        local success, api = pcall(function()
+            return exports['dce-core']:GetDCEAPI()
+        end)
+        if success then
+            DCEAPI = api
+        end
+    end
+    return DCEAPI
+end
+
 local function OnEventsStart()
-    DCE:Log("events", "info", "=== DCE Scenario Engine Starting ===")
+    local DCEAPI = GetDCEAPI()
+    if not DCEAPI then
+        print("^1[DCE Events] FATAL: Could not obtain DCE API from dce-core^0")
+        return
+    end
+    _G.DCE = DCEAPI
+
+    DCE.Log("events", "info", "=== DCE Scenario Engine Starting ===")
 
     ScenarioEngine.Initialize()
 
     -- Register the ScenarioEngine service
-    DCE:RegisterService("ScenarioEngine", {
+    DCE.RegisterService("ScenarioEngine", {
         CreateScenario = function(data) return ScenarioEngine.CreateScenario(data) end,
         GetScenario = function(scenarioId) return ScenarioEngine.GetScenario(scenarioId) end,
         GetActiveScenarios = function() return ScenarioEngine.GetActiveScenarios() end,
@@ -21,12 +44,12 @@ local function OnEventsStart()
     })
 
     -- Schedule scenario tick
-    DCE:Schedule("scenario:engine:tick", Config.Scenario.TickInterval, function()
+    DCE.Schedule("scenario:engine:tick", Config.Scenario.TickInterval, function()
         ScenarioEngine.Tick()
     end, { immediate = true })
 
     -- Subscribe to AI Director decisions to create scenarios
-    DCE:On("organization:activity:started", function(payload)
+    DCE.On("organization:activity:started", function(payload)
         local data = payload.payload or payload
         ScenarioEngine.CreateScenario({
             organizationId = data.organizationId,
@@ -36,24 +59,27 @@ local function OnEventsStart()
         })
     end)
 
-    DCE:Log("events", "info", "=== DCE Scenario Engine Started ===")
+    DCE.Log("events", "info", "=== DCE Scenario Engine Started ===")
 end
 
 local function OnEventsStop()
-    DCE:Log("events", "info", "=== DCE Scenario Engine Stopping ===")
+    DCE.Log("events", "info", "=== DCE Scenario Engine Stopping ===")
 
-    DCE:UnregisterService("ScenarioEngine")
+    DCE.UnregisterService("ScenarioEngine")
     ScenarioEngine.Shutdown()
 
-    DCE:Log("events", "info", "=== DCE Scenario Engine Stopped ===")
+    DCE.Log("events", "info", "=== DCE Scenario Engine Stopped ===")
 end
 
 -- ============================================================================
 -- Lifecycle Hooks
 -- ============================================================================
 
-DCE:Once("core:initialized", function()
-    OnEventsStart()
+-- Wait for AI to be ready before initializing
+AddEventHandler("onResourceStart", function(resourceName)
+    if resourceName == "dce-ai" then
+        OnEventsStart()
+    end
 end)
 
 AddEventHandler("onResourceStop", function(resourceName)

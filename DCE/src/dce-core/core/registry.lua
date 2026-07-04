@@ -53,7 +53,7 @@ function Registry.Register(name, serviceTable, options)
 
     -- Emit event on the bus if available (bus may not be initialized yet during startup)
     if DCE and DCE.Emit then
-        DCE:Emit("service:registered:" .. name, {
+        DCE.Emit("service:registered:" .. name, {
             eventName = "service:registered:" .. name,
             eventVersion = 1,
             timestamp = os.time(),
@@ -110,7 +110,7 @@ function Registry.Unregister(name)
     end
 
     if DCE and DCE.Emit then
-        DCE:Emit("service:unregistered:" .. name, {
+        DCE.Emit("service:unregistered:" .. name, {
             eventName = "service:unregistered:" .. name,
             eventVersion = 1,
             timestamp = os.time(),

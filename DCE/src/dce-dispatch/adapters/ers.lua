@@ -15,9 +15,9 @@ function ERSAdapter.New(config)
     -- Check if ERS is available
     if GetResourceState("ers") == "started" then
         self.available = true
-        DCE:Log("dispatch", "info", "ERS adapter: ERS resource detected and available")
+        DCE.Log("dispatch", "info", "ERS adapter: ERS resource detected and available")
     else
-        DCE:Log("dispatch", "warn", "ERS adapter: ERS resource not found, running in standalone mode")
+        DCE.Log("dispatch", "warn", "ERS adapter: ERS resource not found, running in standalone mode")
     end
 
     return self

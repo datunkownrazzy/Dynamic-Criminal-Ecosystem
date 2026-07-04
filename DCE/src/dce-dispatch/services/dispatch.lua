@@ -13,9 +13,9 @@ function DispatchService.Initialize()
     if isInitialized then
         return
     end
-    DCE:Log("dispatch", "info", "Dispatch Service initializing...")
+    DCE.Log("dispatch", "info", "Dispatch Service initializing...")
     isInitialized = true
-    DCE:Log("dispatch", "info", "Dispatch Service initialized")
+    DCE.Log("dispatch", "info", "Dispatch Service initialized")
 end
 
 -- ============================================================================
@@ -27,9 +27,9 @@ end
 function DispatchService.SetAdapter(adapter)
     activeAdapter = adapter
     if adapter then
-        DCE:Log("dispatch", "info", "Dispatch adapter set")
+        DCE.Log("dispatch", "info", "Dispatch adapter set")
     else
-        DCE:Log("dispatch", "warn", "Dispatch adapter cleared (falling back to none)")
+        DCE.Log("dispatch", "warn", "Dispatch adapter cleared (falling back to none)")
     end
 end
 
@@ -54,7 +54,7 @@ function DispatchService.CreateCall(data)
     local call = Call.New(data)
     calls[call.id] = call
 
-    DCE:Log("dispatch", "info", "Call created: %s - %s", call.id, call.description)
+    DCE.Log("dispatch", "info", "Call created: %s - %s", call.id, call.description)
 
     -- Notify adapter
     if activeAdapter and activeAdapter.CreateCall then
@@ -62,7 +62,7 @@ function DispatchService.CreateCall(data)
     end
 
     -- Emit event
-    DCE:Emit("dispatch:call:created", {
+    DCE.Emit("dispatch:call:created", {
         eventName = "dispatch:call:created",
         eventVersion = 1,
         timestamp = os.time(),
@@ -112,7 +112,7 @@ function DispatchService.ActivateCall(callId)
         activeAdapter.UpdateCall(call:GetSummary())
     end
 
-    DCE:Emit("dispatch:call:updated", {
+    DCE.Emit("dispatch:call:updated", {
         eventName = "dispatch:call:updated",
         eventVersion = 1,
         timestamp = os.time(),
@@ -140,7 +140,7 @@ function DispatchService.UpdateCall(callId, updateText)
         activeAdapter.UpdateCall(call:GetSummary())
     end
 
-    DCE:Emit("dispatch:call:updated", {
+    DCE.Emit("dispatch:call:updated", {
         eventName = "dispatch:call:updated",
         eventVersion = 1,
         timestamp = os.time(),
@@ -168,7 +168,7 @@ function DispatchService.ResolveCall(callId, disposition)
         activeAdapter.ResolveCall(call:GetSummary())
     end
 
-    DCE:Emit("dispatch:call:resolved", {
+    DCE.Emit("dispatch:call:resolved", {
         eventName = "dispatch:call:resolved",
         eventVersion = 1,
         timestamp = os.time(),
@@ -227,13 +227,13 @@ end
 -- ============================================================================
 
 function DispatchService.Shutdown()
-    DCE:Log("dispatch", "info", "Dispatch Service shutting down...")
+    DCE.Log("dispatch", "info", "Dispatch Service shutting down...")
     for callId, _ in pairs(calls) do
         calls[callId] = nil
     end
     activeAdapter = nil
     isInitialized = false
-    DCE:Log("dispatch", "info", "Dispatch Service shutdown complete")
+    DCE.Log("dispatch", "info", "Dispatch Service shutdown complete")
 end
 
 _G.DCEDispatchService = DispatchService

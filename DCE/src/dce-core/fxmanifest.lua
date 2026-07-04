@@ -25,3 +25,7 @@ server_scripts {
 
 -- DCE core must start before any other DCE resource
 -- Other resources should declare 'dce-core' in their dependencies
+
+server_exports {
+    'GetDCEAPI',
+}

@@ -1,6 +1,6 @@
 -- DCE Logger
 -- Module-tagged logging with configurable levels.
--- Accessed via DCE:Log(module, level, message) or the convenience methods.
+-- Accessed via DCE.Log(module, level, message) or the convenience methods.
 
 local Logger = {}
 local LogLevels = { debug = 1, info = 2, warn = 3, error = 4, off = 5 }

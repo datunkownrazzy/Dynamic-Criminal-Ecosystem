@@ -15,9 +15,9 @@ function ScenarioEngine.Initialize()
     if isInitialized then
         return
     end
-    DCE:Log("events", "info", "Scenario Engine initializing...")
+    DCE.Log("events", "info", "Scenario Engine initializing...")
     isInitialized = true
-    DCE:Log("events", "info", "Scenario Engine initialized")
+    DCE.Log("events", "info", "Scenario Engine initialized")
 end
 
 -- ============================================================================
@@ -29,7 +29,7 @@ end
 ---@return table|nil The created scenario summary
 function ScenarioEngine.CreateScenario(data)
     if not data or not data.organizationId or not data.activityId then
-        DCE:Log("events", "error", "ScenarioEngine.CreateScenario: missing required data")
+        DCE.Log("events", "error", "ScenarioEngine.CreateScenario: missing required data")
         return nil
     end
 
@@ -50,11 +50,11 @@ function ScenarioEngine.CreateScenario(data)
 
     scenarios[scenarioId] = scenario
 
-    DCE:Log("events", "info", "Scenario created: %s (%s) for %s in %s",
+    DCE.Log("events", "info", "Scenario created: %s (%s) for %s in %s",
         scenarioId, scenario.displayName, data.organizationId, data.regionId)
 
     -- Emit scenario created event
-    DCE:Emit("scenario:created", {
+    DCE.Emit("scenario:created", {
         eventName = "scenario:created",
         eventVersion = 1,
         timestamp = os.time(),
@@ -94,7 +94,7 @@ function ScenarioEngine.Tick()
     -- Emit events
     for _, event in ipairs(stateEvents) do
         if event.type == "scenario:stage:changed" then
-            DCE:Emit("scenario:stage:changed", {
+            DCE.Emit("scenario:stage:changed", {
                 eventName = "scenario:stage:changed",
                 eventVersion = 1,
                 timestamp = os.time(),
@@ -103,7 +103,7 @@ function ScenarioEngine.Tick()
                 payload = event,
             })
         elseif event.type == "scenario:completed" then
-            DCE:Emit("scenario:completed", {
+            DCE.Emit("scenario:completed", {
                 eventName = "scenario:completed",
                 eventVersion = 1,
                 timestamp = os.time(),
@@ -112,7 +112,7 @@ function ScenarioEngine.Tick()
                 payload = event,
             })
         elseif event.type == "scenario:timed_out" then
-            DCE:Emit("scenario:timed_out", {
+            DCE.Emit("scenario:timed_out", {
                 eventName = "scenario:timed_out",
                 eventVersion = 1,
                 timestamp = os.time(),
@@ -125,7 +125,7 @@ function ScenarioEngine.Tick()
 
     -- Emit dispatch events
     for _, dispatchEvent in ipairs(dispatchEvents) do
-        DCE:Emit("dispatch:call:requested", {
+        DCE.Emit("dispatch:call:requested", {
             eventName = "dispatch:call:requested",
             eventVersion = 1,
             timestamp = os.time(),
@@ -185,7 +185,7 @@ function ScenarioEngine.InterdictScenario(scenarioId)
 
     scenario:Complete("Interdicted")
 
-    DCE:Emit("scenario:interdicted", {
+    DCE.Emit("scenario:interdicted", {
         eventName = "scenario:interdicted",
         eventVersion = 1,
         timestamp = os.time(),
@@ -194,7 +194,7 @@ function ScenarioEngine.InterdictScenario(scenarioId)
         payload = scenario:GetSummary(),
     })
 
-    DCE:Log("events", "info", "Scenario interdicted: %s", scenarioId)
+    DCE.Log("events", "info", "Scenario interdicted: %s", scenarioId)
     return true
 end
 
@@ -220,12 +220,12 @@ end
 -- ============================================================================
 
 function ScenarioEngine.Shutdown()
-    DCE:Log("events", "info", "Scenario Engine shutting down...")
+    DCE.Log("events", "info", "Scenario Engine shutting down...")
     for scenarioId, _ in pairs(scenarios) do
         scenarios[scenarioId] = nil
     end
     isInitialized = false
-    DCE:Log("events", "info", "Scenario Engine shutdown complete")
+    DCE.Log("events", "info", "Scenario Engine shutdown complete")
 end
 
 _G.DCEScenarioEngine = ScenarioEngine

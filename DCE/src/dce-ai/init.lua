@@ -11,15 +11,38 @@ local AIDirectorService = DCEAIDirectorService
 
 local initialized = false
 
+local function GetDCEAPI()
+    local DCEAPI = nil
+    local attempts = 0
+    while not DCEAPI and attempts < 50 do
+        attempts = attempts + 1
+        Citizen.Wait(100)
+        local success, api = pcall(function()
+            return exports['dce-core']:GetDCEAPI()
+        end)
+        if success then
+            DCEAPI = api
+        end
+    end
+    return DCEAPI
+end
+
 local function OnAIStart()
-    DCE:Log("ai", "info", "=== DCE AI Director & Organizations Starting ===")
+    local DCEAPI = GetDCEAPI()
+    if not DCEAPI then
+        print("^1[DCE AI] FATAL: Could not obtain DCE API from dce-core^0")
+        return
+    end
+    _G.DCE = DCEAPI
+
+    DCE.Log("ai", "info", "=== DCE AI Director & Organizations Starting ===")
 
     -- Initialize services
     OrganizationsService.Initialize()
     AIDirectorService.Initialize()
 
     -- Register the Organizations service
-    DCE:RegisterService("Organizations", {
+    DCE.RegisterService("Organizations", {
         GetState = function(orgId) return OrganizationsService.GetState(orgId) end,
         GetIdentity = function(orgId) return OrganizationsService.GetIdentity(orgId) end,
         GetLeadership = function(orgId) return OrganizationsService.GetLeadership(orgId) end,
@@ -32,7 +55,7 @@ local function OnAIStart()
     })
 
     -- Register the AI Director service
-    DCE:RegisterService("AIDirector", {
+    DCE.RegisterService("AIDirector", {
         Tick = function() return AIDirectorService.Tick() end,
         EvaluateOrganization = function(orgId) return AIDirectorService.EvaluateOrganization(orgId) end,
         GetActiveDecision = function(orgId) return AIDirectorService.GetActiveDecision(orgId) end,
@@ -40,36 +63,38 @@ local function OnAIStart()
     })
 
     -- Schedule AI Director tick (time-sliced)
-    DCE:Schedule("ai:director:tick", Config.AI.DirectorTickInterval, function()
+    DCE.Schedule("ai:director:tick", Config.AI.DirectorTickInterval, function()
         AIDirectorService.Tick()
     end, { immediate = true })
 
     initialized = true
-    DCE:Log("ai", "info", "=== DCE AI Director & Organizations Started ===")
+    DCE.Log("ai", "info", "=== DCE AI Director & Organizations Started ===")
 end
 
 local function OnAIStop()
-    DCE:Log("ai", "info", "=== DCE AI Director & Organizations Stopping ===")
+    DCE.Log("ai", "info", "=== DCE AI Director & Organizations Stopping ===")
 
     -- Unregister services
-    DCE:UnregisterService("AIDirector")
-    DCE:UnregisterService("Organizations")
+    DCE.UnregisterService("AIDirector")
+    DCE.UnregisterService("Organizations")
 
     -- Shutdown services
     AIDirectorService.Shutdown()
     OrganizationsService.Shutdown()
 
     initialized = false
-    DCE:Log("ai", "info", "=== DCE AI Director & Organizations Stopped ===")
+    DCE.Log("ai", "info", "=== DCE AI Director & Organizations Stopped ===")
 end
 
 -- ============================================================================
 -- Lifecycle Hooks
 -- ============================================================================
 
--- Wait for core to be ready before initializing
-DCE:Once("core:initialized", function()
-    OnAIStart()
+-- Wait for world to be ready before initializing (AI depends on World service)
+AddEventHandler("onResourceStart", function(resourceName)
+    if resourceName == "dce-world" then
+        OnAIStart()
+    end
 end)
 
 AddEventHandler("onResourceStop", function(resourceName)

@@ -19,16 +19,16 @@ function AIDirectorService.Initialize()
         return
     end
 
-    DCE:Log("ai", "info", "AI Director initializing...")
+    DCE.Log("ai", "info", "AI Director initializing...")
 
     -- Load activity definitions
     local activityData = DCEActivities
     for id, data in pairs(activityData) do
         activities[id] = Activity.New(id, data)
-        DCE:Log("ai", "info", "  Activity loaded: %s", id)
+        DCE.Log("ai", "info", "  Activity loaded: %s", id)
     end
 
-    DCE:Log("ai", "info", "AI Director initialized with %d activity types", #activityData)
+    DCE.Log("ai", "info", "AI Director initialized with %d activity types", #activityData)
     isInitialized = true
 end
 
@@ -78,7 +78,7 @@ function AIDirectorService.EvaluateOrganization(orgId)
     local orgState = org:GetState()
 
     -- Get world state context
-    local World = DCE:GetService("World")
+    local World = DCE.GetService("World")
     if not World then
         return nil
     end
@@ -143,7 +143,7 @@ function AIDirectorService.EvaluateOrganization(orgId)
     }
 
     -- Emit the decision event
-    DCE:Emit("organization:activity:started", {
+    DCE.Emit("organization:activity:started", {
         eventName = "organization:activity:started",
         eventVersion = 1,
         timestamp = os.time(),
@@ -158,7 +158,7 @@ function AIDirectorService.EvaluateOrganization(orgId)
         },
     })
 
-    DCE:Log("ai", "info", "AI Director: %s selected '%s' in %s (score: %d)",
+    DCE.Log("ai", "info", "AI Director: %s selected '%s' in %s (score: %d)",
         orgId, selected.activityId, selected.regionId, selected.score)
 
     return decision
@@ -171,7 +171,7 @@ end
 --- Emit AI Director event for decision executed.
 ---@param decision table
 function AIDirectorService.EmitDecisionExecuted(decision)
-    DCE:Emit("ai:director:decision:executed", {
+    DCE.Emit("ai:director:decision:executed", {
         eventName = "ai:director:decision:executed",
         eventVersion = 1,
         timestamp = os.time(),
@@ -198,12 +198,12 @@ end
 -- ============================================================================
 
 function AIDirectorService.Shutdown()
-    DCE:Log("ai", "info", "AI Director shutting down...")
+    DCE.Log("ai", "info", "AI Director shutting down...")
     for orgId, _ in pairs(activeDecisions) do
         activeDecisions[orgId] = nil
     end
     isInitialized = false
-    DCE:Log("ai", "info", "AI Director shutdown complete")
+    DCE.Log("ai", "info", "AI Director shutdown complete")
 end
 
 _G.DCEAIDirectorService = AIDirectorService

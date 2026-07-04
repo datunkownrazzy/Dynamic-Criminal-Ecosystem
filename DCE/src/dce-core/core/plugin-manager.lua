@@ -73,7 +73,7 @@ function PluginManager.Register(manifest)
     if Config.PluginManager.FailOnMissingDependency then
         for _, depId in ipairs(manifest.Requires) do
             -- Check if the dependency is a registered DCE service or a loaded resource
-            local depFound = DCE and DCE.HasService and DCE:HasService(depId)
+            local depFound = DCE and DCE.HasService and DCE.HasService(depId)
             if not depFound then
                 -- Check if it's a FiveM resource
                 local resourceState = GetResourceState(depId)

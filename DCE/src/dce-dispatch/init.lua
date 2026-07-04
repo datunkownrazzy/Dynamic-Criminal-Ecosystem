@@ -8,6 +8,22 @@ local ERSAdapter = DCERSAdapter
 -- Resource Lifecycle
 -- ============================================================================
 
+local function GetDCEAPI()
+    local DCEAPI = nil
+    local attempts = 0
+    while not DCEAPI and attempts < 50 do
+        attempts = attempts + 1
+        Citizen.Wait(100)
+        local success, api = pcall(function()
+            return exports['dce-core']:GetDCEAPI()
+        end)
+        if success then
+            DCEAPI = api
+        end
+    end
+    return DCEAPI
+end
+
 local function GetConfiguredAdapter()
     local integration = Config.Dispatch.Integration or {}
     local mode = integration.Mode or "native"
@@ -23,7 +39,7 @@ local function GetConfiguredAdapter()
         end
 
         if integration.EnableStandaloneFallback ~= false then
-            DCE:Log("dispatch", "warn", "ERS dispatch adapter unavailable; falling back to native standalone")
+            DCE.Log("dispatch", "warn", "ERS dispatch adapter unavailable; falling back to native standalone")
         end
     end
 
@@ -31,14 +47,21 @@ local function GetConfiguredAdapter()
 end
 
 local function OnDispatchStart()
-    DCE:Log("dispatch", "info", "=== DCE Dispatch Service Starting ===")
+    local DCEAPI = GetDCEAPI()
+    if not DCEAPI then
+        print("^1[DCE Dispatch] FATAL: Could not obtain DCE API from dce-core^0")
+        return
+    end
+    _G.DCE = DCEAPI
+
+    DCE.Log("dispatch", "info", "=== DCE Dispatch Service Starting ===")
 
     DispatchService.Initialize()
 
     DispatchService.SetAdapter(GetConfiguredAdapter())
 
     -- Register the Dispatch service
-    DCE:RegisterService("Dispatch", {
+    DCE.RegisterService("Dispatch", {
         CreateCall = function(data) return DispatchService.CreateCall(data) end,
         GetCallDetails = function(callId) return DispatchService.GetCallDetails(callId) end,
         GetActiveCalls = function() return DispatchService.GetActiveCalls() end,
@@ -51,7 +74,7 @@ local function OnDispatchStart()
     })
 
     -- Subscribe to dispatch call requests from the scenario engine
-    DCE:On("dispatch:call:requested", function(payload)
+    DCE.On("dispatch:call:requested", function(payload)
         local data = payload.payload or payload
         DispatchService.CreateCall({
             incidentId = data.scenarioId,
@@ -63,24 +86,27 @@ local function OnDispatchStart()
         })
     end)
 
-    DCE:Log("dispatch", "info", "=== DCE Dispatch Service Started ===")
+    DCE.Log("dispatch", "info", "=== DCE Dispatch Service Started ===")
 end
 
 local function OnDispatchStop()
-    DCE:Log("dispatch", "info", "=== DCE Dispatch Service Stopping ===")
+    DCE.Log("dispatch", "info", "=== DCE Dispatch Service Stopping ===")
 
-    DCE:UnregisterService("Dispatch")
+    DCE.UnregisterService("Dispatch")
     DispatchService.Shutdown()
 
-    DCE:Log("dispatch", "info", "=== DCE Dispatch Service Stopped ===")
+    DCE.Log("dispatch", "info", "=== DCE Dispatch Service Stopped ===")
 end
 
 -- ============================================================================
 -- Lifecycle Hooks
 -- ============================================================================
 
-DCE:Once("core:initialized", function()
-    OnDispatchStart()
+-- Wait for events to be ready before initializing
+AddEventHandler("onResourceStart", function(resourceName)
+    if resourceName == "dce-events" then
+        OnDispatchStart()
+    end
 end)
 
 AddEventHandler("onResourceStop", function(resourceName)

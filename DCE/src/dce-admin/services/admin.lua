@@ -26,7 +26,7 @@ end
 --- Get overview of all organizations
 ---@return table Array of organization summaries
 function AdminService.GetOrganizationOverview()
-    local orgsService = DCE:GetService("Organizations")
+    local orgsService = DCE.GetService("Organizations")
     if not orgsService then
         return {}
     end
@@ -61,7 +61,7 @@ end
 --- Get active incidents/scenarios
 ---@return table Array of active scenarios
 function AdminService.GetActiveIncidents()
-    local scenarioEngine = DCE:GetService("ScenarioEngine")
+    local scenarioEngine = DCE.GetService("ScenarioEngine")
     if not scenarioEngine then
         return {}
     end
@@ -88,7 +88,7 @@ end
 --- Get performance metrics for all systems
 ---@return table Performance metrics
 function AdminService.GetPerformanceMetrics()
-    local scheduler = DCE:GetService("CoreRegistry")
+    local scheduler = DCE.GetService("CoreRegistry")
     local tasks = {}
 
     if scheduler then
@@ -136,7 +136,7 @@ function AdminService.GetIntegrationHealth()
     }
 
     -- Check Dispatch
-    local dispatch = DCE:GetService("Dispatch")
+    local dispatch = DCE.GetService("Dispatch")
     if dispatch then
         integrations.dispatch.status = "active"
         -- Adapter info would come from dispatch service
@@ -144,7 +144,7 @@ function AdminService.GetIntegrationHealth()
     end
 
     -- Check Evidence
-    local evidence = DCE:GetService("Evidence")
+    local evidence = DCE.GetService("Evidence")
     if evidence then
         integrations.evidence.status = "active"
         local adapter = evidence.GetAdapter()
@@ -165,7 +165,7 @@ end
 ---@return table Result
 function AdminService.ExecuteDebugCommand(source, command, args)
     -- Log the debug command
-    DCE:Log("admin", "info", "Debug command from %s: %s %s", source, command, table.concat(args or {}, " "))
+    DCE.Log("admin", "info", "Debug command from %s: %s %s", source, command, table.concat(args or {}, " "))
 
     -- Add to debug history
     table.insert(debugHistory, {
@@ -181,7 +181,7 @@ function AdminService.ExecuteDebugCommand(source, command, args)
     end
 
     -- Emit event for debug command
-    DCE:Emit("admin:debug:command", {
+    DCE.Emit("admin:debug:command", {
         eventName = "admin:debug:command",
         eventVersion = 1,
         timestamp = os.time(),
@@ -194,7 +194,7 @@ function AdminService.ExecuteDebugCommand(source, command, args)
     })
 
     -- Route to registered debug handlers
-    local handlers = DCE:GetService("CoreRegistry")
+    local handlers = DCE.GetService("CoreRegistry")
     if handlers and handlers.ListEvents then
         local events = handlers.ListEvents()
         -- Check if there's a registered debug handler for this command
@@ -232,7 +232,7 @@ function AdminService.LogAction(adminId, action, target)
     end
 
     -- Emit audit event
-    DCE:Emit("admin:action:executed", {
+    DCE.Emit("admin:action:executed", {
         eventName = "admin:action:executed",
         eventVersion = 1,
         timestamp = os.time(),

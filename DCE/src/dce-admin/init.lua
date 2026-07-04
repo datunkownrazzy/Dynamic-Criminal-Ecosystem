@@ -8,16 +8,39 @@ local AdminService = DCEAdminService
 -- Resource Lifecycle
 -- ============================================================================
 
+local function GetDCEAPI()
+    local DCEAPI = nil
+    local attempts = 0
+    while not DCEAPI and attempts < 50 do
+        attempts = attempts + 1
+        Citizen.Wait(100)
+        local success, api = pcall(function()
+            return exports['dce-core']:GetDCEAPI()
+        end)
+        if success then
+            DCEAPI = api
+        end
+    end
+    return DCEAPI
+end
+
 local function OnAdminStart()
-    DCE:Log("admin", "info", "=== DCE Admin UI Starting ===")
+    local DCEAPI = GetDCEAPI()
+    if not DCEAPI then
+        print("^1[DCE Admin] FATAL: Could not obtain DCE API from dce-core^0")
+        return
+    end
+    _G.DCE = DCEAPI
+
+    DCE.Log("admin", "info", "=== DCE Admin UI Starting ===")
 
     -- Initialize the admin service
     AdminService.Initialize(function(module, level, message, ...)
-        DCE:Log(module, level, message, ...)
+        DCE.Log(module, level, message, ...)
     end)
 
     -- Register the Admin service
-    DCE:RegisterService("Admin", {
+    DCE.RegisterService("Admin", {
         HasPermission = function(source) return AdminService.HasPermission(source) end,
         GetOrganizationOverview = function() return AdminService.GetOrganizationOverview() end,
         GetActiveIncidents = function() return AdminService.GetActiveIncidents() end,
@@ -31,33 +54,35 @@ local function OnAdminStart()
     })
 
     -- Subscribe to admin action events for logging
-    DCE:On("admin:action:executed", function(payload)
+    DCE.On("admin:action:executed", function(payload)
         local data = payload.payload or payload
-        DCE:Log("admin", "debug", "Admin action: %s by %s on %s", data.action, data.adminId, tostring(data.target))
+        DCE.Log("admin", "debug", "Admin action: %s by %s on %s", data.action, data.adminId, tostring(data.target))
     end)
 
-    DCE:Log("admin", "info", "=== DCE Admin UI Started ===")
+    DCE.Log("admin", "info", "=== DCE Admin UI Started ===")
 end
 
 local function OnAdminStop()
-    DCE:Log("admin", "info", "=== DCE Admin UI Stopping ===")
+    DCE.Log("admin", "info", "=== DCE Admin UI Stopping ===")
 
     -- Unregister service
-    DCE:UnregisterService("Admin")
+    DCE.UnregisterService("Admin")
 
     -- Shutdown service
     AdminService.Shutdown()
 
-    DCE:Log("admin", "info", "=== DCE Admin UI Stopped ===")
+    DCE.Log("admin", "info", "=== DCE Admin UI Stopped ===")
 end
 
 -- ============================================================================
 -- Lifecycle Hooks
 -- ============================================================================
 
--- Wait for core to be ready before initializing
-DCE:Once("core:initialized", function()
-    OnAdminStart()
+-- Ready immediately (no strong dependencies)
+AddEventHandler("onResourceStart", function(resourceName)
+    if resourceName == GetCurrentResourceName() then
+        OnAdminStart()
+    end
 end)
 
 AddEventHandler("onResourceStop", function(resourceName)

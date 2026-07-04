@@ -31,7 +31,7 @@ function NativeAdapter.CreateCall(callData)
         })
     end
 
-    DCE:Log("dispatch", "info", "Native adapter: call %s dispatched to %d players",
+    DCE.Log("dispatch", "info", "Native adapter: call %s dispatched to %d players",
         callData.id, #players)
 end
 

@@ -122,7 +122,7 @@ local function InitializeCore()
     })
 
     -- Step 5: Emit core ready event
-    DCE:Emit("core:initialized", {
+    DCE.Emit("core:initialized", {
         eventName = "core:initialized",
         eventVersion = 1,
         timestamp = os.time(),
@@ -162,6 +162,16 @@ local function ShutdownCore()
     PluginManager.Clear()
 
     Logger.Info("core", "DCE Core Shutdown Complete")
+end
+
+-- ============================================================================
+-- Export Function for Dependent Resources
+-- ============================================================================
+-- FiveM resources run in isolated environments. DCE global is set per-resource,
+-- but we need to explicitly export the DCE API for other resources to use it.
+
+function GetDCEAPI()
+    return DCE
 end
 
 -- ============================================================================

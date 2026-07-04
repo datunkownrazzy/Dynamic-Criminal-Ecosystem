@@ -8,13 +8,34 @@ local WorldService = DCEWorldService
 -- ============================================================================
 
 local function OnWorldStart()
-    DCE:Log("world", "info", "=== DCE World Engine Starting ===")
+    -- Ensure DCE is available via export from dce-core
+    local DCEAPI = nil
+    local attempts = 0
+    while not DCEAPI and attempts < 50 do
+        attempts = attempts + 1
+        Citizen.Wait(100)
+        local success, api = pcall(function()
+            return exports['dce-core']:GetDCEAPI()
+        end)
+        if success then
+            DCEAPI = api
+        end
+    end
+
+    if not DCEAPI then
+        print("^1[DCE World] FATAL: Could not obtain DCE API from dce-core^0")
+        return
+    end
+
+    _G.DCE = DCEAPI
+
+    DCE.Log("world", "info", "=== DCE World Engine Starting ===")
 
     -- Initialize the world engine
     WorldService.Initialize()
 
     -- Register the World service
-    DCE:RegisterService("World", {
+    DCE.RegisterService("World", {
         GetRegionState = function(regionId) return WorldService.GetRegionState(regionId) end,
         GetAdjacentRegions = function(regionId) return WorldService.GetAdjacentRegions(regionId) end,
         GetAllRegionIds = function() return WorldService.GetAllRegionIds() end,
@@ -25,39 +46,38 @@ local function OnWorldStart()
     })
 
     -- Schedule simulation ticks
-    DCE:Schedule("world:layer0:tick", Config.World.Layer0Interval, function()
+    DCE.Schedule("world:layer0:tick", Config.World.Layer0Interval, function()
         WorldService.Layer0Tick()
     end, { immediate = true })
 
-    DCE:Schedule("world:layer1:tick", Config.World.Layer1Interval, function()
+    DCE.Schedule("world:layer1:tick", Config.World.Layer1Interval, function()
         WorldService.Layer1Tick()
     end, { immediate = true })
 
     if Config.World.Time.Enabled then
-        DCE:Schedule("world:time:tick", Config.World.Time.TickInterval, function()
+        DCE.Schedule("world:time:tick", Config.World.Time.TickInterval, function()
             WorldService.TimeTick()
         end, { immediate = true })
     end
 
     if Config.World.Weather.Enabled then
-        DCE:Schedule("world:weather:tick", Config.World.Weather.TickInterval, function()
+        DCE.Schedule("world:weather:tick", Config.World.Weather.TickInterval, function()
             WorldService.WeatherTick()
         end, { immediate = true })
     end
 
-    DCE:Log("world", "info", "=== DCE World Engine Started ===")
+    DCE.Log("world", "info", "=== DCE World Engine Started ===")
 end
 
 local function OnWorldStop()
-    DCE:Log("world", "info", "=== DCE World Engine Stopping ===")
+    DCE.Log("world", "info", "=== DCE World Engine Stopping ===")
 
     -- Unschedule tasks
-    DCE:Schedule("world:layer0:tick", nil, nil) -- handled by Scheduler.ClearAll in core shutdown
     -- Note: actual cleanup is done in WorldService.Shutdown
 
     WorldService.Shutdown()
 
-    DCE:Log("world", "info", "=== DCE World Engine Stopped ===")
+    DCE.Log("world", "info", "=== DCE World Engine Stopped ===")
 end
 
 -- ============================================================================
@@ -65,8 +85,10 @@ end
 -- ============================================================================
 
 -- Wait for core to be ready before initializing
-DCE:Once("core:initialized", function()
-    OnWorldStart()
+AddEventHandler("onResourceStart", function(resourceName)
+    if resourceName == "dce-core" then
+        OnWorldStart()
+    end
 end)
 
 AddEventHandler("onResourceStop", function(resourceName)
