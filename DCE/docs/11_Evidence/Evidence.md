@@ -48,7 +48,7 @@ This separates scenario generation from evidence ownership and prevents integrat
 
 Inventory systems are presentation layers. They may display evidence, store an EvidenceID or reference code, and resolve a full evidence record when examined, but they do not own evidence state.
 
-The adapter contract is documented in [Inventory_Integration.md](../16_Intergrations/Inventory_Integration.md).
+The adapter contract is documented in [Inventory_Integration.md](../16_Integrations/Inventory_Integration.md).
 
 ## Evidence Graph and Confidence
 
@@ -79,5 +79,5 @@ They must not rewrite evidence state directly.
 ## Related Documents
 
 - [Evidence_Registry.md](Evidence_Registry.md)
-- [../16_Intergrations/Inventory_Integration.md](../16_Intergrations/Inventory_Integration.md)
-- [../02_Arcitecture/Architecture_Overview.md](../02_Arcitecture/Architecture_Overview.md)
+- [../16_Integrations/Inventory_Integration.md](../16_Integrations/Inventory_Integration.md)
+- [../02_Architecture/Architecture_Overview.md](../02_Architecture/Architecture_Overview.md)

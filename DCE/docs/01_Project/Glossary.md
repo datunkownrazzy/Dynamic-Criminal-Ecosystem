@@ -20,7 +20,7 @@ A criminal group (street gang, cartel, motorcycle club, mafia family, etc.). Has
 The current phase an organization is in: Dormant → Growing → Stable → Aggressive Expansion → Conflict → Under Investigation → Suppressed → Recovering → (loop). Determines which behaviors are available to it.
 
 **Territory**
-A defined zone/district that can be owned or contested by an Organization. Has its own lifecycle (Neutral → Claimed → Developed → Prosperous → Contested → Violent → Police Crackdown → Recovered) and tracked values (influence, heat, civilian support, etc.).
+A defined zone/district that can be owned or contested by an Organization. Has its own lifecycle (Neutral → Claimed → Established → Prosperous → Contested → Violent → Police Crackdown → Recovered) and tracked values (influence, heat, civilian support, etc.).
 
 **World State**
 The current values describing a district or the whole map at a point in time — police presence, civilian density, gang influence, economic health, weather, time of day, etc. Primary input to the AI Director's scoring.

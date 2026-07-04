@@ -80,6 +80,10 @@ A `restart <resource>` should be treated as stop-then-start, not a special case.
 
 DCE deliberately does not have a central "boot sequencer" that starts modules in a hardcoded order. This is consistent with Principle #4 — a central orchestrator that knows about every module's startup order is itself a hidden coupling point, and it would need to be updated every time a plugin added a new resource. Instead, correctness comes from every module tolerating out-of-order startup via the patterns above. This is more work per-module but keeps the framework genuinely open to plugins that core has no knowledge of.
 
+## Relationship to the State Machine
+
+The richer runtime lifecycle in StateMachine.md is the authoritative model for service state transitions once a module is running. This document remains the authoritative guidance for startup ordering, dependency resolution, and shutdown behavior. In practice, a module should use the startup phases here and then transition through the states defined in StateMachine.md once it becomes active.
+
 ## Open Question (flag for an ADR if resolved)
 
 Whether a minimal "wait for these named services before activating" helper belongs in `dce-core` (e.g., `DCE:WaitForServices({"Dispatch","Evidence"}, callback)`) as sugar over Pattern B, versus leaving every module to implement its own reactive resolution. Worth revisiting once a few real modules have been built and the actual pain points are known, rather than guessing now.

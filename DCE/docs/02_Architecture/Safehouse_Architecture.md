@@ -18,7 +18,7 @@ To prevent performance issues, server administrators can toggle the rendering me
 * **Toggle Mode:** 
   * `MODE_PERFORMANCE`: Forces all interiors to use Instanced/Teleported logic.
   * `MODE_IMMERSIVE`: Enables Walkable/Open interior support where available.
-* **Logic:** When `MODE_IMMERSIVE` is disabled, the `WorldEngine` automatically re-maps physical interiors to their nearest `Instance` equivalent.
+* **Logic:** When `MODE_IMMERSIVE` is disabled, the `World_Engine` automatically re-maps physical interiors to their nearest `Instance` equivalent.
 
 ---
 
@@ -41,16 +41,16 @@ DCE manages safehouses based on their performance profile:
 ## Unified Container API
 Regardless of rendering method (Physical vs. Instance), all services interact with safehouses via the **Container API**:
 
-* `Safehouse:GetEntrance(id)`: Returns the world `vector3` for police to target.
-* `Safehouse:Enter(player, id)`: Handles the logic (teleport vs. physical) based on the current Admin/Config setting.
-* `Safehouse:SpawnEvidence(id, propType)`: Spawns assets (crates, files, cash) at specific nodes inside the assigned interior, ensuring consistent evidence discovery.
+* `Safehouse.GetEntrance(id)`: Returns the world `vector3` for police to target.
+* `Safehouse.Enter(player, id)`: Handles the logic (teleport vs. physical) based on the current Admin/Config setting.
+* `Safehouse.SpawnEvidence(id, propType)`: Spawns assets (crates, files, cash) at specific nodes inside the assigned interior, ensuring consistent evidence discovery.
 
 ---
 
 ## Tactical Breach & Exit Logic
 The `Exit` logic is standardized to maintain consistency for both AI and Players:
 
-* **Exit API:** `Safehouse:GetExit(id)` and `Safehouse:ExecuteExit(player, id)`.
+* **Exit API:** `Safehouse.GetExit(id)` and `Safehouse.ExecuteExit(player, id)`.
 * **Instance Exit:** Performs a reverse-teleport from the internal `vector3` back to the exterior world.
 * **Physical Exit:** Unlocks the physical door model, allowing natural movement.
 * **MDT Integration:** Police HUD/MDT exposes these coordinates, allowing officers to establish tactical perimeters at either the door (Physical) or the portal (Instance).
@@ -58,6 +58,6 @@ The `Exit` logic is standardized to maintain consistency for both AI and Players
 ---
 
 ## Emitted Events
-- `dce:safehouse:breached` — `{ orgId, location, renderingType }`
-- `dce:safehouse:door_toggled` — `{ orgId, state (locked/unlocked) }`
-- `dce:safehouse:prop_added` — `{ orgId, propModel, location }`
+- `safehouse:breached` — `{ orgId, location, renderingType }`
+- `safehouse:door_toggled` — `{ orgId, state (locked/unlocked) }`
+- `safehouse:prop_added` — `{ orgId, propModel, location }`

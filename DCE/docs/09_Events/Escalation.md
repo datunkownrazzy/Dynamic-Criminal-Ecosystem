@@ -3,7 +3,7 @@
 ## 1. Status & Metadata
 * **Status:** DRAFT (Pending Review)
 * **Author:** AI Lead Architect
-* **Dependencies:** `docs/05_Organizations/Organizations.md`, `docs/08_AI/AIDirector.md`, `docs/04_World/WorldEngine.md`
+* **Dependencies:** `docs/05_Organizations/Organizations.md`, `docs/08_AI/AIDirector.md`, `docs/04_Simulation/World_Engine.md`
 * **Subsystem:** `dce-events`
 * **Tracks Layout:** `docs/09_Events/Escalation.md`
 
@@ -91,6 +91,6 @@ event:scenario:resolved — { incidentId, executionSuccessState, materialYield }
 7. What This Document Does Not Cover
 How the AI Director scores which scenario to pick initially → docs/08_AI/AIDirector.md
 
-How dispatch calls get packaged and passed into external CAD models → docs/10_Dispatch/CADIntegration.md
+How dispatch calls get packaged and passed into the Dispatch subsystem → docs/10_Dispatch/Dispatch.md
 
 How forensic evidence degrades over time at an investigation scene → docs/11_Evidence/Evidence.md

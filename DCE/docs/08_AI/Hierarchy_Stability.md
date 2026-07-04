@@ -10,6 +10,8 @@
 ## Purpose
 This system manages the consequences of "decapitation." When high-ranking members (Boss/Underboss) are removed by law enforcement or internal conflict, the organization enters a **Volatility State**.
 
+This behavior is implemented as part of the `Hierarchy` Service rather than as a separate registered Service. The stability and succession logic is tightly coupled to the same data and update paths that already manage rank, leadership, and organization state, so keeping it in the same Service avoids unnecessary cross-service indirection.
+
 ---
 
 ## Succession & Power Struggle Mechanics
@@ -44,9 +46,9 @@ Police players can exploit this chaos. The ERS MDT reports these shifts as "Oppo
 ## Unified Rank/Hierarchy API
 The `Hierarchy` service now tracks the "Succession Line":
 
-* `Hierarchy:GetSuccessor(orgId, rank)`: Returns the highest-ranking candidate to fill a vacancy.
-* `Hierarchy:TriggerSuccession(orgId, rank)`: Forces a promotion or initiates a power struggle.
-* `Hierarchy:GetStability(orgId)`: Returns current stability (0–100).
+* `Hierarchy.GetSuccessor(orgId, rank)`: Returns the highest-ranking candidate to fill a vacancy.
+* `Hierarchy.TriggerSuccession(orgId, rank)`: Forces a promotion or initiates a power struggle.
+* `Hierarchy.GetStability(orgId)`: Returns current stability (0–100).
 
 ---
 

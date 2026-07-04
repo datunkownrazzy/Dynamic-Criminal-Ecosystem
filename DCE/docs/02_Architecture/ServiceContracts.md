@@ -31,14 +31,14 @@ Each module that offers runtime functionality must register a Service under a st
 
 Recommended naming pattern:
 
-- `world` for world state and simulation primitives
-- `ai` for AI Director logic
-- `dispatch` for Dispatch operations
-- `evidence` for evidence services
-- `territories` for territory state
-- `economy` for economic simulation
+- `World` for world state and simulation primitives
+- `AI` for AI Director logic
+- `Dispatch` for Dispatch operations
+- `Evidence` for evidence services
+- `Territory` for territory state
+- `Economy` for economic simulation
 
-The exact registration name must be documented by the module and used consistently across code and documentation.
+The exact registration name must be documented by the module and used consistently across code and documentation. The repository convention is PascalCase for registered Service names, and new docs should follow that convention.
 
 ---
 

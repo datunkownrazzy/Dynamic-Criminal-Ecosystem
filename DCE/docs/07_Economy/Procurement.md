@@ -65,6 +65,6 @@ procurement:shipment:spawned — { orgId, category, location } (Triggers ERS cal
 procurement:order:fulfilled — { orgId, category }
 
 What This Document Does Not Cover
-The physical spawning of weapon/vehicle props (Handled by WorldEngine)
+The physical spawning of weapon/vehicle props (handled by the World Engine)
 
 The definition of AI threat tiers → docs/08_AI/AIDirector.md

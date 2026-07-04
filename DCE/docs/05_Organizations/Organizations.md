@@ -52,7 +52,7 @@ Maintained by the Organization Service, distinct from the static identity data a
 
 | Field | Meaning |
 |---|---|
-| `money` | Current liquid funds |
+| `money` | Current liquid funds; exposed as a compatibility/read model field, but authoritative finance ownership remains with the Economy service |
 | `members` | Current member count |
 | `vehicles` | Currently owned/available vehicles |
 | `safehouses` | List of Region-anchored safehouse locations |
@@ -69,7 +69,7 @@ local org = Organizations.GetState("families")
 -- org.money, org.members, org.heat, org.state, ...
 ```
 
-Per the read-model pattern established in `World_Engine.md`, other systems query this through the Service — they never mutate it directly. Only the Organization Service itself (reacting to its own logic or to Events it subscribes to, such as `scenario:outcome:resolved`) changes this state.
+Per the read-model pattern established in `World_Engine.md`, other systems query this through the Service — they never mutate it directly. Only the Organization Service itself (reacting to its own logic or to Events it subscribes to, such as `scenario:outcome:resolved`) changes organization-owned state. Financial ledger mutations remain the responsibility of the Economy service rather than the Organizations Service.
 
 ---
 

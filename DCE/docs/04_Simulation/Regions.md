@@ -58,7 +58,7 @@ Runtime state is what `World.GetRegionState(regionId)` (referenced in `World_Eng
 While a Region is the spatial container, **Territory** status is the ownership/control state layered on top, owned conceptually by `dce-ai`/`dce-territories` rather than `dce-world` (a Region can exist and be simulated even with no owning Organization — e.g., early game state, or a recently-cleared area):
 
 ```
-Neutral → Claimed → Developed → Prosperous → Contested → Violent → Police Crackdown → Recovered
+Neutral → Claimed → Established → Prosperous → Contested → Violent → Police Crackdown → Recovered
 ```
 
 This lifecycle and its transition conditions belong in a future `dce-territories` specification; it's noted here only to make the Region/Territory distinction explicit and avoid the two concepts being conflated in implementation.

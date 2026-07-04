@@ -9,7 +9,7 @@
 
 ## Status
 
-This document has been superseded by the Evidence Registry architecture. The older naming-based design is retained only as a historical reference and should not be used for new design work.
+This document has been superseded by the Evidence Registry architecture. The older naming-based evidence approach is no longer valid for new design work and is retained only as a historical reference.
 
 ## Previous Approach
 
@@ -22,5 +22,5 @@ Evidence should now be represented as a registry record owned by the Evidence Se
 ## Related Documents
 
 - [../11_Evidence/Evidence_Registry.md](../11_Evidence/Evidence_Registry.md)
-- [../16_Intergrations/Inventory_Integration.md](../16_Intergrations/Inventory_Integration.md)
+- [../16_Integrations/Inventory_Integration.md](../16_Integrations/Inventory_Integration.md)
 - [../11_Evidence/Evidence.md](../11_Evidence/Evidence.md)

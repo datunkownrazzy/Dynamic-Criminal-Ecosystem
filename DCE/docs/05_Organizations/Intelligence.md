@@ -87,6 +87,6 @@ intelligence:countermeasure:executed — { organizationId, countermeasureType, r
 6. What This Document Does Not Cover
 The foundational structures and item fields of physical scene evidence → docs/11_Evidence/Evidence.md
 
-The tracking layout of search warrants and grand jury filings → docs/12_Investigations/Warrants.md
+The tracking layout of search warrants and grand jury filings → planned future investigation/warranting spec
 
-The functional coordination of money laundering channels → docs/07_Economy/Laundering.md
+The functional coordination of money laundering channels → planned future economy laundering spec

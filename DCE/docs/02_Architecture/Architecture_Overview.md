@@ -66,6 +66,8 @@ DCE ships as multiple independently loadable FiveM resources rather than one mon
 | `dce-evidence` | Evidence registry, lifecycle, confidence, chain of custody, Investigation Graph |
 | `dce-territories` | Territory state and lifecycle |
 | `dce-economy` | Organization finances, supply chain modeling |
+| `dce-procurement` | Procurement orders, logistics delays, and asset acquisition flow |
+| `dce-events` | Scenario escalation, stage promotion, and event-driven lifecycle transitions |
 | `dce-investigations` | Higher-level detective/case tooling built on Evidence |
 | `dce-ui` | Admin dashboard, Live World Inspector (NUI) |
 | `dce-admin` | Admin commands, permissions, config editing |
@@ -73,6 +75,8 @@ DCE ships as multiple independently loadable FiveM resources rather than one mon
 | `dce-sdk` | Public exports and interfaces for plugin authors |
 
 `dce-core` is the only hard dependency for everything else. A server owner who disables `dce-investigations`, for example, should lose detective-tooling depth but keep dispatch, evidence generation, and the AI Director working normally.
+
+The resource split should follow the same performance principle as ADR-0001: tightly coupled, hot-path systems remain in the same resource when they are queried or updated on every simulation tick. Procurement and event escalation are not independently useful standalone resources; they are best treated as internal services or submodules of the resources that already own the surrounding decision flow unless a later performance profile proves otherwise.
 
 ---
 

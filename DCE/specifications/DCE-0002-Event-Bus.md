@@ -26,14 +26,21 @@ If `dce-ai` needs to notify Dispatch, Evidence, Civilian AI, and Analytics every
 
 ```lua
 DCE:Emit("organization:activity:started", {
-    organizationId = "families",
-    activity = "drug_sale",
-    location = coords,
-    layer = 1,
+    eventName = "organization:activity:started",
+    eventVersion = 1,
+    timestamp = os.time(),
+    source = "dce-ai",
+    correlationId = "org-001",
+    payload = {
+        organizationId = "families",
+        activity = "drug_sale",
+        location = coords,
+        layer = 1,
+    },
 })
 ```
 
-The event name follows a `domain:subject:verb` convention (see Naming Conventions below). The payload is a plain table; its shape should be documented per event name in the relevant system's specification (e.g., the AI Director spec documents every event it emits).
+The event name follows a `domain:subject:verb` convention (see Naming Conventions below). Every event carries a stable envelope with `eventName`, `eventVersion`, `timestamp`, `source`, `correlationId` (when applicable), and `payload`; the payload itself remains a plain table and its shape should be documented per event name in the relevant system's specification.
 
 ### Subscribing
 
@@ -85,6 +92,7 @@ Event names are part of the framework's public surface — renaming one is a bre
 
 ## Payload Discipline
 
+- Events are emitted as envelope-wrapped tables. The envelope contains metadata and a `payload` field for domain data.
 - Payloads are plain tables. No functions, no metatables with side effects, no passing live references to internal mutable state that a handler could accidentally corrupt — pass copies of anything a handler shouldn't be able to mutate.
 - Every event's payload shape must be documented where it's emitted. "Just log it and see what's in there" is not an acceptable way for a plugin author to learn an event's shape.
 - Prefer flat, small payloads. If a handler needs more detail than what's published, it should look it up through the relevant Service (`DCE-0001`), not receive an ever-growing payload "just in case."

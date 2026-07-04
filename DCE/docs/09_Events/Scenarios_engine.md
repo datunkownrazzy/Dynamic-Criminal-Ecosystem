@@ -3,19 +3,19 @@
 **Status:** Draft
 **Version:** 1.0
 **Owner:** Datunkownrazzy
-**Dependencies:** Procurement, Hierarchy, World Engine
+**Dependencies:** Organizations, AI Director, Economy, Hierarchy, World Engine
 
 ---
 
 ## The Dynamic Feedback Loop
-A scenario is defined as a `Task` assigned by a `Lieutenant` to `Soldiers`. When the task completes, the outcome is fed back into the `OrgRegistry`, creating a ripple effect.
+A scenario is defined as a lifecycle stage that the AI Director selects and the Scenario subsystem executes. This document should be read as a companion to Escalation.md: the Escalation lifecycle defines the stage progression (Planning → Travel → Preparation → Execution → Reaction → Escape → Investigation → Long-term Consequences), while this document describes how a scenario's outcome is translated into state changes and service requests.
 
 ### 1. The Scenario Lifecycle
-* **Assignment:** The `Lieutenant` creates a job based on the `Boss`'s procurement goals (e.g., "We need weapons").
-* **Execution:** `Soldiers` move to a location, perform the action (e.g., drive a truck, hold a point).
+* **Assignment:** The AI Director selects a scenario type and its initial parameters based on Organization state, current heat, and available budget.
+* **Execution:** the scenario runs through the relevant Escalation stages and updates its own state as it progresses.
 * **Completion (The "Impact"):**
-    * **Success:** `WealthIndex` increases; `Procurement` stock updates; `Hierarchy` stability grows.
-    * **Failure/Interdiction:** `WealthIndex` decreases (lost assets); `Hierarchy` stability drops; `Heat` index increases.
+    * **Success:** the Economy service adjusts budget/wealth-related state through its own Service interface; Procurement stock updates through Procurement; Hierarchy stability grows.
+    * **Failure/Interdiction:** the Economy service records the loss through its owned financial state; Hierarchy stability drops; Heat increases through the organization-owned state path.
 
 ---
 
@@ -27,7 +27,7 @@ When police intervene in a scenario, the `ScenarioEngine` calculates the impact 
 |---|---|---|
 | **Procurement Run** | Stock levels +10% | Org loses stock; `Heat` +20%; local Safehouse location revealed. |
 | **Territory Defense** | Stability +5% | Org loses territory; `Hierarchy` rank demotion for participating members. |
-| **Laundering Op** | `Operating Budget` +15% | Financial evidence generated for MDT; potential account freeze. |
+| **Laundering Op** | Budget/ledger update via Economy | Financial evidence generated for MDT; potential account freeze. |
 | **Power Struggle** | New assets secured | Org splits; massive `Heat` spike; police witness active violence. |
 
 ---
@@ -51,13 +51,15 @@ Police players are not just "stopping crimes"; they are **interfering with an ec
 ## Read-Model API
 ```lua
 local Scenario = DCE:GetService("ScenarioEngine")
+local Economy = DCE:GetService("Economy")
 
--- Trigger a scenario based on Org current procurement needs
+-- Trigger a scenario based on the Organization's current procurement needs
 Scenario.AssignTask(orgId, "ProcurementRun", { target = "WeaponCrate" })
 
 -- Hook for ERS Framework to report scenario interference
 Scenario.OnInterfered(orgId, function(policeUnitId, impactSeverity)
-    -- Calculate how much "Heat" and "Budget Loss" this causes the Org
+    -- Calculate how much Heat and budget impact this causes the Organization.
+    -- The economy service owns the authoritative financial state mutation.
     local damage = impactSeverity * 0.5
-    OrgRegistry.UpdateWealth(orgId, -damage)
+    Economy.ApplyLoss(orgId, damage)
 end)

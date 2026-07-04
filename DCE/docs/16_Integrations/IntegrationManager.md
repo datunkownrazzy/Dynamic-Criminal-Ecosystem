@@ -61,6 +61,6 @@ integration:adapter:failed — { category, reason }
 integration:wizard:ready — { systemDetected } (Triggers admin setup UI).
 
 What This Document Does Not Cover
-The internal simulation tick rates → docs/04_World/WorldEngine.md
+The internal simulation tick rates → docs/04_Simulation/World_Engine.md
 
 The definition of specific data payloads (e.g., how a 'Drug Sale' event is structured) → docs/09_Events/Escalation.md

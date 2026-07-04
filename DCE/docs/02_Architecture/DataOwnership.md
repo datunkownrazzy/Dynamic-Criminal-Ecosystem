@@ -35,6 +35,7 @@ A clear ownership model is essential for stability, debugging, and plugin compat
 | Evidence state and decay | `dce-evidence` | Any module | Only `dce-evidence` | Service request or event |
 | Dispatch state and call lifecycle | `dce-dispatch` | Any module | Only `dce-dispatch` | Service request or event |
 | Economy state and financial flow | `dce-economy` | Any module | Only `dce-economy` | Service request or event |
+| Procurement orders and purchase lifecycle | `dce-economy` | Any module | Only `dce-economy` | Service request or event |
 | Investigation context and case graph | `dce-investigations` | Any module | Only `dce-investigations` | Service request or event |
 
 ---
@@ -63,7 +64,9 @@ Dispatch calls, status transitions, and integration handoff are owned by the Dis
 
 ### Economy state
 
-Organization finances, procurement state, and economic modeling are owned by the Economy service. Other modules may query or request changes but must not write directly into its state tables.
+Organization finances, procurement state, and economic modeling are owned by the Economy service. The Economy service owns the authoritative ledger and budget state; other modules may query it or request changes through its Service interface but must not write directly into its state tables.
+
+This is the authoritative ownership model for finance-related state. Organizations may expose runtime fields such as `money` for observation and compatibility, but the Economy service remains the authoritative owner of the financial ledger and derived budget state.
 
 ---
 

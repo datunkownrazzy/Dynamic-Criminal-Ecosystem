@@ -1,8 +1,5 @@
 ---
 
-### 📂 File Destination: `docs/12_Investigations/Investigations.md`
-
-```markdown
 # DCE Investigations
 
 **Status:** Accepted

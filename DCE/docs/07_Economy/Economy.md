@@ -9,7 +9,7 @@
 
 ## Purpose
 
-The `dce-economy` service manages the financial status of AI-controlled criminal organizations. Because these entities are strictly local/AI-driven, this service does not interface with player banking or inventory resources. Instead, it maintains a internal ledger of **Operational Capital** used exclusively by the AI Director to govern behavior, scaling, and organizational "power."
+The `dce-economy` service manages the financial status of AI-controlled criminal organizations. Because these entities are strictly local/AI-driven, this service does not interface with player banking or inventory resources. Instead, it maintains the authoritative internal ledger of **Operational Capital** used exclusively by the AI Director to govern behavior, scaling, and organizational "power." The Organizations Service may expose a convenience field such as `money` for read-model consumption, but the Economy service remains the single owner of the financial state.
 
 ---
 

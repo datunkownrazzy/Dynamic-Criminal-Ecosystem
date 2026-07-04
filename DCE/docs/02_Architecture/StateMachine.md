@@ -11,7 +11,7 @@
 
 This document standardizes the lifecycle model used across DCE. The goal is to make every service and long-lived entity behave predictably so that startup, shutdown, failures, and recovery can be reasoned about consistently.
 
-A shared state model reduces ambiguity and prevents one subsystem from treating a resource as "ready" while another still considers it "starting" or "stopped".
+A shared state model reduces ambiguity and prevents one subsystem from treating a resource as "ready" while another still considers it "starting" or "stopped". This document supersedes the simpler startup-phase model in Lifecycle_and_Dependency_Injection.md for runtime state transitions, while that earlier document remains the authoritative guidance for dependency resolution and startup ordering.
 
 ---
 

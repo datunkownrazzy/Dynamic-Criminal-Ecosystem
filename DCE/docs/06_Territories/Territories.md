@@ -37,7 +37,7 @@ Influence is tracked as a persistent float per Organization per Region, updated 
 
 ## Territory Lifecycle
 
-While the Region remains static, the Territory state transitions through a lifecycle. This is owned by `dce-ai` and `dce-territories` logic, reacting to events emitted by the World Engine.
+While the Region remains static, the Territory state transitions through a lifecycle. This is owned by `dce-territories` logic, reacting to events emitted by the World Engine and requests from the AI Director.
 Neutral → Claimed → Established → Prosperous → Contested → Violent → Police Crackdown → Recovered
 
 *   **Contested:** Multiple organizations have influence > 25. AI Director prioritizes conflict-based scenarios.
@@ -66,7 +66,7 @@ territory:status:changed — { regionId, fromState, toState }
 territory:ownership:transferred — { regionId, fromOrgId, toOrgId }
 
 What This Document Does Not Cover
-The statistical simulation of the underlying Region → docs/04_World/Regions.md
+The statistical simulation of the underlying Region → docs/04_Simulation/Regions.md
 
 The forensic investigation of specific territorial violence → docs/11_Evidence/Evidence.md
 
