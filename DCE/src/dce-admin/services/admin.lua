@@ -158,6 +158,65 @@ function AdminService.GetIntegrationHealth()
     return integrations
 end
 
+--- Get all configs (read-only snapshot)
+---@return table Configs by resource
+function AdminService.GetAllConfigs()
+    local configs = {}
+    
+    -- Each resource owns its own config
+    -- We can request configs through their exports
+    local resources = {
+        "dce-admin", "dce-ai", "dce-world", "dce-events", "dce-dispatch", "dce-evidence"
+    }
+    
+    for _, resource in ipairs(resources) do
+        local success, result = pcall(function()
+            local export = exports[resource]
+            if export and export.GetConfig then
+                return export.GetConfig()
+            end
+            return nil
+        end)
+        if success and result then
+            configs[resource] = result
+        end
+    end
+    
+    return configs
+end
+
+--- Update a config value at runtime
+---@param resource string Resource name
+---@param key string|table Config key (or path as table)
+---@param value any New value
+---@return boolean success
+function AdminService.UpdateConfig(resource, key, value)
+    if not Config.Admin.ConfigRuntime.Enabled then
+        return false, "Runtime config updates are disabled"
+    end
+    
+    local targetService = DCE.GetService("ConfigLoader")
+    if not targetService then
+        return false, "Config loader not available"
+    end
+    
+    -- This would emit an event for the target resource to handle
+    -- Resources own their own configs, so they need to respond to updates
+    DCE.Emit("admin:config:update", {
+        eventName = "admin:config:update",
+        eventVersion = 1,
+        timestamp = os.time(),
+        source = "dce-admin",
+        payload = {
+            resource = resource,
+            key = key,
+            value = value,
+        },
+    })
+    
+    return true
+end
+
 --- Execute a debug command
 ---@param source number Player server ID
 ---@param command string Command name
@@ -193,17 +252,45 @@ function AdminService.ExecuteDebugCommand(source, command, args)
         },
     })
 
-    -- Route to registered debug handlers
-    local handlers = DCE.GetService("CoreRegistry")
-    if handlers and handlers.ListEvents then
-        local events = handlers.ListEvents()
-        -- Check if there's a registered debug handler for this command
-        -- This is a simplified version - full implementation would route to specific handlers
+    -- Process debug command based on system
+    local output = {}
+    
+    if command == "orgs" or command == "organizations" then
+        output = AdminService.GetOrganizationOverview()
+    elseif command == "incidents" or command == "scenarios" then
+        output = AdminService.GetActiveIncidents()
+    elseif command == "services" then
+        output = { services = DCE.GetService("CoreRegistry").ListServices() }
+    elseif command == "tasks" then
+        output = { tasks = DCE.GetService("CoreRegistry").ListTasks() }
+    elseif command == "events" then
+        output = { events = DCE.GetService("CoreRegistry").ListEvents() }
+    elseif command == "integrations" then
+        output = AdminService.GetIntegrationHealth()
+    elseif command == "plugins" then
+        output = { plugins = DCE.GetService("CoreRegistry").ListPlugins() }
+    elseif command == "configs" then
+        output = AdminService.GetAllConfigs()
+    else
+        -- Try to emit for event-based handlers
+        DCE.Emit("admin:debug:unknown", {
+            eventName = "admin:debug:unknown",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-admin",
+            payload = {
+                adminId = source,
+                command = command,
+                args = args,
+            },
+        })
+        output = { error = "Unknown debug system: " .. command }
     end
 
     return {
         success = true,
-        message = "Debug command executed: " .. command,
+        message = "Debug: " .. command,
+        output = output,
         timestamp = os.time(),
     }
 end
@@ -281,11 +368,124 @@ function AdminService.GetDashboardData()
     }
 end
 
+--- Get config export (for NUI/commands access)
+---@return table Current config
+function AdminService.GetConfig()
+    return Config
+end
+
 --- Shutdown the admin service
 function AdminService.Shutdown()
-    logger.Info("admin", "Admin service shutting down")
+    if logger then
+        logger("admin", "info", "Admin service shutting down")
+    end
     auditLog = {}
     debugHistory = {}
 end
 
 _G.DCEAdminService = AdminService
+
+--- Export for shared config access
+_G.DCEAdminConfig = Config
+
+-- ============================================================================
+-- NUI Server Event Handlers
+-- ============================================================================
+
+-- Permission check helper for internal use
+local function CheckPermission(source)
+    return AdminService.HasPermission(source)
+end
+
+RegisterNetEvent('dce-admin:server:getDashboardData', function()
+    local src = source
+    if not CheckPermission(src) then return end
+    
+    TriggerClientEvent('dce-admin:server:receiveDashboardData', src, AdminService.GetDashboardData())
+end)
+
+RegisterNetEvent('dce-admin:server:getOrganizations', function()
+    local src = source
+    if not CheckPermission(src) then return end
+    TriggerClientEvent('dce-admin:server:receiveOrganizations', src, AdminService.GetOrganizationOverview())
+end)
+
+RegisterNetEvent('dce-admin:server:getIncidents', function()
+    local src = source
+    if not CheckPermission(src) then return end
+    TriggerClientEvent('dce-admin:server:receiveIncidents', src, AdminService.GetActiveIncidents())
+end)
+
+RegisterNetEvent('dce-admin:server:getServices', function()
+    local src = source
+    if not CheckPermission(src) then return end
+    
+    local CoreRegistry = DCE.GetService("CoreRegistry")
+    if CoreRegistry then
+        TriggerClientEvent('dce-admin:server:receiveServices', src, CoreRegistry.ListServices())
+    end
+end)
+
+RegisterNetEvent('dce-admin:server:getTasks', function()
+    local src = source
+    if not CheckPermission(src) then return end
+    
+    local CoreRegistry = DCE.GetService("CoreRegistry")
+    if CoreRegistry then
+        TriggerClientEvent('dce-admin:server:receiveTasks', src, CoreRegistry.ListTasks())
+    end
+end)
+
+RegisterNetEvent('dce-admin:server:getEvents', function()
+    local src = source
+    if not CheckPermission(src) then return end
+    
+    local CoreRegistry = DCE.GetService("CoreRegistry")
+    if CoreRegistry then
+        TriggerClientEvent('dce-admin:server:receiveEvents', src, CoreRegistry.ListEvents())
+    end
+end)
+
+RegisterNetEvent('dce-admin:server:getConfigs', function()
+    local src = source
+    if not CheckPermission(src) then return end
+    TriggerClientEvent('dce-admin:server:receiveConfigs', src, AdminService.GetAllConfigs())
+end)
+
+RegisterNetEvent('dce-admin:server:getDebugHistory', function()
+    local src = source
+    if not CheckPermission(src) then return end
+    TriggerClientEvent('dce-admin:server:receiveDebugHistory', src, AdminService.GetDebugHistory())
+end)
+
+RegisterNetEvent('dce-admin:server:getAuditLog', function()
+    local src = source
+    if not CheckPermission(src) then return end
+    TriggerClientEvent('dce-admin:server:receiveAuditLog', src, AdminService.GetAuditLog())
+end)
+
+RegisterNetEvent('dce-admin:server:executeDebug', function(command, args)
+    local src = source
+    if not CheckPermission(src) then return end
+    
+    local result = AdminService.ExecuteDebugCommand(src, command, args or {})
+    TriggerClientEvent('dce-admin:server:receiveDebugResult', src, result)
+end)
+
+RegisterNetEvent('dce-admin:server:updateConfig', function(resource, key, value)
+    local src = source
+    if not CheckPermission(src) then return end
+    
+    local success, err = AdminService.UpdateConfig(resource, key, value)
+    if success then
+        TriggerClientEvent('chat:addMessage', src, {
+            color = { 0, 255, 0 },
+            args = { "[DCE] ", "Config updated: " .. resource .. "." .. key .. " = " .. tostring(value) }
+        })
+    else
+        TriggerClientEvent('chat:addMessage', src, {
+            color = { 255, 0, 0 },
+            args = { "[DCE] ", err or "Failed to update config" }
+        })
+    end
+end)

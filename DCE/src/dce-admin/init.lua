@@ -34,12 +34,24 @@ local function OnAdminStart()
 
     DCE.Log("admin", "info", "=== DCE Admin UI Starting ===")
 
-    -- Initialize the admin service
+-- Initialize the admin service
     AdminService.Initialize(function(module, level, message, ...)
         DCE.Log(module, level, message, ...)
     end)
 
-    -- Register the Admin service
+    -- Initialize commands module
+    DCEAdminCommands.Initialize(function(module, level, message, ...)
+        DCE.Log(module, level, message, ...)
+    end)
+
+    -- Register admin commands (after core is ready and services are registered)
+    Citizen.CreateThread(function()
+        Citizen.Wait(1000) -- Wait for all services to be registered
+        DCEAdminCommands.RegisterCommands()
+        DCE.Log("admin", "info", "Admin commands registered")
+    end)
+
+-- Register the Admin service
     DCE.RegisterService("Admin", {
         HasPermission = function(source) return AdminService.HasPermission(source) end,
         GetOrganizationOverview = function() return AdminService.GetOrganizationOverview() end,
@@ -51,6 +63,9 @@ local function OnAdminStart()
         GetDebugHistory = function(limit) return AdminService.GetDebugHistory(limit) end,
         GetDashboardData = function() return AdminService.GetDashboardData() end,
         LogAction = function(adminId, action, target) AdminService.LogAction(adminId, action, target) end,
+        GetAllConfigs = function() return AdminService.GetAllConfigs() end,
+        UpdateConfig = function(resource, key, value) return AdminService.UpdateConfig(resource, key, value) end,
+        GetConfig = function() return AdminService.GetConfig() end,
     })
 
     -- Subscribe to admin action events for logging
@@ -90,3 +105,12 @@ AddEventHandler("onResourceStop", function(resourceName)
         OnAdminStop()
     end
 end)
+
+-- ============================================================================
+-- Export Functions
+-- ============================================================================
+
+--- Get the config table for exports
+function GetConfig()
+    return Config
+end

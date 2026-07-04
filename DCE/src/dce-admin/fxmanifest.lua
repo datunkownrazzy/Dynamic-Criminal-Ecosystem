@@ -18,5 +18,10 @@ shared_scripts {
 
 server_scripts {
     'services/admin.lua',
+    'commands.lua',
     'init.lua',
+}
+
+server_exports {
+    'GetConfig',
 }

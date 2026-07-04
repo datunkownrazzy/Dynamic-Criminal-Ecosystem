@@ -221,12 +221,11 @@ function OrganizationsService.SetPerceptionPressure(orgId, visible, covert, sour
             },
         })
         
-        DCE.Log("ai", "warning", "Organization '%s' perception pressure spiked: %d (visible: %d, covert: %d)", 
+        DCE.Log("ai", "warn", "Organization '%s' perception pressure spiked: %d (visible: %d, covert: %d)", 
             orgId, newPerception, org.runtime.visiblePressure, org.runtime.covertPressure)
     end
 end
 
---- Apply perception pressure incrementally (adds to existing pressure).
 ---@param orgId string
 ---@param visible number Visible pressure to add
 ---@param covert number Covert pressure to add
@@ -283,12 +282,11 @@ function OrganizationsService.ApplyPerceptionPressure(orgId, visible, covert, so
             },
         })
         
-        DCE.Log("ai", "warning", "Organization '%s' perception pressure spiked: %d (visible: %d, covert: %d)", 
+        DCE.Log("ai", "warn", "Organization '%s' perception pressure spiked: %d (visible: %d, covert: %d)", 
             orgId, newPerception, org.runtime.visiblePressure, org.runtime.covertPressure)
     end
 end
 
---- Decay perception pressure for an organization.
 ---@param orgId string
 ---@param deltaTime number Time elapsed since last tick (seconds)
 function OrganizationsService.DecayPerceptionPressure(orgId, deltaTime)

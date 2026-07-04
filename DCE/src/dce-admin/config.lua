@@ -37,6 +37,11 @@ Config.Admin = {
         Enabled = true,
         MaxEntries = 1000,
     },
+
+    -- Runtime configuration updates (for admin panel)
+    ConfigRuntime = {
+        Enabled = true,
+    },
 }
 
 -- Event emissions configuration
@@ -45,6 +50,8 @@ Config.Events = {
     "admin:dashboard:opened",
     "admin:dashboard:closed",
     "admin:debug:command",
+    "admin:config:update",
+    "admin:config:changed",
 }
 
 return Config
