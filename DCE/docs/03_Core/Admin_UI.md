@@ -4,7 +4,6 @@
 **Version:** 1.0
 **Owner:** Architecture
 **Dependencies:** Architecture_Overview, SimulationScheduler, SimulationBudget, Persistence, Logger, DataOwnership
-**Drop into:** `docs/14_Admin/Admin_UI.md`
 
 ---
 

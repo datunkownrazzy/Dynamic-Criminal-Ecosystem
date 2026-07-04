@@ -4,8 +4,6 @@
 **Version:** 1.0
 **Owner:** Architecture
 **Dependencies:** DCE-0001 (Service Registry), DCE-0002 (Event Bus), DCE-0003 (Plugin Manifest), ServiceContracts, EventContracts, DataOwnership, Coding_Standards, AGENTS.md
-**Drop into:** `docs/15_SDK/Plugin_SDK.md`
-
 ---
 
 ## Purpose
