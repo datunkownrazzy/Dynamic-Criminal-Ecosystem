@@ -159,10 +159,4 @@ function PluginManager.Clear()
     log("info", "core", "PluginManager: all plugins cleared")
 end
 
-local function log(level, module, message, ...)
-    if logger then
-        logger.Log(module, level, message, ...)
-    end
-end
-
 _G.DCEPluginManager = PluginManager

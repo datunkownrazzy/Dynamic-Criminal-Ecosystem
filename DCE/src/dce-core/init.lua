@@ -22,6 +22,10 @@ DCE = {}
 -- 5. Scheduler (depends on Logger)
 -- 6. Plugin Manager (depends on Logger, Config)
 
+-- Export DCE table globally so other resources can use it without require()
+-- This MUST be before initialization so dependent resources can access it
+_G.DCE = DCE
+
 local function InitializeCore()
     local Logger = DCELogger
     local Registry = DCERegistry
@@ -159,10 +163,6 @@ local function ShutdownCore()
 
     Logger.Info("core", "DCE Core Shutdown Complete")
 end
-
--- Export DCE table globally so other resources can use it without require()
--- This MUST be before initialization so dependent resources can access it
-_G.DCE = DCE
 
 -- ============================================================================
 -- Resource Lifecycle Hooks

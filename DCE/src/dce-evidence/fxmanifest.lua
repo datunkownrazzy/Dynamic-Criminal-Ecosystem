@@ -10,6 +10,7 @@ version '1.0.0'
 
 dependencies {
     'dce-core',
+    'dce-events',
 }
 
 shared_scripts {
