@@ -1,4 +1,4 @@
--- DCE ERS (Extended Roleplay System) Evidence Adapter
+-- DCE ERS Evidence Adapter
 -- Provides integration with the ERS evidence system.
 -- Falls back gracefully if ERS is not available.
 
@@ -13,12 +13,21 @@ function ERSAdapter.New(config)
     self.config = config or {}
     self.available = false
 
-    -- Check if ERS is available
-    if GetResourceState("ers") == "started" then
+    -- Get ERS resource name from config (defaults to "ers")
+    local Config = _G.Config or {}
+    local ersConfig = (Config.Evidence and Config.Evidence.Integration) or {}
+    local resourceName = ersConfig.ResourceName or "ers"
+
+    -- Check if ERS is available at runtime
+    if GetResourceState and GetResourceState(resourceName) == "started" then
         self.available = true
-        DCE.Log("evidence", "info", "ERS adapter: ERS resource detected and available")
+        if DCE and DCE.Log then
+            DCE.Log("evidence", "info", "ERS evidence adapter: ERS resource detected and available")
+        end
     else
-        DCE.Log("evidence", "warn", "ERS adapter: ERS resource not found, running in standalone mode")
+        if DCE and DCE.Log then
+            DCE.Log("evidence", "warn", "ERS evidence adapter: ERS resource not found, using local standalone registry")
+        end
     end
 
     return self
@@ -37,21 +46,20 @@ function ERSAdapter:CreateEvidence(evidenceData)
         return
     end
 
-    -- Export to ERS if available
-    if exports.ers and exports.ers.AddEvidence then
-        exports.ers.AddEvidence(evidenceData)
+    if exports and exports.ers and exports.ers.CreateEvidence then
+        exports.ers.CreateEvidence(evidenceData)
     end
 end
 
 --- Transfer evidence in ERS.
----@param custodyData table Custody record summary
-function ERSAdapter:TransferEvidence(custodyData)
+---@param transferData table Transfer data
+function ERSAdapter:TransferEvidence(transferData)
     if not self.available then
         return
     end
 
-    if exports.ers and exports.ers.TransferEvidence then
-        exports.ers.TransferEvidence(custodyData)
+    if exports and exports.ers and exports.ers.TransferEvidence then
+        exports.ers.TransferEvidence(transferData)
     end
 end
 
@@ -62,12 +70,12 @@ function ERSAdapter:VerifyEvidence(evidenceData)
         return
     end
 
-    if exports.ers and exports.ers.VerifyEvidence then
+    if exports and exports.ers and exports.ers.VerifyEvidence then
         exports.ers.VerifyEvidence(evidenceData)
     end
 end
 
---- Link evidence to a case in ERS.
+--- Link evidence to case in ERS.
 ---@param evidenceId string
 ---@param caseId string
 function ERSAdapter:LinkToCase(evidenceId, caseId)
@@ -75,9 +83,9 @@ function ERSAdapter:LinkToCase(evidenceId, caseId)
         return
     end
 
-    if exports.ers and exports.ers.LinkToCase then
-        exports.ers.LinkToCase(evidenceId, caseId)
+    if exports and exports.ers and exports.ers.LinkEvidenceToCase then
+        exports.ers.LinkEvidenceToCase(evidenceId, caseId)
     end
 end
 
-_G.DCERSAdapter = ERSAdapter
+_G.DCEERSEvidenceAdapter = ERSAdapter

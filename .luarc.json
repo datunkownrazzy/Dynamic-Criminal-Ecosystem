@@ -1,0 +1,33 @@
+{
+    "runtime": {
+        "version": "Lua 5.4"
+    },
+    "workspace": {
+        "library": [
+            "DCE/src/types"
+        ]
+    },
+    "diagnostics": {
+        "globals": [
+            "fx_version",
+            "game",
+            "author",
+            "version",
+            "description",
+            "dependencies",
+            "dependency",
+            "shared_scripts",
+            "client_scripts",
+            "server_scripts",
+            "files",
+            "file",
+            "ui_page",
+            "exports",
+            "server_exports",
+            "source",
+            "DCE"
+        ],
+        "unusedLocal": false,
+        "unusedFunction": false
+    }
+}

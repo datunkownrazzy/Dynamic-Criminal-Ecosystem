@@ -30,11 +30,12 @@ function StateMachine.Tick(scenarios)
             local newStage = scenario:AdvanceStage()
             if newStage then
                 -- Stage advanced
+                -- Note: currentStageIndex was already incremented by AdvanceStage()
                 table.insert(events, {
                     type = "scenario:stage:changed",
                     scenarioId = scenario.id,
                     organizationId = scenario.organizationId,
-                    fromStage = scenario.stages[scenario.currentStageIndex - 1],
+                    fromStage = scenario.stages[scenario.currentStageIndex - 1] or scenario.stages[1],
                     toStage = newStage,
                     stageIndex = scenario.currentStageIndex,
                 })

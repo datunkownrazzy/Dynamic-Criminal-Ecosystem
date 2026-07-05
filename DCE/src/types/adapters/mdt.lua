@@ -1,0 +1,17 @@
+-- DCE MDT Adapter Type Declarations
+-- This file contains ONLY type declarations for the MDT adapter interface.
+-- Vendor-neutral: Does not reference any specific MDT implementation.
+-- No runtime logic, no business logic.
+
+--- @class IMDTAdapter
+--- MDT Adapter Interface: Integrates with external MDT/case management systems.
+--- Adapters translate DCE investigation data into MDT case entries.
+--- Must be implemented by ERS, Sonoran CAD, PS-MDT, or custom adapters.
+---@field Name string Adapter identifier
+---@field Priority number Adapter priority (used for selection when multiple available)
+---@field CreateCase fun(self:IMDTAdapter, data:table):boolean Create a new investigation case
+---@field UpdateCase fun(self:IMDTAdapter, data:table):boolean Update an existing case
+---@field CloseCase fun(self:IMDTAdapter, data:table):boolean Close a case
+---@field LinkEvidence fun(self:IMDTAdapter, caseId:string, evidenceId:string):boolean Link evidence to case
+---@field AddSuspect fun(self:IMDTAdapter, caseId:string, suspectData:table):boolean Add suspect to case
+---@field GetCase fun(self:IMDTAdapter, caseId:string):table|nil Get case details

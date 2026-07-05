@@ -3,9 +3,15 @@
 -- scores activities, and selects what organizations do.
 -- Spec: docs/08_AI/AIDirector.md
 
-local Activity = DCEActivity
-local Scoring = DCEScoring
-local OrganizationsService = DCEOrganizationsService
+-- Get modules safely from _G
+local function getModule(name)
+    return _G[name] or {}
+end
+
+local Activity = getModule("DCEActivity")
+local Scoring = getModule("DCEScoring")
+local OrganizationsService = getModule("DCEOrganizationsService")
+local DCEActivities = getModule("DCEActivities")
 
 local AIDirectorService = {}
 local activities = {}     -- activityId -> Activity definition
@@ -24,16 +30,24 @@ function AIDirectorService.Initialize()
         return
     end
 
-    DCE.Log("ai", "info", "AI Director initializing...")
+    if DCE and DCE.Log then
+        DCE.Log("ai", "info", "AI Director initializing...")
+    end
 
     -- Load activity definitions
     local activityData = DCEActivities
     for id, data in pairs(activityData) do
-        activities[id] = Activity.New(id, data)
-        DCE.Log("ai", "info", "  Activity loaded: %s", id)
+        if Activity.New then
+            activities[id] = Activity.New(id, data)
+            if DCE and DCE.Log then
+                DCE.Log("ai", "info", "  Activity loaded: %s", id)
+            end
+        end
     end
 
-    DCE.Log("ai", "info", "AI Director initialized with %d activity types", #activityData)
+    if DCE and DCE.Log then
+        DCE.Log("ai", "info", "AI Director initialized with %d activity types", #activityData)
+    end
     isInitialized = true
 end
 
@@ -49,8 +63,8 @@ function AIDirectorService.Tick()
         return nil
     end
 
-    local orgIds = OrganizationsService.GetAllOrgIds()
-    if #orgIds == 0 then
+    local orgIds = OrganizationsService.GetAllOrgIds and OrganizationsService.GetAllOrgIds()
+    if not orgIds or #orgIds == 0 then
         return nil
     end
 
@@ -66,7 +80,9 @@ function AIDirectorService.Tick()
     local Config = getConfig()
     local tickInterval = (Config.AI and Config.AI.DirectorTickInterval) or 5000
     local deltaTime = tickInterval / 1000.0  -- convert ms to seconds
-    OrganizationsService.DecayPerceptionPressure(orgId, deltaTime)
+    if OrganizationsService.DecayPerceptionPressure then
+        OrganizationsService.DecayPerceptionPressure(orgId, deltaTime)
+    end
 
     return AIDirectorService.EvaluateOrganization(orgId)
 end
@@ -75,7 +91,7 @@ end
 ---@param orgId string
 ---@return table|nil The decision made { organizationId, activityId, regionId, score, activity }
 function AIDirectorService.EvaluateOrganization(orgId)
-    local org = OrganizationsService.GetOrgInstance(orgId)
+    local org = OrganizationsService.GetOrgInstance and OrganizationsService.GetOrgInstance(orgId)
     if not org then
         return nil
     end
@@ -84,31 +100,34 @@ function AIDirectorService.EvaluateOrganization(orgId)
     local orgState = org:GetState()
 
     -- Get world state context
-    local World = DCE.GetService("World")
+    local World = DCE and DCE.GetService and DCE.GetService("World")
     if not World then
         return nil
     end
 
-    local timeState = World.GetTime()
-    local weather = World.GetWeather()
+    local timeState = World.GetTime and World.GetTime()
+    local weather = World.GetWeather and World.GetWeather()
 
     -- Score each available activity
     local candidates = {}
     for activityId, activityDef in pairs(activities) do
         -- Check state-based availability
-        if activityDef:IsAvailable(orgState.state) and activityDef:MeetsRequirements(orgState) then
+        if activityDef and activityDef.IsAvailable and activityDef.IsAvailable(orgState.state) and 
+           activityDef.MeetsRequirements and activityDef.MeetsRequirements(orgState) then
             -- Check which regions this org has influence in
-            local regionIds = World.GetAllRegionIds()
+            local regionIds = World.GetAllRegionIds and World.GetAllRegionIds()
             local bestScore = 0
             local bestRegionId = nil
 
             for _, regionId in ipairs(regionIds) do
-                local regionState = World.GetRegionState(regionId)
-                local score = Scoring.Compute(activityDef, orgIdentity, orgState, regionState, timeState, weather)
+                local regionState = World.GetRegionState and World.GetRegionState(regionId)
+                if Scoring and Scoring.Compute then
+                    local score = Scoring.Compute(activityDef, orgIdentity, orgState, regionState, timeState, weather)
 
-                if score > bestScore then
-                    bestScore = score
-                    bestRegionId = regionId
+                    if score > bestScore then
+                        bestScore = score
+                        bestRegionId = regionId
+                    end
                 end
             end
 
@@ -133,7 +152,7 @@ function AIDirectorService.EvaluateOrganization(orgId)
         return nil
     end
 
-    local selected = Scoring.SelectWeighted(candidates)
+    local selected = (Scoring and Scoring.SelectWeighted) and Scoring.SelectWeighted(candidates)
     if not selected then
         return nil
     end
@@ -154,23 +173,27 @@ function AIDirectorService.EvaluateOrganization(orgId)
     }
 
     -- Emit the decision event
-    DCE.Emit("organization:activity:started", {
-        eventName = "organization:activity:started",
-        eventVersion = 1,
-        timestamp = os.time(),
-        source = "dce-ai",
-        correlationId = orgId .. ":" .. selected.activityId .. ":" .. os.time(),
-        payload = {
-            organizationId = orgId,
-            activity = selected.activityId,
-            location = selected.regionId,
-            layer = 1,
-            score = selected.score,
-        },
-    })
+    if DCE and DCE.Emit then
+        DCE.Emit("organization:activity:started", {
+            eventName = "organization:activity:started",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-ai",
+            correlationId = orgId .. ":" .. selected.activityId .. ":" .. os.time(),
+            payload = {
+                organizationId = orgId,
+                activity = selected.activityId,
+                location = selected.regionId,
+                layer = 1,
+                score = selected.score,
+            },
+        })
+    end
 
-    DCE.Log("ai", "info", "AI Director: %s selected '%s' in %s (score: %d)",
-        orgId, selected.activityId, selected.regionId, selected.score)
+    if DCE and DCE.Log then
+        DCE.Log("ai", "info", "AI Director: %s selected '%s' in %s (score: %d)",
+            orgId, selected.activityId, selected.regionId, selected.score)
+    end
 
     return decision
 end
@@ -182,13 +205,15 @@ end
 --- Emit AI Director event for decision executed.
 ---@param decision table
 function AIDirectorService.EmitDecisionExecuted(decision)
-    DCE.Emit("ai:director:decision:executed", {
-        eventName = "ai:director:decision:executed",
-        eventVersion = 1,
-        timestamp = os.time(),
-        source = "dce-ai",
-        payload = decision,
-    })
+    if DCE and DCE.Emit then
+        DCE.Emit("ai:director:decision:executed", {
+            eventName = "ai:director:decision:executed",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-ai",
+            payload = decision,
+        })
+    end
 end
 
 --- Get the active decision for an organization, if any.
@@ -209,12 +234,16 @@ end
 -- ============================================================================
 
 function AIDirectorService.Shutdown()
-    DCE.Log("ai", "info", "AI Director shutting down...")
+    if DCE and DCE.Log then
+        DCE.Log("ai", "info", "AI Director shutting down...")
+    end
     for orgId, _ in pairs(activeDecisions) do
         activeDecisions[orgId] = nil
     end
     isInitialized = false
-    DCE.Log("ai", "info", "AI Director shutdown complete")
+    if DCE and DCE.Log then
+        DCE.Log("ai", "info", "AI Director shutdown complete")
+    end
 end
 
 _G.DCEAIDirectorService = AIDirectorService

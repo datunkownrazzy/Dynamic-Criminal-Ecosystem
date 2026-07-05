@@ -31,4 +31,5 @@ Config.PluginManager = {
 }
 
 -- Return config for modules that require it
+_G.Config = Config
 return Config

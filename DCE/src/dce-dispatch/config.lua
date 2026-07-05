@@ -23,3 +23,6 @@ Config.Dispatch.Integration = {
     ExportName = "DCEDispatchAdapter",
     EnableStandaloneFallback = true,
 }
+
+-- Set global Config (extends the core config)
+_G.Config = Config

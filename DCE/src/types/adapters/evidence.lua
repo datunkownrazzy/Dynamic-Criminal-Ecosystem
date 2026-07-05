@@ -1,0 +1,15 @@
+-- DCE Evidence Adapter Type Declarations
+-- This file contains ONLY type declarations for the Evidence adapter interface.
+-- Vendor-neutral: Does not reference any specific inventory/MDT implementation.
+-- No runtime logic, no business logic.
+
+--- @class IEvidenceAdapter
+--- Evidence Adapter Interface: Integrates with external inventory/MDT systems.
+--- Adapters translate DCE evidence into external inventory items or MDT evidence.
+--- Must be implemented by ERS, Sonoran CAD, PS-MDT, or custom adapters.
+---@field Name string Adapter identifier
+---@field Priority number Adapter priority (used for selection when multiple available)
+---@field CreateEvidence fun(self:IEvidenceAdapter, data:EvidenceSummary):boolean Create an evidence item in external system
+---@field TransferEvidence fun(self:IEvidenceAdapter, data:table):boolean Transfer evidence (chain of custody update)
+---@field VerifyEvidence fun(self:IEvidenceAdapter, data:EvidenceSummary):boolean Mark evidence as verified
+---@field LinkToCase fun(self:IEvidenceAdapter, evidenceId:string, caseId:string):boolean Link evidence to an investigation case

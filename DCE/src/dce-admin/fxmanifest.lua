@@ -22,6 +22,22 @@ server_scripts {
     'init.lua',
 }
 
+-- DCE core must start before any other DCE resource
+-- Other resources should declare 'dce-core' in their dependencies
+
 server_exports {
     'GetConfig',
 }
+
+client_scripts {
+    'client/*.lua',
+}
+
+-- NUI Files
+file {
+    'html/index.html',
+    'html/css/style.css',
+    'html/js/app.js',
+}
+
+ui_page 'html/index.html'

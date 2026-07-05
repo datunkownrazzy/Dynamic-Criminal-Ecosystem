@@ -16,12 +16,10 @@ local function getConfig()
 end
 
 --- Check if a player has admin permission
+-- NOTE: Uses local Config directly to avoid circular dependency with Admin service
 local function HasPermission(source)
-    local AdminService = DCE.GetService("Admin")
-    if AdminService and AdminService.HasPermission then
-        return AdminService.HasPermission(source)
-    end
-    local Config = getConfig()
+    -- Use the shared config directly - no service call to avoid circular dependency
+    local Config = _G.Config or {}
     if Config.Admin and Config.Admin.PermissionCheck then
         return Config.Admin.PermissionCheck(source)
     end
@@ -39,18 +37,22 @@ local function OpenAdminDashboard(source)
         return
     end
 
-    logger("admin", "info", "Admin dashboard opened by %s", source)
+    if logger then
+        logger("admin", "info", "Admin dashboard opened by %s", source)
+    end
 
     -- Emit event for audit trail
-    DCE.Emit("admin:dashboard:opened", {
-        eventName = "admin:dashboard:opened",
-        eventVersion = 1,
-        timestamp = os.time(),
-        source = "dce-admin",
-        payload = {
-            adminId = source,
-        },
-    })
+    if DCE and DCE.Emit then
+        DCE.Emit("admin:dashboard:opened", {
+            eventName = "admin:dashboard:opened",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-admin",
+            payload = {
+                adminId = source,
+            },
+        })
+    end
 
     -- Trigger NUI to open (will work once NUI is implemented)
     TriggerClientEvent('dce-admin:client:openDashboard', source)
@@ -87,9 +89,11 @@ local function ExecuteDebug(source, args)
         table.insert(remainingArgs, args[i])
     end
 
-    logger("admin", "info", "Debug command from %s: %s %s", source, debugSystem, table.concat(remainingArgs, " "))
+    if logger then
+        logger("admin", "info", "Debug command from %s: %s %s", source, debugSystem, table.concat(remainingArgs, " "))
+    end
 
-    local AdminService = DCE.GetService("Admin")
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
     if AdminService and AdminService.ExecuteDebugCommand then
         local result = AdminService.ExecuteDebugCommand(source, debugSystem, remainingArgs)
         
@@ -97,10 +101,18 @@ local function ExecuteDebug(source, args)
             AdminService.LogAction(source, "debug_command", { system = debugSystem, args = remainingArgs })
         end
 
-        if result.success then
+        if result and result.success then
             local outputMsg = result.message or "Command executed"
-            if result.output then
-                outputMsg = outputMsg .. " | Data: " .. json.encode(result.output):sub(1, 500)
+             if result.output then
+                 -- Use json.encode safely - may not be available in all FiveM environments
+                 local outputStr = "{}"
+                 if json and json.encode then
+                     local encoded = json.encode(result.output)
+                     outputStr = encoded and encoded:sub(1, 500) or tostring(result.output):sub(1, 500)
+                 else
+                     outputStr = tostring(result.output):sub(1, 500)
+                 end
+                outputMsg = outputMsg .. " | Data: " .. outputStr
             end
             TriggerClientEvent('chat:addMessage', source, {
                 color = { 0, 255, 0 },
@@ -109,7 +121,7 @@ local function ExecuteDebug(source, args)
         else
             TriggerClientEvent('chat:addMessage', source, {
                 color = { 255, 0, 0 },
-                args = { "[DCE Debug] ", result.message or "Command failed" }
+                args = { "[DCE Debug] ", result and result.message or "Command failed" }
             })
         end
     else
@@ -131,7 +143,7 @@ local function ShowStatus(source)
         return
     end
 
-    local AdminService = DCE.GetService("Admin")
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
     if not AdminService then
         TriggerClientEvent('chat:addMessage', source, {
             color = { 255, 0, 0 },
@@ -140,15 +152,18 @@ local function ShowStatus(source)
         return
     end
 
-    local perf = AdminService.GetPerformanceMetrics()
-    local integrations = AdminService.GetIntegrationHealth()
+    local perf = AdminService.GetPerformanceMetrics and AdminService.GetPerformanceMetrics()
+    local integrations = AdminService.GetIntegrationHealth and AdminService.GetIntegrationHealth()
     
-    TriggerClientEvent('chat:addMessage', source, {
-        color = { 0, 255, 255 },
-        args = { "[DCE Status] ", string.format("Tasks: %d active/%d total | Errors: %d | Dispatch: %s | Evidence: %s", 
-            perf.activeTasks, perf.totalTasks, perf.totalErrors,
-            integrations.dispatch.status, integrations.evidence.status) }
-    })
+    if perf and integrations then
+        TriggerClientEvent('chat:addMessage', source, {
+            color = { 0, 255, 255 },
+            args = { "[DCE Status] ", string.format("Tasks: %d active/%d total | Errors: %d | Dispatch: %s | Evidence: %s", 
+                perf.activeTasks, perf.totalTasks, perf.totalErrors,
+                integrations.dispatch and integrations.dispatch.status or "unknown",
+                integrations.evidence and integrations.evidence.status or "unknown") }
+        })
+    end
 end
 
 --- Update config at runtime
@@ -183,24 +198,46 @@ local function UpdateConfig(source, args)
         value = tonumber(value)
     end
 
-    local AdminService = DCE.GetService("Admin")
-    if AdminService and AdminService.UpdateConfig then
-        local success, err = AdminService.UpdateConfig(resource, key, value)
-        if success then
-            TriggerClientEvent('chat:addMessage', source, {
-                color = { 0, 255, 0 },
-                args = { "[DCE Config] ", "Updated " .. resource .. "." .. key .. " = " .. tostring(value) }
-            })
-        else
-            TriggerClientEvent('chat:addMessage', source, {
-                color = { 255, 0, 0 },
-                args = { "[DCE Config] ", err or "Failed to update config" }
-            })
-        end
+    local AdminService = DCE and DCE.GetService and DCE.GetService("Admin")
+    if not AdminService then
+        TriggerClientEvent('chat:addMessage', source, {
+            color = { 255, 0, 0 },
+            args = { "[DCE Config] ", "Admin service not available." }
+        })
+        return
+    end
+    
+    if not AdminService.UpdateConfig then
+        TriggerClientEvent('chat:addMessage', source, {
+            color = { 255, 0, 0 },
+            args = { "[DCE Config] ", "UpdateConfig method not available." }
+        })
+        return
+    end
+    
+    local result = AdminService.UpdateConfig(resource, key, value)
+    local success = result and result.success or false
+    local err = result and result.error or "Failed to update config"
+    
+    if success then
+        TriggerClientEvent('chat:addMessage', source, {
+            color = { 0, 255, 0 },
+            args = { "[DCE Config] ", "Updated " .. resource .. "." .. key .. " = " .. tostring(value) }
+        })
     else
         TriggerClientEvent('chat:addMessage', source, {
             color = { 255, 0, 0 },
-            args = { "[DCE] ", "Admin service not available." }
+            args = { "[DCE Config] ", err }
+        })
+    end
+    
+    -- Log the action for audit trail
+    if AdminService.LogAction then
+        AdminService.LogAction(source, "config_update", {
+            resource = resource,
+            key = key,
+            value = value,
+            success = success
         })
     end
 end
@@ -243,125 +280,259 @@ end
 -- NUI Server Event Handlers
 -- ============================================================================
 
-RegisterNetEvent('dce-admin:server:getDashboardData', function()
+RegisterNetEvent('dce-admin:server:getDashboardData')
+AddEventHandler('dce-admin:server:getDashboardData', function()
     local src = source
     if not HasPermission(src) then return end
     
-    local AdminService = DCE.GetService("Admin")
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
     if AdminService then
-        TriggerClientEvent('dce-admin:server:receiveDashboardData', src, AdminService.GetDashboardData())
+        TriggerClientEvent('dce-admin:server:receiveDashboardData', src, AdminService.GetDashboardData and AdminService.GetDashboardData())
     end
 end)
 
-RegisterNetEvent('dce-admin:server:getOrganizations', function()
+RegisterNetEvent('dce-admin:server:getOrganizations')
+AddEventHandler('dce-admin:server:getOrganizations', function()
     local src = source
     if not HasPermission(src) then return end
     
-    local AdminService = DCE.GetService("Admin")
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
     if AdminService then
-        TriggerClientEvent('dce-admin:server:receiveOrganizations', src, AdminService.GetOrganizationOverview())
+        TriggerClientEvent('dce-admin:server:receiveOrganizations', src, AdminService.GetOrganizationOverview and AdminService.GetOrganizationOverview())
     end
 end)
 
-RegisterNetEvent('dce-admin:server:getIncidents', function()
+RegisterNetEvent('dce-admin:server:getIncidents')
+AddEventHandler('dce-admin:server:getIncidents', function()
     local src = source
     if not HasPermission(src) then return end
     
-    local AdminService = DCE.GetService("Admin")
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
     if AdminService then
-        TriggerClientEvent('dce-admin:server:receiveIncidents', src, AdminService.GetActiveIncidents())
+        TriggerClientEvent('dce-admin:server:receiveIncidents', src, AdminService.GetActiveIncidents and AdminService.GetActiveIncidents())
     end
 end)
 
-RegisterNetEvent('dce-admin:server:getServices', function()
+RegisterNetEvent('dce-admin:server:getServices')
+AddEventHandler('dce-admin:server:getServices', function()
     local src = source
     if not HasPermission(src) then return end
     
-    local CoreRegistry = DCE.GetService("CoreRegistry")
+    local CoreRegistry = (DCE and DCE.GetService) and DCE.GetService("CoreRegistry")
     if CoreRegistry then
-        TriggerClientEvent('dce-admin:server:receiveServices', src, CoreRegistry.ListServices())
+        TriggerClientEvent('dce-admin:server:receiveServices', src, CoreRegistry.ListServices and CoreRegistry.ListServices())
     end
 end)
 
-RegisterNetEvent('dce-admin:server:getTasks', function()
+RegisterNetEvent('dce-admin:server:getTasks')
+AddEventHandler('dce-admin:server:getTasks', function()
     local src = source
     if not HasPermission(src) then return end
     
-    local CoreRegistry = DCE.GetService("CoreRegistry")
+    local CoreRegistry = (DCE and DCE.GetService) and DCE.GetService("CoreRegistry")
     if CoreRegistry then
-        TriggerClientEvent('dce-admin:server:receiveTasks', src, CoreRegistry.ListTasks())
+        TriggerClientEvent('dce-admin:server:receiveTasks', src, CoreRegistry.ListTasks and CoreRegistry.ListTasks())
     end
 end)
 
-RegisterNetEvent('dce-admin:server:getEvents', function()
+RegisterNetEvent('dce-admin:server:getEvents')
+AddEventHandler('dce-admin:server:getEvents', function()
     local src = source
     if not HasPermission(src) then return end
     
-    local CoreRegistry = DCE.GetService("CoreRegistry")
+    local CoreRegistry = (DCE and DCE.GetService) and DCE.GetService("CoreRegistry")
     if CoreRegistry then
-        TriggerClientEvent('dce-admin:server:receiveEvents', src, CoreRegistry.ListEvents())
+        TriggerClientEvent('dce-admin:server:receiveEvents', src, CoreRegistry.ListEvents and CoreRegistry.ListEvents())
     end
 end)
 
-RegisterNetEvent('dce-admin:server:getConfigs', function()
+RegisterNetEvent('dce-admin:server:getConfigs')
+AddEventHandler('dce-admin:server:getConfigs', function()
     local src = source
     if not HasPermission(src) then return end
     
-    local AdminService = DCE.GetService("Admin")
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
     if AdminService then
-        TriggerClientEvent('dce-admin:server:receiveConfigs', src, AdminService.GetAllConfigs())
+        TriggerClientEvent('dce-admin:server:receiveConfigs', src, AdminService.GetAllConfigs and AdminService.GetAllConfigs())
     end
 end)
 
-RegisterNetEvent('dce-admin:server:getDebugHistory', function()
+RegisterNetEvent('dce-admin:server:getDebugHistory')
+AddEventHandler('dce-admin:server:getDebugHistory', function()
     local src = source
     if not HasPermission(src) then return end
     
-    local AdminService = DCE.GetService("Admin")
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
     if AdminService then
-        TriggerClientEvent('dce-admin:server:receiveDebugHistory', src, AdminService.GetDebugHistory())
+        TriggerClientEvent('dce-admin:server:receiveDebugHistory', src, AdminService.GetDebugHistory and AdminService.GetDebugHistory())
     end
 end)
 
-RegisterNetEvent('dce-admin:server:getAuditLog', function()
+RegisterNetEvent('dce-admin:server:getAuditLog')
+AddEventHandler('dce-admin:server:getAuditLog', function()
     local src = source
     if not HasPermission(src) then return end
     
-    local AdminService = DCE.GetService("Admin")
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
     if AdminService then
-        TriggerClientEvent('dce-admin:server:receiveAuditLog', src, AdminService.GetAuditLog())
+        TriggerClientEvent('dce-admin:server:receiveAuditLog', src, AdminService.GetAuditLog and AdminService.GetAuditLog())
     end
 end)
 
-RegisterNetEvent('dce-admin:server:executeDebug', function(command, args)
+RegisterNetEvent('dce-admin:server:executeDebug')
+AddEventHandler('dce-admin:server:executeDebug', function(command, args)
     local src = source
     if not HasPermission(src) then return end
     
-    local AdminService = DCE.GetService("Admin")
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
     if AdminService then
-        local result = AdminService.ExecuteDebugCommand(src, command, args or {})
+        local result = AdminService.ExecuteDebugCommand and AdminService.ExecuteDebugCommand(src, command, args or {})
         TriggerClientEvent('dce-admin:server:receiveDebugResult', src, result)
     end
 end)
 
-RegisterNetEvent('dce-admin:server:updateConfig', function(resource, key, value)
+RegisterNetEvent('dce-admin:server:updateConfig')
+AddEventHandler('dce-admin:server:updateConfig', function(resource, key, value)
     local src = source
     if not HasPermission(src) then return end
     
-    local AdminService = DCE.GetService("Admin")
+    local AdminService = DCE and DCE.GetService and DCE.GetService("Admin")
+    if not AdminService then
+        TriggerClientEvent('chat:addMessage', src, {
+            color = { 255, 0, 0 },
+            args = { "[DCE] ", "Admin service not available." }
+        })
+        return
+    end
+    
+    if not AdminService.UpdateConfig then
+        TriggerClientEvent('chat:addMessage', src, {
+            color = { 255, 0, 0 },
+            args = { "[DCE] ", "UpdateConfig method not available." }
+        })
+        return
+    end
+    
+    local result = AdminService.UpdateConfig(resource, key, value)
+    local success = result and result.success or false
+    local err = result and result.error or "Failed to update config"
+    
+    if success then
+        TriggerClientEvent('chat:addMessage', src, {
+            color = { 0, 255, 0 },
+            args = { "[DCE] ", "Config updated: " .. resource .. "." .. key .. " = " .. tostring(value) }
+        })
+    else
+        TriggerClientEvent('chat:addMessage', src, {
+            color = { 255, 0, 0 },
+            args = { "[DCE] ", err }
+        })
+    end
+    
+    -- Log the action for audit trail
+    if AdminService.LogAction then
+        AdminService.LogAction(src, "config_update", {
+            resource = resource,
+            key = key,
+            value = value,
+            success = success
+        })
+    end
+end)
+
+-- ============================================================================
+-- NUI Callbacks (RegisterNUICallback for JS fetch API)
+-- These are the endpoints called by the JavaScript app via fetch()
+-- ============================================================================
+
+RegisterNUICallback('getDashboardData', function(data, cb)
+    local src = source
+    if not HasPermission(src) then 
+        cb({})
+        return 
+    end
+    
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
     if AdminService then
-        local success, err = AdminService.UpdateConfig(resource, key, value)
-        if success then
-            TriggerClientEvent('chat:addMessage', src, {
-                color = { 0, 255, 0 },
-                args = { "[DCE] ", "Config updated: " .. resource .. "." .. key .. " = " .. tostring(value) }
-            })
-        else
-            TriggerClientEvent('chat:addMessage', src, {
-                color = { 255, 0, 0 },
-                args = { "[DCE] ", err or "Failed to update config" }
-            })
-        end
+        cb(AdminService.GetDashboardData and AdminService.GetDashboardData())
+    else
+        cb({})
+    end
+end)
+
+RegisterNUICallback('getOrganizations', function(data, cb)
+    local src = source
+    if not HasPermission(src) then 
+        cb({})
+        return 
+    end
+    
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.GetOrganizationOverview and AdminService.GetOrganizationOverview())
+    else
+        cb({})
+    end
+end)
+
+RegisterNUICallback('getIncidents', function(data, cb)
+    local src = source
+    if not HasPermission(src) then 
+        cb({})
+        return 
+    end
+    
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.GetActiveIncidents and AdminService.GetActiveIncidents())
+    else
+        cb({})
+    end
+end)
+
+RegisterNUICallback('getServices', function(data, cb)
+    local src = source
+    if not HasPermission(src) then 
+        cb({})
+        return 
+    end
+    
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.GetServicesList and AdminService.GetServicesList())
+    else
+        cb({})
+    end
+end)
+
+RegisterNUICallback('getTasks', function(data, cb)
+    local src = source
+    if not HasPermission(src) then 
+        cb({})
+        return 
+    end
+    
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.GetTasksList and AdminService.GetTasksList())
+    else
+        cb({})
+    end
+end)
+
+RegisterNUICallback('executeDebug', function(data, cb)
+    local src = source
+    if not HasPermission(src) then 
+        cb({ success = false, message = "No permission" })
+        return 
+    end
+    
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        local result = AdminService.ExecuteDebugCommand and AdminService.ExecuteDebugCommand(src, data.command or "", data.args or {})
+        cb(result)
+    else
+        cb({ success = false, message = "Admin service not available" })
     end
 end)
 

@@ -10,6 +10,31 @@ local function getConfig()
     return _G.Config or {}
 end
 
+--- Check if a region's state changed meaningfully enough to emit an event.
+---@param before table Previous state
+---@param after table Current state
+---@return boolean
+local function HasSignificantChange(before, after)
+    local Config = getConfig()
+    local threshold = {
+        PolicePresence = 5,
+        CivilianDensity = 10,
+        Heat = 5,
+        Violence = 5,
+        EconomicHealth = 3,
+    }
+    
+    if Config.World and Config.World.StateChangeThreshold then
+        threshold = Config.World.StateChangeThreshold
+    end
+    
+    return math.abs((after.policePresence or 0) - (before.policePresence or 0)) >= (threshold.PolicePresence or 5)
+        or math.abs((after.civilianDensity or 0) - (before.civilianDensity or 0)) >= (threshold.CivilianDensity or 10)
+        or math.abs((after.heat or 0) - (before.heat or 0)) >= (threshold.Heat or 5)
+        or math.abs((after.violence or 0) - (before.violence or 0)) >= (threshold.Violence or 5)
+        or math.abs((after.economicHealth or 0) - (before.economicHealth or 0)) >= (threshold.EconomicHealth or 3)
+end
+
 --- Execute a Layer 0 tick for all regions.
 ---@param regions table All region instances keyed by ID
 ---@param worldState table The global world state
@@ -64,31 +89,6 @@ function Layer0.Tick(regions, worldState)
     end
 
     return changedRegions
-end
-
---- Check if a region's state changed meaningfully enough to emit an event.
----@param before table Previous state
----@param after table Current state
----@return boolean
-function HasSignificantChange(before, after)
-    local Config = getConfig()
-    local threshold = {
-        PolicePresence = 5,
-        CivilianDensity = 10,
-        Heat = 5,
-        Violence = 5,
-        EconomicHealth = 3,
-    }
-    
-    if Config.World and Config.World.StateChangeThreshold then
-        threshold = Config.World.StateChangeThreshold
-    end
-    
-    return math.abs((after.policePresence or 0) - (before.policePresence or 0)) >= (threshold.PolicePresence or 5)
-        or math.abs((after.civilianDensity or 0) - (before.civilianDensity or 0)) >= (threshold.CivilianDensity or 10)
-        or math.abs((after.heat or 0) - (before.heat or 0)) >= (threshold.Heat or 5)
-        or math.abs((after.violence or 0) - (before.violence or 0)) >= (threshold.Violence or 5)
-        or math.abs((after.economicHealth or 0) - (before.economicHealth or 0)) >= (threshold.EconomicHealth or 3)
 end
 
 _G.DCELayer0 = Layer0

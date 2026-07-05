@@ -3,31 +3,42 @@
 Config = Config or {}
 Config.Evidence = Config.Evidence or {}
 
--- Evidence confidence thresholds
-Config.Evidence.Confidence = {
+-- Evidence types
+Config.Evidence.Types = Config.Evidence.Types or {
+    Physical = "physical",
+    Forensic = "forensic",
+    Digital = "digital",
+}
+
+-- Evidence confidence defaults
+Config.Evidence.Confidence = Config.Evidence.Confidence or {
     Low = 25,
     Medium = 50,
     High = 75,
-    Certain = 100,
 }
 
--- Evidence types
-Config.Evidence.Types = {
-    Physical = "physical",
-    Digital = "digital",
-    Testimonial = "testimonial",
-    Financial = "financial",
-    Forensic = "forensic",
-}
+-- Evidence lifecycle
+Config.Evidence.ChainOfCustodyEnabled = true
+Config.Evidence.AutoVerification = false
 
--- Default evidence decay (seconds before confidence starts dropping)
-Config.Evidence.DecayInterval = 86400  -- 24 hours
-Config.Evidence.DecayRate = 5          -- confidence points lost per interval
+-- Evidence decay settings (seconds)
+Config.Evidence.DecayInterval = 3600
+Config.Evidence.DecayRate = 5
 
 -- Integration settings
-Config.Evidence.Integration = {
+Config.Evidence.Integration = Config.Evidence.Integration or {
     Mode = "native", -- "native", "ers", or "custom"
     ResourceName = "ers",
-    ExportName = "DCEEvidenceAdapter",
+    ExportName = "DCEvidenceAdapter",
     EnableStandaloneFallback = true,
 }
+
+-- Factory defaults for evidence creation
+Config.Evidence.Factory = Config.Evidence.Factory or {
+    DefaultScenarioConfidence = 25,
+    DefaultDispatchConfidence = 30,
+}
+
+-- Set global Config (extends the core config)
+_G.Config = Config
+return Config

@@ -1,0 +1,22 @@
+-- DCE Admin Event Payload Type Declarations
+-- This file contains ONLY type declarations for admin domain event payloads.
+-- All events from Event_Catalog_v1.md are defined here.
+-- No runtime logic, no business logic.
+
+--- @class AdminActionExecutedPayload
+--- Payload for admin:action:executed
+---@field timestamp number Unix timestamp
+---@field adminId number Player/server ID
+---@field action string Action performed
+---@field target table|nil Target of the action
+
+--- @class AdminDebugCommandPayload
+--- Payload for admin:debug:command
+---@field eventName string Event name
+---@field eventVersion number Version
+---@field timestamp number Unix timestamp
+---@field source string Source resource
+---@field payload table
+---@field adminId number
+---@field command string Command name
+---@field args table Command arguments

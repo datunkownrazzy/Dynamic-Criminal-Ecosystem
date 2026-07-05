@@ -14,6 +14,7 @@ shared_scripts {
 }
 
 server_scripts {
+    'shared/globals.lua',
     'core/logger.lua',
     'core/registry.lua',
     'core/eventbus.lua',

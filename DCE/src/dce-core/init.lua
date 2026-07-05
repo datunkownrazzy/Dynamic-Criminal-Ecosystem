@@ -2,13 +2,13 @@
 -- Initializes Service Registry, Event Bus, Scheduler, Logger, Config Loader, and Plugin Manager.
 -- Registers the DCE global table that all other resources use.
 -- Files are loaded in dependency order via fxmanifest.lua, so globals are available.
+-- Defensive nil-check patterns are intentional for FiveM resource timing safety per ADR-0001
 
--- ============================================================================
 -- Global DCE Table
 -- ============================================================================
 -- This is the single entry point all DCE resources use.
 -- It exposes: RegisterService, GetService, HasService, GetServiceOrThrow, UnregisterService,
---             Emit, On, Once, Off, Schedule, Log, etc.
+--             Emit, On, Once, Off, Schedule, Log, and SDK registration functions.
 
 DCE = {}
 
@@ -112,7 +112,127 @@ local function InitializeCore()
         Logger.Log(module, level, message, ...)
     end
 
+    -- SDK Wrapper Functions (Plugin_SDK.md)
+    -- These provide a thin wrapper over the Service Registry/Event Bus for plugin authors.
+
+    --- Register a new organization from a plugin.
+    -- Emits sdk:organization:registered event for the Organizations service to handle.
+    ---@param orgDataTable table Organization data following Organizations.md schema
+    ---@return boolean success, string|nil errorMessage
+    DCE.RegisterOrganization = function(orgDataTable)
+        if not orgDataTable or type(orgDataTable) ~= "table" then
+            return false, "orgDataTable must be a table"
+        end
+        if not orgDataTable.id then
+            return false, "orgDataTable.id is required"
+        end
+
+        DCE.Emit("sdk:organization:registered", {
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-core-sdk",
+            payload = {
+                orgId = orgDataTable.id,
+            },
+        })
+        return true
+    end
+
+    --- Register a dispatch adapter from a plugin.
+    ---@param adapterTable table Adapter configuration
+    ---@return boolean success
+    DCE.RegisterDispatchAdapter = function(adapterTable)
+        if not adapterTable then
+            return false
+        end
+        DCE.Emit("sdk:adapter:registered", {
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-core-sdk",
+            payload = {
+                category = "dispatch",
+                adapterName = adapterTable.Name or "unknown",
+            },
+        })
+        return true
+    end
+
+    --- Register an evidence/inventory adapter from a plugin.
+    ---@param adapterTable table Adapter configuration
+    ---@return boolean success
+    DCE.RegisterEvidenceAdapter = function(adapterTable)
+        if not adapterTable then
+            return false
+        end
+        DCE.Emit("sdk:adapter:registered", {
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-core-sdk",
+            payload = {
+                category = "evidence",
+                adapterName = adapterTable.Name or "unknown",
+            },
+        })
+        return true
+    end
+
+    --- Register an MDT adapter from a plugin.
+    ---@param adapterTable table Adapter configuration
+    ---@return boolean success
+    DCE.RegisterMDTAdapter = function(adapterTable)
+        if not adapterTable then
+            return false
+        end
+        DCE.Emit("sdk:adapter:registered", {
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-core-sdk",
+            payload = {
+                category = "mdt",
+                adapterName = adapterTable.Name or "unknown",
+            },
+        })
+        return true
+    end
+
+    --- Register a behavior/scenario extension from a plugin.
+    ---@param behaviorDataTable table Behavior definition
+    ---@return boolean success
+    DCE.RegisterBehavior = function(behaviorDataTable)
+        if not behaviorDataTable then
+            return false
+        end
+        DCE.Emit("sdk:behavior:registered", {
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-core-sdk",
+            payload = {
+                behaviorType = behaviorDataTable.type or "unknown",
+            },
+        })
+        return true
+    end
+
+    --- Register an escalation chain from a plugin.
+    ---@param escalationSchemaTable table Escalation chain definition
+    ---@return boolean success
+    DCE.RegisterEscalationChain = function(escalationSchemaTable)
+        if not escalationSchemaTable then
+            return false
+        end
+        DCE.Emit("sdk:escalation:registered", {
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-core-sdk",
+            payload = {
+                chainId = escalationSchemaTable.id or "unknown",
+            },
+        })
+        return true
+    end
+
     -- Step 4: Register core services
+    -- Defensive patterns: return nil OR actual value for service timing safety
     DCE.RegisterService("CoreRegistry", {
         ListServices = function() return Registry.List() end,
         ListPlugins = function() return PluginManager.List() end,
@@ -123,7 +243,6 @@ local function InitializeCore()
 
     -- Step 5: Emit core ready event
     DCE.Emit("core:initialized", {
-        eventName = "core:initialized",
         eventVersion = 1,
         timestamp = os.time(),
         source = "dce-core",
@@ -199,4 +318,3 @@ else
         end
     end)
 end
-

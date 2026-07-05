@@ -1,0 +1,16 @@
+-- DCE Scenario Adapter Type Declarations
+-- This file contains ONLY type declarations for the Scenario adapter interface.
+-- Vendor-neutral: Does not reference any specific scenario implementation.
+-- No runtime logic, no business logic.
+
+--- @class IScenarioAdapter
+--- Scenario Adapter Interface: Customizes scenario behavior and content.
+--- Adapters provide custom stages, requirements, and outcomes.
+---@field Name string Adapter identifier
+---@field Priority number Adapter priority (used for selection when multiple available)
+---@field GetStages fun(self:IScenarioAdapter, scenarioType:string):string[] Get custom stages for scenario type
+---@field GetStageDuration fun(self:IScenarioAdapter, scenarioType:string, stage:string):number Get custom duration for stage
+---@field GetRequirements fun(self:IScenarioAdapter, scenarioType:string):table Get custom requirements
+---@field OnStageEntered fun(self:IScenarioAdapter, scenarioId:string, stage:string):nil Called when scenario enters a stage
+---@field OnStageCompleted fun(self:IScenarioAdapter, scenarioId:string, stage:string):nil Called when scenario completes a stage
+---@field OnScenarioCompleted fun(self:IScenarioAdapter, scenarioId:string, status:string):nil Called when scenario finishes

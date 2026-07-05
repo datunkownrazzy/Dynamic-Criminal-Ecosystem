@@ -24,9 +24,27 @@ Config.AI.StateTransitions = {
         MinMorale = 70,
         MaxHeat = 40,
     },
+    DormantToGrowing = {
+        MembersThreshold = 10,
+        MoneyThreshold = 5000,
+    },
+    GrowingToStable = {
+        TerritoryCount = 1,
+        MembersThreshold = 15,
+        MinMorale = 50,
+    },
+    AggressiveToStable = {
+        MaxHeat = 60,
+        MinMorale = 40,
+    },
     UnderInvestigationThreshold = 75,  -- intelligence > 75 triggers Under Investigation
     SuppressedHeatDecay = 30,          -- heat below 30 to exit Suppressed
     SuppressedCooldownMinutes = 120,   -- 2 hours minimum cooldown
+    RecoveringToGrowing = {
+        MembersThreshold = 15,
+        MoneyThreshold = 10000,
+        MinMorale = 50,
+    },
 }
 
 -- Organization defaults
@@ -58,11 +76,14 @@ Config.AI.Activity = {
 Config.AI.PerceptionPressure = {
     Enabled = true,
     VisibleWeight = 1.0,        -- multiplier for visible police presence
-    CovertWeight = 0.7,         -- multiplier for covert/undercover presence
+    CovertWeight = 0.7,       -- multiplier for covert/undercover presence
     DecayRate = 1.5,            -- pressure decay per tick
     VisibleThreshold = 35,      -- visible pressure level triggering caution
-    CovertThreshold = 25,       -- covert pressure level triggering subtle caution
+    CovertThreshold = 25,     -- covert pressure level triggering subtle caution
     SpikeThreshold = 60,        -- pressure level triggering strong avoidance
-    CooldownMinutes = 10,       -- cooldown to prevent panic loops
+    CooldownMinutes = 10,     -- cooldown to prevent panic loops
     HighHeatMultiplier = 0.6,   -- additional multiplier when org heat is high
 }
+
+-- Set global Config (extends the core config)
+_G.Config = Config

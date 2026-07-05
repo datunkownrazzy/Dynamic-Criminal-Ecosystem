@@ -1,0 +1,20 @@
+-- DCE Framework Core Type Declarations
+-- This file contains ONLY type declarations for the DCE framework runtime API.
+-- The framework API is used internally by DCE and provides core infrastructure.
+-- No runtime logic, no business logic, no plugin registration.
+
+---@class DCEFramework
+--- The main DCE framework API exposed via the global DCE table.
+--- This interface is for internal DCE use, not plugin SDK.
+---@field GetService fun(self:DCEFramework, name:string):IService|nil  
+---@field HasService fun(self:DCEFramework, name:string):boolean
+---@field GetServiceOrThrow fun(self:DCEFramework, name:string):IService
+---@field RegisterService fun(self:DCEFramework, name:string, service:IService, options?:table):boolean
+---@field UnregisterService fun(self:DCEFramework, name:string):boolean
+---@field Emit fun(self:DCEFramework, eventName:string, payload:table):nil
+---@field On fun(self:DCEFramework, eventName:string, handlerFn:function):number
+---@field Once fun(self:DCEFramework, eventName:string, handlerFn:function):number
+---@field Off fun(self:DCEFramework, eventName:string, handlerId:number):nil
+---@field Schedule fun(self:DCEFramework, taskName:string, intervalMs:number, callback:function, options?:table):boolean
+---@field ScheduleNow fun(self:DCEFramework, taskName:string):boolean
+---@field Log fun(self:DCEFramework, module:string, level:string, message:string, ...:any):nil

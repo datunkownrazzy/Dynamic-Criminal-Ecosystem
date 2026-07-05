@@ -20,8 +20,6 @@ function Evidence.New(data)
     local self = setmetatable({}, Evidence)
 
     self.id = "ev-" .. evidenceCounter
-    self.type = data.type or "physical"
-    
     local defaultType = "physical"
     local confidenceLow = 25
     local decayInterval = 3600
@@ -41,6 +39,8 @@ function Evidence.New(data)
             decayRate = Config.Evidence.DecayRate
         end
     end
+    
+    self.type = data.type or defaultType
     
     if self.type == "physical" and defaultType ~= "physical" then
         self.type = defaultType

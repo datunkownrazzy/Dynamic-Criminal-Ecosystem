@@ -1,0 +1,17 @@
+-- DCE Plugin SDK Type Declarations
+-- This file contains ONLY type declarations for the DCE plugin SDK API.
+-- The SDK API is used by plugin authors to extend DCE functionality.
+-- This interface is separate from the framework core.
+-- No runtime logic, no business logic.
+
+---@class DCEPluginSDK
+--- DCE Plugin SDK - Registration functions for plugin authors.
+--- These functions allow plugins to register organizations, adapters, behaviors, and escalation chains.
+--- All SDK functions emit events that DCE services handle.
+---@field RegisterOrganization fun(self:DCEPluginSDK, orgDataTable:table):(boolean, string|nil)
+---@field RegisterDispatchAdapter fun(self:DCEPluginSDK, adapterTable:table):boolean
+---@field RegisterEvidenceAdapter fun(self:DCEPluginSDK, adapterTable:table):boolean
+---@field RegisterMDTAdapter fun(self:DCEPluginSDK, adapterTable:table):boolean
+---@field RegisterBehavior fun(self:DCEPluginSDK, behaviorDataTable:table):boolean
+---@field RegisterEscalationChain fun(self:DCEPluginSDK, escalationSchemaTable:table):boolean
+---@field RegisterPlugin fun(self:DCEPluginSDK, manifest:table):(boolean, string|nil)

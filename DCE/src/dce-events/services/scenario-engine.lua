@@ -1,9 +1,14 @@
 -- DCE Scenario Engine Service
 -- Manages scenario lifecycle: creation, progression, and resolution.
 
-local Scenario = DCEScenario
-local StateMachine = DCEStateMachine
-local Escalation = DCEEscalation
+-- Get modules safely from _G
+local function getModule(name)
+    return _G[name] or {}
+end
+
+local Scenario = getModule("DCEScenario")
+local StateMachine = getModule("DCEStateMachine")
+local Escalation = getModule("DCEEscalation")
 
 local ScenarioEngine = {}
 local scenarios = {}       -- scenarioId -> Scenario instance
@@ -15,9 +20,13 @@ function ScenarioEngine.Initialize()
     if isInitialized then
         return
     end
-    DCE.Log("events", "info", "Scenario Engine initializing...")
+    if DCE and DCE.Log then
+        DCE.Log("events", "info", "Scenario Engine initializing...")
+    end
     isInitialized = true
-    DCE.Log("events", "info", "Scenario Engine initialized")
+    if DCE and DCE.Log then
+        DCE.Log("events", "info", "Scenario Engine initialized")
+    end
 end
 
 -- ============================================================================
@@ -29,39 +38,52 @@ end
 ---@return table|nil The created scenario summary
 function ScenarioEngine.CreateScenario(data)
     if not data or not data.organizationId or not data.activityId then
-        DCE.Log("events", "error", "ScenarioEngine.CreateScenario: missing required data")
+        if DCE and DCE.Log then
+            DCE.Log("events", "error", "ScenarioEngine.CreateScenario: missing required data")
+        end
         return nil
     end
 
     scenarioCounter = scenarioCounter + 1
     local scenarioId = "scenario-" .. scenarioCounter
 
-    local scenario = Scenario.New(scenarioId, {
-        type = data.activityId,
-        displayName = data.activity and data.activity.displayName or "Activity",
-        organizationId = data.organizationId,
-        regionId = data.regionId,
-        activityId = data.activityId,
-        metadata = {
-            score = data.score,
-            source = "ai-director",
-        },
-    })
+    local scenario = nil
+    if Scenario.New then
+        scenario = Scenario.New(scenarioId, {
+            type = data.activityId,
+            displayName = data.activity and data.activity.displayName or "Activity",
+            organizationId = data.organizationId,
+            regionId = data.regionId,
+            activityId = data.activityId,
+            metadata = {
+                score = data.score,
+                source = "ai-director",
+            },
+        })
+    end
+
+    if not scenario then
+        return nil
+    end
 
     scenarios[scenarioId] = scenario
 
-    DCE.Log("events", "info", "Scenario created: %s (%s) for %s in %s",
-        scenarioId, scenario.displayName, data.organizationId, data.regionId)
+    if DCE and DCE.Log then
+        DCE.Log("events", "info", "Scenario created: %s (%s) for %s in %s",
+            scenarioId, scenario.displayName, data.organizationId, data.regionId)
+    end
 
     -- Emit scenario created event
-    DCE.Emit("scenario:created", {
-        eventName = "scenario:created",
-        eventVersion = 1,
-        timestamp = os.time(),
-        source = "dce-events",
-        correlationId = scenarioId,
-        payload = scenario:GetSummary(),
-    })
+    if DCE and DCE.Emit then
+        DCE.Emit("scenario:created", {
+            eventName = "scenario:created",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-events",
+            correlationId = scenarioId,
+            payload = scenario:GetSummary(),
+        })
+    end
 
     return scenario:GetSummary()
 end
@@ -86,53 +108,63 @@ function ScenarioEngine.Tick()
     end
 
     -- Process state machine
-    local stateEvents = StateMachine.Tick(activeScenarios)
+    local stateEvents = {}
+    if StateMachine and StateMachine.Tick then
+        stateEvents = StateMachine.Tick(activeScenarios)
+    end
 
     -- Process escalation
-    local dispatchEvents = Escalation.ProcessEvents(stateEvents)
+    local dispatchEvents = {}
+    if Escalation and Escalation.ProcessEvents then
+        dispatchEvents = Escalation.ProcessEvents(stateEvents)
+    end
 
     -- Emit events
     for _, event in ipairs(stateEvents) do
-        if event.type == "scenario:stage:changed" then
-            DCE.Emit("scenario:stage:changed", {
-                eventName = "scenario:stage:changed",
-                eventVersion = 1,
-                timestamp = os.time(),
-                source = "dce-events",
-                correlationId = event.scenarioId,
-                payload = event,
-            })
-        elseif event.type == "scenario:completed" then
-            DCE.Emit("scenario:completed", {
-                eventName = "scenario:completed",
-                eventVersion = 1,
-                timestamp = os.time(),
-                source = "dce-events",
-                correlationId = event.scenarioId,
-                payload = event,
-            })
-        elseif event.type == "scenario:timed_out" then
-            DCE.Emit("scenario:timed_out", {
-                eventName = "scenario:timed_out",
-                eventVersion = 1,
-                timestamp = os.time(),
-                source = "dce-events",
-                correlationId = event.scenarioId,
-                payload = event,
-            })
+        if DCE and DCE.Emit then
+            if event.type == "scenario:stage:changed" then
+                DCE.Emit("scenario:stage:changed", {
+                    eventName = "scenario:stage:changed",
+                    eventVersion = 1,
+                    timestamp = os.time(),
+                    source = "dce-events",
+                    correlationId = event.scenarioId,
+                    payload = event,
+                })
+            elseif event.type == "scenario:completed" then
+                DCE.Emit("scenario:completed", {
+                    eventName = "scenario:completed",
+                    eventVersion = 1,
+                    timestamp = os.time(),
+                    source = "dce-events",
+                    correlationId = event.scenarioId,
+                    payload = event,
+                })
+            elseif event.type == "scenario:timed_out" then
+                DCE.Emit("scenario:timed_out", {
+                    eventName = "scenario:timed_out",
+                    eventVersion = 1,
+                    timestamp = os.time(),
+                    source = "dce-events",
+                    correlationId = event.scenarioId,
+                    payload = event,
+                })
+            end
         end
     end
 
     -- Emit dispatch events
     for _, dispatchEvent in ipairs(dispatchEvents) do
-        DCE.Emit("dispatch:call:requested", {
-            eventName = "dispatch:call:requested",
-            eventVersion = 1,
-            timestamp = os.time(),
-            source = "dce-events",
-            correlationId = dispatchEvent.scenarioId,
-            payload = dispatchEvent,
-        })
+        if DCE and DCE.Emit then
+            DCE.Emit("dispatch:call:requested", {
+                eventName = "dispatch:call:requested",
+                eventVersion = 1,
+                timestamp = os.time(),
+                source = "dce-events",
+                correlationId = dispatchEvent.scenarioId,
+                payload = dispatchEvent,
+            })
+        end
     end
 
     -- Clean up completed scenarios after emitting events
@@ -157,7 +189,7 @@ end
 function ScenarioEngine.GetActiveScenarios()
     local active = {}
     for _, scenario in pairs(scenarios) do
-        if scenario.status == "Active" then
+        if scenario and scenario.status == "Active" then
             table.insert(active, scenario:GetSummary())
         end
     end
@@ -169,7 +201,9 @@ end
 function ScenarioEngine.GetAllScenarios()
     local all = {}
     for _, scenario in pairs(scenarios) do
-        table.insert(all, scenario:GetSummary())
+        if scenario then
+            table.insert(all, scenario:GetSummary())
+        end
     end
     return all
 end
@@ -183,18 +217,24 @@ function ScenarioEngine.InterdictScenario(scenarioId)
         return false
     end
 
-    scenario:Complete("Interdicted")
+    if scenario.Complete then
+        scenario:Complete("Interdicted")
+    end
 
-    DCE.Emit("scenario:interdicted", {
-        eventName = "scenario:interdicted",
-        eventVersion = 1,
-        timestamp = os.time(),
-        source = "dce-events",
-        correlationId = scenarioId,
-        payload = scenario:GetSummary(),
-    })
+    if DCE and DCE.Emit then
+        DCE.Emit("scenario:interdicted", {
+            eventName = "scenario:interdicted",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-events",
+            correlationId = scenarioId,
+            payload = scenario:GetSummary(),
+        })
+    end
 
-    DCE.Log("events", "info", "Scenario interdicted: %s", scenarioId)
+    if DCE and DCE.Log then
+        DCE.Log("events", "info", "Scenario interdicted: %s", scenarioId)
+    end
     return true
 end
 
@@ -202,7 +242,7 @@ end
 function ScenarioEngine.Cleanup()
     local toRemove = {}
     for scenarioId, scenario in pairs(scenarios) do
-        if scenario.status ~= "Active" then
+        if scenario and scenario.status ~= "Active" then
             -- Keep completed scenarios for a while, then remove
             if scenario.completedAt and (os.time() - scenario.completedAt) > 300 then
                 table.insert(toRemove, scenarioId)
@@ -220,12 +260,16 @@ end
 -- ============================================================================
 
 function ScenarioEngine.Shutdown()
-    DCE.Log("events", "info", "Scenario Engine shutting down...")
+    if DCE and DCE.Log then
+        DCE.Log("events", "info", "Scenario Engine shutting down...")
+    end
     for scenarioId, _ in pairs(scenarios) do
         scenarios[scenarioId] = nil
     end
     isInitialized = false
-    DCE.Log("events", "info", "Scenario Engine shutdown complete")
+    if DCE and DCE.Log then
+        DCE.Log("events", "info", "Scenario Engine shutdown complete")
+    end
 end
 
 _G.DCEScenarioEngine = ScenarioEngine

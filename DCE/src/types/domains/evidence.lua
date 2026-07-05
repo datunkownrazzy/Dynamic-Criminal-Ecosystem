@@ -1,0 +1,56 @@
+-- DCE Evidence Domain Type Declarations
+-- This file contains ONLY type declarations for the Evidence domain.
+-- No runtime logic, no business logic.
+
+--- @class IEvidence
+--- Evidence Model: Represents a single evidence item in the registry.
+---@field id string Unique evidence identifier
+---@field type string Evidence type (physical, dna, fingerprint, etc.)
+---@field description string Evidence description
+---@field source string Source of evidence (officer, location, etc.)
+---@field organizationId string|nil Originating organization
+---@field scenarioId string|nil Originating scenario
+---@field regionId string|nil Region where collected
+---@field confidence number Confidence level 0-100
+---@field verified boolean Verification status
+---@field createdAt number Unix timestamp
+---@field lastUpdatedAt number Unix timestamp
+---@field caseId string|nil Linked investigation case
+---@field metadata table Additional metadata
+---@field SetConfidence fun(self:IEvidence, newConfidence:number):nil
+---@field Verify fun(self:IEvidence):nil
+---@field LinkToCase fun(self:IEvidence, caseId:string):nil
+---@field ApplyDecay fun(self:IEvidence):nil
+---@field GetSummary fun(self:IEvidence):EvidenceSummary
+
+--- @class ICustody
+--- Custody Model: Represents a chain of custody record for evidence.
+---@field evidenceId string Evidence ID this record applies to
+---@field from string Previous holder
+---@field to string New holder
+---@field reason string Transfer reason
+---@field timestamp number Unix timestamp
+---@field GetSummary fun(self:ICustody):table
+
+--- @class IEvidenceService
+--- Evidence Service: Authoritative owner of evidence state.
+---@field Initialize fun(self:IEvidenceService):nil
+---@field SetAdapter fun(self:IEvidenceService, adapter:IEvidenceAdapter|nil):nil
+---@field GetAdapter fun(self:IEvidenceService):IEvidenceAdapter|nil
+---@field InitializeAdapter fun(self:IEvidenceService):nil
+---@field CreateEvidence fun(self:IEvidenceService, data:table):EvidenceSummary|nil
+---@field GetEvidence fun(self:IEvidenceService, evidenceId:string):EvidenceSummary|nil
+---@field GetAllEvidence fun(self:IEvidenceService):EvidenceSummary[]
+---@field GetEvidenceByScenario fun(self:IEvidenceService, scenarioId:string):EvidenceSummary[]
+---@field GetEvidenceByOrganization fun(self:IEvidenceService, organizationId:string):EvidenceSummary[]
+---@field TransferEvidence fun(self:IEvidenceService, evidenceId:string, from:string, to:string, reason:string):boolean
+---@field GetCustodyChain fun(self:IEvidenceService, evidenceId:string):table[]
+---@field VerifyEvidence fun(self:IEvidenceService, evidenceId:string):boolean
+---@field LinkToCase fun(self:IEvidenceService, evidenceId:string, caseId:string):boolean
+---@field Shutdown fun(self:IEvidenceService):nil
+
+--- @class IEvidenceFactory
+--- Evidence Factory: Creates evidence items based on scenario and events.
+---@field CreateEvidence fun(self:IEvidenceFactory, data:table):EvidenceSummary|nil
+---@field CreateFromScenario fun(self:IEvidenceFactory, scenarioId:string, eventType:string):EvidenceSummary|nil
+---@field FromScenarioCompletion fun(self:IEvidenceFactory, data:table):table|nil

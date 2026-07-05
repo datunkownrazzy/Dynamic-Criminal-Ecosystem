@@ -105,7 +105,7 @@ function Organization:GetState()
         if type(v) == "table" then
             state[k] = {}
             for k2, v2 in pairs(v) do
-                state[k2] = v2
+                state[k][k2] = v2
             end
         else
             state[k] = v

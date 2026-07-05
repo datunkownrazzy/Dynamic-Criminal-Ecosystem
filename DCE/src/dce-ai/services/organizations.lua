@@ -3,8 +3,14 @@
 -- Per ADR-0001: shares dce-ai resource with AI Director.
 -- Spec: docs/05_Organizations/Organizations.md
 
-local Organization = DCEOrganization
-local StateTransitions = DCEStateTransitions
+-- Get modules safely from _G
+local function getModule(name)
+    return _G[name] or {}
+end
+
+local Organization = getModule("DCEOrganization")
+local StateTransitions = getModule("DCEStateTransitions")
+local DCEOrganizations = getModule("DCEOrganizations")
 
 local OrganizationsService = {}
 local organizations = {}  -- orgId -> Organization instance
@@ -16,15 +22,23 @@ function OrganizationsService.Initialize()
         return
     end
 
-    DCE.Log("ai", "info", "Organizations Service initializing...")
+    if DCE and DCE.Log then
+        DCE.Log("ai", "info", "Organizations Service initializing...")
+    end
 
     local orgData = DCEOrganizations
     for id, data in pairs(orgData) do
-        organizations[id] = Organization.New(id, data)
-        DCE.Log("ai", "info", "  Organization loaded: %s (%s)", id, data.displayName)
+        if Organization.New then
+            organizations[id] = Organization.New(id, data)
+            if DCE and DCE.Log then
+                DCE.Log("ai", "info", "  Organization loaded: %s (%s)", id, data.displayName)
+            end
+        end
     end
 
-    DCE.Log("ai", "info", "Organizations Service initialized with %d organizations", #orgData)
+    if DCE and DCE.Log then
+        DCE.Log("ai", "info", "Organizations Service initialized with %d organizations", #orgData)
+    end
     isInitialized = true
 end
 
@@ -102,19 +116,24 @@ function OrganizationsService.SetOrganizationState(orgId, newState)
     end
 
     -- Emit state change event
-    DCE.Emit("organization:state:changed", {
-        eventName = "organization:state:changed",
-        eventVersion = 1,
-        timestamp = os.time(),
-        source = "dce-ai",
-        payload = {
-            organizationId = orgId,
-            fromState = oldState,
-            toState = newState,
-        },
-    })
+    if DCE and DCE.Emit then
+        DCE.Emit("organization:state:changed", {
+            eventName = "organization:state:changed",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-ai",
+            payload = {
+                organizationId = orgId,
+                fromState = oldState,
+                toState = newState,
+            },
+        })
 
-    DCE.Log("ai", "info", "Organization '%s' state changed: %s -> %s", orgId, oldState, newState)
+        if DCE and DCE.Log then
+            DCE.Log("ai", "info", "Organization '%s' state changed: %s -> %s", orgId, oldState, newState)
+        end
+    end
+
     return true
 end
 
@@ -126,7 +145,9 @@ function OrganizationsService.AddHeat(orgId, amount)
     if not org then
         return
     end
-    org:AddHeat(amount)
+    if org.AddHeat then
+        org:AddHeat(amount)
+    end
 end
 
 --- Add money to an organization.
@@ -137,7 +158,9 @@ function OrganizationsService.AddMoney(orgId, amount)
     if not org then
         return
     end
-    org:AddMoney(amount)
+    if org.AddMoney then
+        org:AddMoney(amount)
+    end
 end
 
 --- Get a summary of all organization states.
@@ -161,35 +184,37 @@ end
 -- Perception Pressure API
 -- ============================================================================
 
---- Set perception pressure for an organization from world signals.
----@param orgId string
----@param visible number Visible pressure (0-100)
----@param covert number Covert pressure (0-100)
----@param source string Description of pressure source
 --- Get Config safely
 local function getConfig()
     return _G.Config or {}
 end
 
+--- Set perception pressure for an organization from world signals.
+---@param orgId string
+---@param visible number Visible pressure (0-100)
+---@param covert number Covert pressure (0-100)
+---@param source string Description of pressure source
 function OrganizationsService.SetPerceptionPressure(orgId, visible, covert, source)
     local org = organizations[orgId]
     if not org then
         return
     end
-    
+
     local Config = getConfig()
     if not Config.AI or not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.Enabled then
         return
     end
-    
+
     local oldPerception = org.runtime.perceptionPressure
-    org:SetPerceptionPressure(visible, covert)
+    if org.SetPerceptionPressure then
+        org:SetPerceptionPressure(visible, covert)
+    end
     org.runtime.lastPressureSource = source
-    
+
     local newPerception = org.runtime.perceptionPressure
-    
+
     -- Emit pressure updated event if changed
-    if newPerception ~= oldPerception then
+    if DCE and DCE.Emit and newPerception ~= oldPerception then
         DCE.Emit("organization:perception:pressure_updated", {
             eventName = "organization:perception:pressure_updated",
             eventVersion = 1,
@@ -205,30 +230,35 @@ function OrganizationsService.SetPerceptionPressure(orgId, visible, covert, sour
             },
         })
     end
-    
+
     -- Check for spike threshold
     local spikeThreshold = (Config.AI.PerceptionPressure and Config.AI.PerceptionPressure.SpikeThreshold) or 60
     if newPerception >= spikeThreshold and oldPerception < spikeThreshold then
-        -- Pressure spiked - emit spike event and set cooldown
-        org:ResetPressureCooldown()
-        
-        DCE.Emit("organization:perception:pressure_spiked", {
-            eventName = "organization:perception:pressure_spiked",
-            eventVersion = 1,
-            timestamp = os.time(),
-            source = "dce-ai",
-            payload = {
-                organizationId = orgId,
-                regionId = source,
-                visiblePressure = org.runtime.visiblePressure,
-                covertPressure = org.runtime.covertPressure,
-                perceptionPressure = newPerception,
-                reason = "enforcement_spike",
-            },
-        })
-        
-        DCE.Log("ai", "warn", "Organization '%s' perception pressure spiked: %d (visible: %d, covert: %d)", 
-            orgId, newPerception, org.runtime.visiblePressure, org.runtime.covertPressure)
+        if org.ResetPressureCooldown then
+            org:ResetPressureCooldown()
+        end
+
+        if DCE and DCE.Emit then
+            DCE.Emit("organization:perception:pressure_spiked", {
+                eventName = "organization:perception:pressure_spiked",
+                eventVersion = 1,
+                timestamp = os.time(),
+                source = "dce-ai",
+                payload = {
+                    organizationId = orgId,
+                    regionId = source,
+                    visiblePressure = org.runtime.visiblePressure,
+                    covertPressure = org.runtime.covertPressure,
+                    perceptionPressure = newPerception,
+                    reason = "enforcement_spike",
+                },
+            })
+
+            if DCE and DCE.Log then
+                DCE.Log("ai", "warn", "Organization '%s' perception pressure spiked: %d (visible: %d, covert: %d)", 
+                    orgId, newPerception, org.runtime.visiblePressure, org.runtime.covertPressure)
+            end
+        end
     end
 end
 
@@ -241,18 +271,20 @@ function OrganizationsService.ApplyPerceptionPressure(orgId, visible, covert, so
     if not org then
         return
     end
-    
+
     local Config = getConfig()
     if not Config.AI or not Config.AI.PerceptionPressure or not Config.AI.PerceptionPressure.Enabled then
         return
     end
-    
+
     local oldPerception = org.runtime.perceptionPressure
-    org:ApplyPerceptionPressure(visible, covert, source)
+    if org.ApplyPerceptionPressure then
+        org:ApplyPerceptionPressure(visible, covert, source)
+    end
     local newPerception = org.runtime.perceptionPressure
-    
+
     -- Emit pressure updated event if changed
-    if newPerception ~= oldPerception then
+    if DCE and DCE.Emit and newPerception ~= oldPerception then
         DCE.Emit("organization:perception:pressure_updated", {
             eventName = "organization:perception:pressure_updated",
             eventVersion = 1,
@@ -268,29 +300,35 @@ function OrganizationsService.ApplyPerceptionPressure(orgId, visible, covert, so
             },
         })
     end
-    
+
     -- Check for spike threshold
     local spikeThreshold = (Config.AI.PerceptionPressure and Config.AI.PerceptionPressure.SpikeThreshold) or 60
     if newPerception >= spikeThreshold and oldPerception < spikeThreshold then
-        org:ResetPressureCooldown()
-        
-        DCE.Emit("organization:perception:pressure_spiked", {
-            eventName = "organization:perception:pressure_spiked",
-            eventVersion = 1,
-            timestamp = os.time(),
-            source = "dce-ai",
-            payload = {
-                organizationId = orgId,
-                regionId = source,
-                visiblePressure = org.runtime.visiblePressure,
-                covertPressure = org.runtime.covertPressure,
-                perceptionPressure = newPerception,
-                reason = "enforcement_spike",
-            },
-        })
-        
-        DCE.Log("ai", "warn", "Organization '%s' perception pressure spiked: %d (visible: %d, covert: %d)", 
-            orgId, newPerception, org.runtime.visiblePressure, org.runtime.covertPressure)
+        if org.ResetPressureCooldown then
+            org:ResetPressureCooldown()
+        end
+
+        if DCE and DCE.Emit then
+            DCE.Emit("organization:perception:pressure_spiked", {
+                eventName = "organization:perception:pressure_spiked",
+                eventVersion = 1,
+                timestamp = os.time(),
+                source = "dce-ai",
+                payload = {
+                    organizationId = orgId,
+                    regionId = source,
+                    visiblePressure = org.runtime.visiblePressure,
+                    covertPressure = org.runtime.covertPressure,
+                    perceptionPressure = newPerception,
+                    reason = "enforcement_spike",
+                },
+            })
+
+            if DCE and DCE.Log then
+                DCE.Log("ai", "warn", "Organization '%s' perception pressure spiked: %d (visible: %d, covert: %d)", 
+                    orgId, newPerception, org.runtime.visiblePressure, org.runtime.covertPressure)
+            end
+        end
     end
 end
 
@@ -301,13 +339,15 @@ function OrganizationsService.DecayPerceptionPressure(orgId, deltaTime)
     if not org then
         return
     end
-    
-    org:DecayPerceptionPressure(deltaTime)
+
+    if org.DecayPerceptionPressure then
+        org:DecayPerceptionPressure(deltaTime)
+    end
 end
 
 --- Get perception pressure state for an organization.
 ---@param orgId string
----@return table|nil { visible, covert, perception, onCooldown, source }
+---@return table|nil { visible, covert, perception, onCooldown }
 function OrganizationsService.GetPerceptionPressure(orgId)
     local org = organizations[orgId]
     if not org then
@@ -325,13 +365,15 @@ end
 function OrganizationsService.EvaluateTransitions()
     local transitions = {}
     for orgId, org in pairs(organizations) do
-        local newState = StateTransitions.Evaluate(org)
-        if newState then
-            table.insert(transitions, {
-                orgId = orgId,
-                fromState = org.runtime.state,
-                toState = newState,
-            })
+        if StateTransitions and StateTransitions.Evaluate then
+            local newState = StateTransitions.Evaluate(org)
+            if newState then
+                table.insert(transitions, {
+                    orgId = orgId,
+                    fromState = org.runtime.state,
+                    toState = newState,
+                })
+            end
         end
     end
     return transitions
@@ -342,12 +384,16 @@ end
 -- ============================================================================
 
 function OrganizationsService.Shutdown()
-    DCE.Log("ai", "info", "Organizations Service shutting down...")
+    if DCE and DCE.Log then
+        DCE.Log("ai", "info", "Organizations Service shutting down...")
+    end
     for orgId, _ in pairs(organizations) do
         organizations[orgId] = nil
     end
     isInitialized = false
-    DCE.Log("ai", "info", "Organizations Service shutdown complete")
+    if DCE and DCE.Log then
+        DCE.Log("ai", "info", "Organizations Service shutdown complete")
+    end
 end
 
 _G.DCEOrganizationsService = OrganizationsService

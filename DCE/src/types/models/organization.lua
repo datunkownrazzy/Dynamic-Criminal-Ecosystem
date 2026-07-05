@@ -1,0 +1,32 @@
+-- DCE Organization Model Type Declarations
+-- This file contains ONLY type declarations for the Organization model.
+-- No runtime logic, no business logic.
+
+--- @class Organization
+--- Core Organization entity with identity, state, and membership.
+---@field id string Organization identifier (unique)
+---@field displayName string Display name
+---@field type string Organization type (criminal org type)
+---@field money number Current funds
+---@field heat number Heat level 0-100
+---@field morale number Morale level 0-100
+---@field influence number Influence level 0-100
+---@field intelligence number Police intelligence level
+---@field state string Current state
+---@field leader string|nil Leader identifier
+---@field territories string[] Controlled territories
+---@field createdAt number Creation timestamp
+
+--- @class OrganizationMember
+--- Organization member data.
+---@field id string|number Member identifier
+---@field role string Member role
+---@field joinedAt number Join timestamp
+---@field status string Member status
+
+--- @class OrganizationPerception
+--- Perception pressure data for organizations.
+---@field visible number Visible pressure 0-100
+---@field covert number Covert pressure 0-100
+---@field pressure number Combined pressure value
+---@field lastUpdate number Last update timestamp

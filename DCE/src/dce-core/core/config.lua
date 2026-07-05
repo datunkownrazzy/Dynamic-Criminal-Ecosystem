@@ -64,7 +64,10 @@ function ConfigLoader.Load(path)
     -- If it's a JSON file, parse it
     if path:match("%.json$") then
         local ok, parsed = pcall(function()
-            return json.decode(config)
+            if json and json.decode then
+                return json.decode(config)
+            end
+            return nil
         end)
         if not ok then
             log("error", "core", "ConfigLoader: failed to parse JSON '%s': %s", path, tostring(parsed))

@@ -8,7 +8,10 @@ local NativeAdapter = {}
 local function getPlayers()
     local players = {}
     local success, result = pcall(function()
-        return GetPlayers()
+        if GetPlayers then
+            return GetPlayers()
+        end
+        return nil
     end)
     if success and result then
         players = result
@@ -52,8 +55,10 @@ function NativeAdapter.CreateCall(callData)
         })
     end
 
-    DCE.Log("dispatch", "info", "Native adapter: call %s dispatched to %d players",
-        callData.id, #players)
+    if DCE and DCE.Log then
+        DCE.Log("dispatch", "info", "Native adapter: call %s dispatched to %d players",
+            callData.id, #players)
+    end
 end
 
 --- Update a dispatch call.

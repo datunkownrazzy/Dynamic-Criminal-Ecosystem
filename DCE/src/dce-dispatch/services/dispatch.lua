@@ -2,20 +2,34 @@
 -- Manages dispatch call lifecycle: created -> updated -> resolved.
 -- Adapter-based: works with native fallback or third-party CAD/MDT.
 
-local Call = DCECall
+-- Get modules safely from _G
+local function getModule(name)
+    return _G[name] or {}
+end
+
+local Call = getModule("DCECall")
 
 local DispatchService = {}
 local calls = {}  -- callId -> Call instance
 local activeAdapter = nil
 local isInitialized = false
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 function DispatchService.Initialize()
     if isInitialized then
         return
     end
-    DCE.Log("dispatch", "info", "Dispatch Service initializing...")
+    if DCE and DCE.Log then
+        DCE.Log("dispatch", "info", "Dispatch Service initializing...")
+    end
     isInitialized = true
-    DCE.Log("dispatch", "info", "Dispatch Service initialized")
+    if DCE and DCE.Log then
+        DCE.Log("dispatch", "info", "Dispatch Service initialized")
+    end
 end
 
 -- ============================================================================
@@ -27,9 +41,13 @@ end
 function DispatchService.SetAdapter(adapter)
     activeAdapter = adapter
     if adapter then
-        DCE.Log("dispatch", "info", "Dispatch adapter set")
+        if DCE and DCE.Log then
+            DCE.Log("dispatch", "info", "Dispatch adapter set")
+        end
     else
-        DCE.Log("dispatch", "warn", "Dispatch adapter cleared (falling back to none)")
+        if DCE and DCE.Log then
+            DCE.Log("dispatch", "warn", "Dispatch adapter cleared (falling back to none)")
+        end
     end
 end
 
@@ -51,10 +69,19 @@ function DispatchService.CreateCall(data)
         return nil
     end
 
-    local call = Call.New(data)
+    local call = nil
+    if Call.New then
+        call = Call.New(data)
+    end
+    if not call then
+        return nil
+    end
+
     calls[call.id] = call
 
-    DCE.Log("dispatch", "info", "Call created: %s - %s", call.id, call.description)
+    if DCE and DCE.Log then
+        DCE.Log("dispatch", "info", "Call created: %s - %s", call.id, call.description)
+    end
 
     -- Notify adapter
     if activeAdapter and activeAdapter.CreateCall then
@@ -62,14 +89,16 @@ function DispatchService.CreateCall(data)
     end
 
     -- Emit event
-    DCE.Emit("dispatch:call:created", {
-        eventName = "dispatch:call:created",
-        eventVersion = 1,
-        timestamp = os.time(),
-        source = "dce-dispatch",
-        correlationId = call.id,
-        payload = call:GetSummary(),
-    })
+    if DCE and DCE.Emit then
+        DCE.Emit("dispatch:call:created", {
+            eventName = "dispatch:call:created",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-dispatch",
+            correlationId = call.id,
+            payload = call:GetSummary(),
+        })
+    end
 
     return call:GetSummary()
 end
@@ -90,7 +119,7 @@ end
 function DispatchService.GetActiveCalls()
     local active = {}
     for _, call in pairs(calls) do
-        if call.status == "pending" or call.status == "active" then
+        if call and (call.status == "pending" or call.status == "active") then
             table.insert(active, call:GetSummary())
         end
     end
@@ -106,20 +135,24 @@ function DispatchService.ActivateCall(callId)
         return false
     end
 
-    call:Activate()
+    if call.Activate then
+        call:Activate()
+    end
 
     if activeAdapter and activeAdapter.UpdateCall then
         activeAdapter.UpdateCall(call:GetSummary())
     end
 
-    DCE.Emit("dispatch:call:updated", {
-        eventName = "dispatch:call:updated",
-        eventVersion = 1,
-        timestamp = os.time(),
-        source = "dce-dispatch",
-        correlationId = callId,
-        payload = call:GetSummary(),
-    })
+    if DCE and DCE.Emit then
+        DCE.Emit("dispatch:call:updated", {
+            eventName = "dispatch:call:updated",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-dispatch",
+            correlationId = callId,
+            payload = call:GetSummary(),
+        })
+    end
 
     return true
 end
@@ -134,20 +167,24 @@ function DispatchService.UpdateCall(callId, updateText)
         return false
     end
 
-    call:AddUpdate(updateText)
+    if call.AddUpdate then
+        call:AddUpdate(updateText)
+    end
 
     if activeAdapter and activeAdapter.UpdateCall then
         activeAdapter.UpdateCall(call:GetSummary())
     end
 
-    DCE.Emit("dispatch:call:updated", {
-        eventName = "dispatch:call:updated",
-        eventVersion = 1,
-        timestamp = os.time(),
-        source = "dce-dispatch",
-        correlationId = callId,
-        payload = call:GetSummary(),
-    })
+    if DCE and DCE.Emit then
+        DCE.Emit("dispatch:call:updated", {
+            eventName = "dispatch:call:updated",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-dispatch",
+            correlationId = callId,
+            payload = call:GetSummary(),
+        })
+    end
 
     return true
 end
@@ -162,20 +199,24 @@ function DispatchService.ResolveCall(callId, disposition)
         return false
     end
 
-    call:Resolve(disposition)
+    if call.Resolve then
+        call:Resolve(disposition)
+    end
 
     if activeAdapter and activeAdapter.ResolveCall then
         activeAdapter.ResolveCall(call:GetSummary())
     end
 
-    DCE.Emit("dispatch:call:resolved", {
-        eventName = "dispatch:call:resolved",
-        eventVersion = 1,
-        timestamp = os.time(),
-        source = "dce-dispatch",
-        correlationId = callId,
-        payload = call:GetSummary(),
-    })
+    if DCE and DCE.Emit then
+        DCE.Emit("dispatch:call:resolved", {
+            eventName = "dispatch:call:resolved",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-dispatch",
+            correlationId = callId,
+            payload = call:GetSummary(),
+        })
+    end
 
     return true
 end
@@ -185,7 +226,7 @@ end
 ---@return boolean
 function DispatchService.IsIncidentReported(incidentId)
     for _, call in pairs(calls) do
-        if call.incidentId == incidentId and call.status ~= "cancelled" then
+        if call and call.incidentId == incidentId and call.status ~= "cancelled" then
             return true
         end
     end
@@ -197,7 +238,9 @@ end
 function DispatchService.GetAllCalls()
     local all = {}
     for _, call in pairs(calls) do
-        table.insert(all, call:GetSummary())
+        if call then
+            table.insert(all, call:GetSummary())
+        end
     end
     return all
 end
@@ -206,12 +249,14 @@ end
 function DispatchService.Cleanup()
     local toRemove = {}
     for callId, call in pairs(calls) do
-        if call:HasTimedOut() then
-            call:Cancel()
+        if call and call.HasTimedOut and call:HasTimedOut() then
+            if call.Cancel then
+                call:Cancel()
+            end
             table.insert(toRemove, callId)
         end
         -- Remove resolved calls older than 10 minutes
-        if call.status == "resolved" and call.resolvedAt then
+        if call and call.status == "resolved" and call.resolvedAt then
             if os.time() - call.resolvedAt > 600 then
                 table.insert(toRemove, callId)
             end
@@ -227,13 +272,17 @@ end
 -- ============================================================================
 
 function DispatchService.Shutdown()
-    DCE.Log("dispatch", "info", "Dispatch Service shutting down...")
+    if DCE and DCE.Log then
+        DCE.Log("dispatch", "info", "Dispatch Service shutting down...")
+    end
     for callId, _ in pairs(calls) do
         calls[callId] = nil
     end
     activeAdapter = nil
     isInitialized = false
-    DCE.Log("dispatch", "info", "Dispatch Service shutdown complete")
+    if DCE and DCE.Log then
+        DCE.Log("dispatch", "info", "Dispatch Service shutdown complete")
+    end
 end
 
 _G.DCEDispatchService = DispatchService

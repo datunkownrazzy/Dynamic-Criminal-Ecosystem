@@ -20,7 +20,7 @@ function Region.New(id, data)
     -- Static identity (from data files)
     self.id = id
     self.displayName = data.displayName or id
-    self.bounds = data.bounds or { type = "circle", center = vector3(0, 0, 0), radius = 500.0 }
+    self.bounds = data.bounds or { type = "circle", center = { x = 0, y = 0, z = 0 }, radius = 500.0 }
     self.adjacentRegions = data.adjacentRegions or {}
 
     local Config = getConfig()
@@ -74,7 +74,7 @@ function Region:GetState()
         if type(v) == "table" then
             state[k] = {}
             for k2, v2 in pairs(v) do
-                state[k2] = v2
+                state[k][k2] = v2
             end
         else
             state[k] = v

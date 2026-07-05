@@ -3,12 +3,18 @@
 -- Other systems query this through the Service Registry — they never mutate it directly.
 -- Spec: docs/04_Simulation/World_Engine.md
 
-local Region = DCERegion
-local WorldState = DCEWorldState
-local Layer0 = DCELayer0
-local Layer1 = DCELayer1
-local TimeSim = DCETimeSim
-local WeatherSim = DCEWeatherSim
+-- Get modules safely from _G
+local function getModule(name)
+    return _G[name] or {}
+end
+
+local Region = getModule("DCERegion")
+local WorldState = getModule("DCEWorldState")
+local Layer0 = getModule("DCELayer0")
+local Layer1 = getModule("DCELayer1")
+local TimeSim = getModule("DCETimeSim")
+local WeatherSim = getModule("DCEWeatherSim")
+local DCERegions = getModule("DCERegions")
 
 local WorldService = {}
 local regions = {}        -- regionId -> Region instance
@@ -21,21 +27,35 @@ function WorldService.Initialize()
         return
     end
 
-    DCE.Log("world", "info", "World Engine initializing...")
+    if DCE and DCE.Log then
+        DCE.Log("world", "info", "World Engine initializing...")
+    end
 
     -- Load region definitions
     local regionData = DCERegions
     for id, data in pairs(regionData) do
-        regions[id] = Region.New(id, data)
-        DCE.Log("world", "info", "  Region loaded: %s (%s)", id, data.displayName)
+        if Region.New then
+            regions[id] = Region.New(id, data)
+            if DCE and DCE.Log then
+                DCE.Log("world", "info", "  Region loaded: %s (%s)", id, data.displayName)
+            end
+        end
     end
 
     -- Initialize world state
-    worldState = WorldState.New()
-    TimeSim.Init()
-    WeatherSim.Init()
+    if WorldState.New then
+        worldState = WorldState.New()
+    end
+    if TimeSim.Init then
+        TimeSim.Init()
+    end
+    if WeatherSim.Init then
+        WeatherSim.Init()
+    end
 
-    DCE.Log("world", "info", "World Engine initialized with %d regions", #regions)
+    if DCE and DCE.Log then
+        DCE.Log("world", "info", "World Engine initialized with %d regions", #regions)
+    end
     isInitialized = true
 end
 
@@ -132,13 +152,15 @@ function WorldService.Layer0Tick()
 
     -- Emit events for significantly changed regions
     for regionId, state in pairs(changedRegions) do
-        DCE.Emit("world:region:state_changed", {
-            eventName = "world:region:state_changed",
-            eventVersion = 1,
-            timestamp = os.time(),
-            source = "dce-world",
-            payload = state,
-        })
+        if DCE and DCE.Emit then
+            DCE.Emit("world:region:state_changed", {
+                eventName = "world:region:state_changed",
+                eventVersion = 1,
+                timestamp = os.time(),
+                source = "dce-world",
+                payload = state,
+            })
+        end
     end
 end
 
@@ -151,13 +173,15 @@ function WorldService.Layer1Tick()
     local promotions = Layer1.Tick(regions)
 
     for _, promo in ipairs(promotions) do
-        DCE.Emit("world:region:layer_changed", {
-            eventName = "world:region:layer_changed",
-            eventVersion = 1,
-            timestamp = os.time(),
-            source = "dce-world",
-            payload = promo,
-        })
+        if DCE and DCE.Emit then
+            DCE.Emit("world:region:layer_changed", {
+                eventName = "world:region:layer_changed",
+                eventVersion = 1,
+                timestamp = os.time(),
+                source = "dce-world",
+                payload = promo,
+            })
+        end
     end
 end
 
@@ -169,13 +193,15 @@ function WorldService.TimeTick()
 
     local newTime = TimeSim.Tick(worldState)
     if newTime then
-        DCE.Emit("world:time:changed", {
-            eventName = "world:time:changed",
-            eventVersion = 1,
-            timestamp = os.time(),
-            source = "dce-world",
-            payload = newTime,
-        })
+        if DCE and DCE.Emit then
+            DCE.Emit("world:time:changed", {
+                eventName = "world:time:changed",
+                eventVersion = 1,
+                timestamp = os.time(),
+                source = "dce-world",
+                payload = newTime,
+            })
+        end
     end
 end
 
@@ -187,13 +213,15 @@ function WorldService.WeatherTick()
 
     local newWeather = WeatherSim.Tick(worldState)
     if newWeather then
-        DCE.Emit("world:weather:changed", {
-            eventName = "world:weather:changed",
-            eventVersion = 1,
-            timestamp = os.time(),
-            source = "dce-world",
-            payload = { weather = newWeather },
-        })
+        if DCE and DCE.Emit then
+            DCE.Emit("world:weather:changed", {
+                eventName = "world:weather:changed",
+                eventVersion = 1,
+                timestamp = os.time(),
+                source = "dce-world",
+                payload = { weather = newWeather },
+            })
+        end
     end
 end
 
@@ -203,9 +231,13 @@ end
 
 --- Clean up all world state.
 function WorldService.Shutdown()
-    DCE.Log("world", "info", "World Engine shutting down...")
+    if DCE and DCE.Log then
+        DCE.Log("world", "info", "World Engine shutting down...")
+    end
 
-    Layer1.Clear()
+    if Layer1 and Layer1.Clear then
+        Layer1.Clear()
+    end
 
     for regionId, _ in pairs(regions) do
         regions[regionId] = nil
@@ -214,7 +246,9 @@ function WorldService.Shutdown()
     worldState = nil
     isInitialized = false
 
-    DCE.Log("world", "info", "World Engine shutdown complete")
+    if DCE and DCE.Log then
+        DCE.Log("world", "info", "World Engine shutdown complete")
+    end
 end
 
 _G.DCEWorldService = WorldService

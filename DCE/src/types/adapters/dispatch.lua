@@ -1,0 +1,15 @@
+-- DCE Dispatch Adapter Type Declarations
+-- This file contains ONLY type declarations for the Dispatch adapter interface.
+-- Vendor-neutral: Does not reference any specific CAD/MDT implementation.
+-- No runtime logic, no business logic.
+
+--- @class IDispatchAdapter
+--- Dispatch Adapter Interface: Integrates with external CAD/MDT systems.
+--- Adapters translate DCE dispatch calls into external API calls.
+--- Must be implemented by ERS, Sonoran CAD, PS-Dispatch, or custom adapters.
+---@field Name string Adapter identifier
+---@field Priority number Adapter priority (used for selection when multiple available)
+---@field CreateCall fun(self:IDispatchAdapter, data:DispatchCallSummary):boolean Create a new dispatch call
+---@field UpdateCall fun(self:IDispatchAdapter, data:DispatchCallSummary):boolean Update an existing call
+---@field ResolveCall fun(self:IDispatchAdapter, data:DispatchCallSummary):boolean Resolve a call
+---@field CancelCall fun(self:IDispatchAdapter, data:DispatchCallSummary):boolean Cancel a call

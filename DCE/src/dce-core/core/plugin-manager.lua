@@ -8,6 +8,13 @@ local logger
 
 local DCE_VERSION = "1.0.0"
 
+--- Log a message through the logger if available.
+local function log(level, module, message, ...)
+    if logger then
+        logger.Log(module, level, message, ...)
+    end
+end
+
 --- Initialize the plugin manager with a reference to the logger.
 function PluginManager.Init(log)
     logger = log
@@ -49,7 +56,8 @@ function PluginManager.Register(manifest)
     end
 
     -- Check DCE version compatibility
-    if Config.PluginManager.FailOnVersionMismatch then
+    local Config = _G.Config or {}
+    if Config.PluginManager and Config.PluginManager.FailOnVersionMismatch then
         local minOk = PluginManager.CompareVersions(DCE_VERSION, manifest.DCE.Min) >= 0
         if not minOk then
             return false, string.format(
@@ -70,7 +78,7 @@ function PluginManager.Register(manifest)
     end
 
     -- Check dependency presence
-    if Config.PluginManager.FailOnMissingDependency then
+    if Config.PluginManager and Config.PluginManager.FailOnMissingDependency then
         for _, depId in ipairs(manifest.Requires) do
             -- Check if the dependency is a registered DCE service or a loaded resource
             local depFound = DCE and DCE.HasService and DCE.HasService(depId)

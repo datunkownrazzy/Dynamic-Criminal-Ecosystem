@@ -100,6 +100,33 @@ The list below is given in the plain "PascalCase subject+verb" form used in the 
 
 These two are lower-frequency-emission than they sound — per `ADR-0003`'s debouncing guidance and `DCE-0002`'s performance guidance, these should likely be emitted at a sampled interval (e.g., once per second of ticks) rather than genuinely every single tick, to avoid flooding the bus. Exact sampling rate is a `Config.Scheduler.TickEventSampleRate` concern, not hardcoded.
 
+## Core Domain
+
+| Plain name | Canonical event name | Emitted when |
+|---|---|---|
+| CoreInitialized | `core:initialized` | DCE Core has completed initialization |
+| ServiceRegistered | `service:registered:<name>` | A service has been registered with the Service Registry |
+| ServiceUnregistered | `service:unregistered:<name>` | A service has been unregistered (resource stop) |
+
+## Admin Domain
+
+| Plain name | Canonical event name | Emitted when |
+|---|---|---|
+| AdminDashboardOpened | `admin:dashboard:opened` | Admin opens the DCE admin dashboard |
+| AdminActionExecuted | `admin:action:executed` | An admin action is executed (audit trail) |
+| AdminDebugCommand | `admin:debug:command` | A debug command is received from admin |
+
+## SDK Domain
+
+| Plain name | Canonical event name | Emitted when |
+|---|---|---|
+| PluginRegistered | `sdk:plugin:registered` | A plugin has been successfully registered |
+| PluginRejected | `sdk:plugin:rejected` | A plugin registration was rejected (validation failed) |
+| OrganizationRegistered | `sdk:organization:registered` | A plugin registers a new organization |
+| AdapterRegistered | `sdk:adapter:registered` | A plugin registers a dispatch/evidence/MDT adapter |
+| BehaviorRegistered | `sdk:behavior:registered` | A plugin registers a new behavior/scenario content |
+| EscalationRegistered | `sdk:escalation:registered` | A plugin registers a new escalation chain |
+
 ---
 
 ## What's Deliberately Not Yet Cataloged

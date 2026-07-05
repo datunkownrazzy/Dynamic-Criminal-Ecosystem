@@ -1,0 +1,15 @@
+-- DCE Analytics Adapter Type Declarations
+-- This file contains ONLY type declarations for the Analytics adapter interface.
+-- Vendor-neutral: Does not reference any specific analytics implementation.
+-- No runtime logic, no business logic.
+
+--- @class IAnalyticsAdapter
+--- Analytics Adapter Interface: Provides statistical and analytical capabilities.
+--- Adapters collect simulation data for reporting and analysis.
+--- Can be implemented for various backends (Discord webhooks, database logging, etc.).
+---@field Name string Adapter identifier
+---@field Priority number Adapter priority (used for selection when multiple available)
+---@field RecordEvent fun(self:IAnalyticsAdapter, event:string, data:table):boolean Record a simulation event
+---@field RecordMetric fun(self:IAnalyticsAdapter, metric:string, value:number):boolean Record a metric value
+---@field Flush fun(self:IAnalyticsAdapter):boolean Flush pending data to backend
+---@field Query fun(self:IAnalyticsAdapter, query:table):table[] Query analytics data

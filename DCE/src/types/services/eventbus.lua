@@ -1,0 +1,22 @@
+-- DCE EventBus Service Type Declarations
+-- This file contains ONLY type declarations for the EventBus service.
+-- No runtime logic, no business logic.
+
+--- @class IEventBus
+--- Event Bus: Pub/sub mechanism for all cross-module communication.
+--- All events follow the envelope format: { eventName, eventVersion, timestamp, source, correlationId?, payload }
+---@field Init fun(self:IEventBus, logger:ILogger):nil Initialize the event bus
+---@field Emit fun(self:IEventBus, eventName:string, payload:table):nil Emit an event
+---@field On fun(self:IEventBus, eventName:string, handlerFn:function):number|nil Register an event handler
+---@field Once fun(self:IEventBus, eventName:string, handlerFn:function):number|nil Register one-time handler
+---@field ClearEvent fun(self:IEventBus, eventName:string):nil Clear all handlers for an event
+---@field ClearAll fun(self:IEventBus):nil Clear all handlers
+---@field ListEvents fun(self:IEventBus):string[] List all registered events
+---@field HandlerCount fun(self:IEventBus, eventName:string):number Get handler count
+
+--- @class IEventHandler
+--- Event handler registration.
+---@field id number Handler identifier
+---@field eventName string Event name
+---@field callback function Handler function
+---@field once boolean One-time handler flag

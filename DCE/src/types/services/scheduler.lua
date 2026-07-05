@@ -1,0 +1,29 @@
+-- DCE Scheduler Service Type Declarations
+-- This file contains ONLY type declarations for the Scheduler service.
+-- No runtime logic, no business logic.
+
+--- @class IScheduler
+--- Scheduler: Named tasks with configurable intervals. All simulation timing goes through this scheduler.
+---@field Init fun(self:IScheduler, logger:ILogger):nil Initialize the scheduler
+---@field Schedule fun(self:IScheduler, taskName:string, intervalMs:number, callback:function, options?:table):boolean Schedule a recurring task
+---@field ExecuteNow fun(self:IScheduler, taskName:string):boolean Execute a task immediately
+---@field Reschedule fun(self:IScheduler, taskName:string, newIntervalMs:number):boolean Change task interval
+---@field Pause fun(self:IScheduler, taskName:string):nil Pause a task
+---@field Resume fun(self:IScheduler, taskName:string):nil Resume a paused task
+---@field Unschedule fun(self:IScheduler, taskName:string):nil Remove a task
+---@field ClearAll fun(self:IScheduler):nil Clear all tasks
+---@field GetTask fun(self:IScheduler, taskName:string):table|nil Get task details
+---@field ListTasks fun(self:IScheduler):table[] List all tasks
+
+--- @class ISchedulerTask
+--- Scheduled task structure.
+---@field name string Task name
+---@field interval number Interval in milliseconds
+---@field callback function Task callback function
+---@field startedAt number|nil Start timestamp
+---@field lastRunAt number|nil Last run timestamp
+---@field nextRunAt number|nil Next scheduled run
+---@field running boolean Is task currently running
+---@field immediate boolean Run immediately on schedule
+---@field errorCount number Error count
+---@field runCount number Successful run count

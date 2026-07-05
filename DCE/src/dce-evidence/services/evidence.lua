@@ -2,9 +2,13 @@
 -- Authoritative owner of evidence state. Manages the Evidence Registry,
 -- evidence lifecycle, confidence scoring, and chain of custody.
 
-local Evidence = DCEEvidence
-local Custody = DCECustody
-local ERSAdapter = DCERSAdapter
+-- Get modules safely from _G
+local function getModule(name)
+    return _G[name] or {}
+end
+
+local Evidence = getModule("DCEEvidence")
+local Custody = getModule("DCECustody")
 
 local EvidenceService = {}
 local evidenceRegistry = {}  -- evidenceId -> Evidence instance
@@ -12,23 +16,40 @@ local custodyRecords = {}   -- evidenceId -> array of Custody records
 local activeAdapter = nil
 local isInitialized = false
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 function EvidenceService.Initialize()
     if isInitialized then
         return
     end
-    DCE.Log("evidence", "info", "Evidence Service initializing...")
+    if DCE and DCE.Log then
+        DCE.Log("evidence", "info", "Evidence Service initializing...")
+    end
     isInitialized = true
-    DCE.Log("evidence", "info", "Evidence Service initialized")
+    if DCE and DCE.Log then
+        DCE.Log("evidence", "info", "Evidence Service initialized")
+    end
 end
+
+-- ============================================================================
+-- Adapter Management
+-- ============================================================================
 
 --- Set the active evidence adapter.
 ---@param adapter table|nil Optional adapter implementing CreateEvidence, TransferEvidence, VerifyEvidence, LinkToCase
 function EvidenceService.SetAdapter(adapter)
     activeAdapter = adapter
     if adapter then
-        DCE.Log("evidence", "info", "Evidence adapter set")
+        if DCE and DCE.Log then
+            DCE.Log("evidence", "info", "Evidence adapter set")
+        end
     else
-        DCE.Log("evidence", "warn", "Evidence adapter cleared (using local standalone registry)")
+        if DCE and DCE.Log then
+            DCE.Log("evidence", "warn", "Evidence adapter cleared (using local standalone registry)")
+        end
     end
 end
 
@@ -36,11 +57,6 @@ end
 ---@return table|nil
 function EvidenceService.GetAdapter()
     return activeAdapter
-end
-
---- Get Config safely
-local function getConfig()
-    return _G.Config or {}
 end
 
 --- Resolve the configured evidence adapter or fall back to the local standalone registry.
@@ -58,14 +74,19 @@ function EvidenceService.InitializeAdapter()
     end
 
     if mode == "ers" then
-        local adapter = ERSAdapter.New(integration)
-        if adapter:IsAvailable() then
-            EvidenceService.SetAdapter(adapter)
-            return
+        -- ERS adapter is optional - check at runtime
+        if _G.DCERSAdapter and _G.DCERSAdapter.New then
+            local adapter = _G.DCERSAdapter.New(integration)
+            if adapter and adapter.IsAvailable and adapter:IsAvailable() then
+                EvidenceService.SetAdapter(adapter)
+                return
+            end
         end
 
         if integration.EnableStandaloneFallback ~= false then
-            DCE.Log("evidence", "warn", "ERS evidence adapter unavailable; using local standalone registry")
+            if DCE and DCE.Log then
+                DCE.Log("evidence", "warn", "ERS evidence adapter unavailable; using local standalone registry")
+            end
         end
     end
 
@@ -84,21 +105,32 @@ function EvidenceService.CreateEvidence(data)
         return nil
     end
 
-    local evidence = Evidence.New(data)
+    local evidence = nil
+    if Evidence.New then
+        evidence = Evidence.New(data)
+    end
+    if not evidence then
+        return nil
+    end
+
     evidenceRegistry[evidence.id] = evidence
     custodyRecords[evidence.id] = {}
 
-    DCE.Log("evidence", "info", "Evidence created: %s (%s) - %s", evidence.id, evidence.type, evidence.description)
+    if DCE and DCE.Log then
+        DCE.Log("evidence", "info", "Evidence created: %s (%s) - %s", evidence.id, evidence.type, evidence.description)
+    end
 
     -- Emit event
-    DCE.Emit("evidence:item:created", {
-        eventName = "evidence:item:created",
-        eventVersion = 1,
-        timestamp = os.time(),
-        source = "dce-evidence",
-        correlationId = evidence.id,
-        payload = evidence:GetSummary(),
-    })
+    if DCE and DCE.Emit then
+        DCE.Emit("evidence:item:created", {
+            eventName = "evidence:item:created",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-evidence",
+            correlationId = evidence.id,
+            payload = evidence:GetSummary(),
+        })
+    end
 
     if activeAdapter and activeAdapter.CreateEvidence then
         activeAdapter.CreateEvidence(evidence:GetSummary())
@@ -123,7 +155,9 @@ end
 function EvidenceService.GetAllEvidence()
     local all = {}
     for _, evidence in pairs(evidenceRegistry) do
-        table.insert(all, evidence:GetSummary())
+        if evidence then
+            table.insert(all, evidence:GetSummary())
+        end
     end
     return all
 end
@@ -134,7 +168,7 @@ end
 function EvidenceService.GetEvidenceByScenario(scenarioId)
     local results = {}
     for _, evidence in pairs(evidenceRegistry) do
-        if evidence.scenarioId == scenarioId then
+        if evidence and evidence.scenarioId == scenarioId then
             table.insert(results, evidence:GetSummary())
         end
     end
@@ -147,7 +181,7 @@ end
 function EvidenceService.GetEvidenceByOrganization(organizationId)
     local results = {}
     for _, evidence in pairs(evidenceRegistry) do
-        if evidence.organizationId == organizationId then
+        if evidence and evidence.organizationId == organizationId then
             table.insert(results, evidence:GetSummary())
         end
     end
@@ -165,20 +199,27 @@ function EvidenceService.TransferEvidence(evidenceId, from, to, reason)
         return false
     end
 
-    local custody = Custody.New(evidenceId, from, to, reason)
-    table.insert(custodyRecords[evidenceId], custody)
+    local custody = nil
+    if Custody.New then
+        custody = Custody.New(evidenceId, from, to, reason)
+    end
+    if custody then
+        table.insert(custodyRecords[evidenceId], custody)
 
-    DCE.Emit("evidence:item:transferred", {
-        eventName = "evidence:item:transferred",
-        eventVersion = 1,
-        timestamp = os.time(),
-        source = "dce-evidence",
-        correlationId = evidenceId,
-        payload = custody:GetSummary(),
-    })
+        if DCE and DCE.Emit then
+            DCE.Emit("evidence:item:transferred", {
+                eventName = "evidence:item:transferred",
+                eventVersion = 1,
+                timestamp = os.time(),
+                source = "dce-evidence",
+                correlationId = evidenceId,
+                payload = custody:GetSummary(),
+            })
+        end
 
-    if activeAdapter and activeAdapter.TransferEvidence then
-        activeAdapter.TransferEvidence(custody:GetSummary())
+        if activeAdapter and activeAdapter.TransferEvidence then
+            activeAdapter.TransferEvidence(custody:GetSummary())
+        end
     end
 
     return true
@@ -193,7 +234,9 @@ function EvidenceService.GetCustodyChain(evidenceId)
     end
     local chain = {}
     for _, record in ipairs(custodyRecords[evidenceId]) do
-        table.insert(chain, record:GetSummary())
+        if record then
+            table.insert(chain, record:GetSummary())
+        end
     end
     return chain
 end
@@ -206,16 +249,20 @@ function EvidenceService.VerifyEvidence(evidenceId)
     if not evidence then
         return false
     end
-    evidence:Verify()
+    if evidence.Verify then
+        evidence:Verify()
+    end
 
-    DCE.Emit("evidence:item:verified", {
-        eventName = "evidence:item:verified",
-        eventVersion = 1,
-        timestamp = os.time(),
-        source = "dce-evidence",
-        correlationId = evidenceId,
-        payload = evidence:GetSummary(),
-    })
+    if DCE and DCE.Emit then
+        DCE.Emit("evidence:item:verified", {
+            eventName = "evidence:item:verified",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-evidence",
+            correlationId = evidenceId,
+            payload = evidence:GetSummary(),
+        })
+    end
 
     if activeAdapter and activeAdapter.VerifyEvidence then
         activeAdapter.VerifyEvidence(evidence:GetSummary())
@@ -233,7 +280,9 @@ function EvidenceService.LinkToCase(evidenceId, caseId)
     if not evidence then
         return false
     end
-    evidence:LinkToCase(caseId)
+    if evidence.LinkToCase then
+        evidence:LinkToCase(caseId)
+    end
 
     if activeAdapter and activeAdapter.LinkToCase then
         activeAdapter.LinkToCase(evidenceId, caseId)
@@ -247,13 +296,17 @@ end
 -- ============================================================================
 
 function EvidenceService.Shutdown()
-    DCE.Log("evidence", "info", "Evidence Service shutting down...")
+    if DCE and DCE.Log then
+        DCE.Log("evidence", "info", "Evidence Service shutting down...")
+    end
     for id, _ in pairs(evidenceRegistry) do
         evidenceRegistry[id] = nil
         custodyRecords[id] = nil
     end
     isInitialized = false
-    DCE.Log("evidence", "info", "Evidence Service shutdown complete")
+    if DCE and DCE.Log then
+        DCE.Log("evidence", "info", "Evidence Service shutdown complete")
+    end
 end
 
 _G.DCEEvidenceService = EvidenceService

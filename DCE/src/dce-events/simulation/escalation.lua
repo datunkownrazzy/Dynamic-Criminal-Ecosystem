@@ -27,18 +27,24 @@ function Escalation.ProcessEvents(events)
                 description = string.format("Suspicious activity reported in %s", event.regionId),
             })
 
-            DCE.Log("events", "info", "Escalation: scenario %s triggered dispatch (stage: %s)",
-                event.scenarioId, event.stage)
+            if DCE and DCE.Log then
+                DCE.Log("events", "info", "Escalation: scenario %s triggered dispatch (stage: %s)",
+                    event.scenarioId, event.stage)
+            end
         end
 
         if event.type == "scenario:completed" then
             -- Scenario completed successfully
-            DCE.Log("events", "info", "Escalation: scenario %s completed successfully", event.scenarioId)
+            if DCE and DCE.Log then
+                DCE.Log("events", "info", "Escalation: scenario %s completed successfully", event.scenarioId)
+            end
         end
 
         if event.type == "scenario:timed_out" then
             -- Scenario timed out
-            DCE.Log("events", "warn", "Escalation: scenario %s timed out", event.scenarioId)
+            if DCE and DCE.Log then
+                DCE.Log("events", "warn", "Escalation: scenario %s timed out", event.scenarioId)
+            end
         end
     end
 

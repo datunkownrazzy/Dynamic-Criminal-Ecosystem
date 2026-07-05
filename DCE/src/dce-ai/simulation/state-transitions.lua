@@ -18,7 +18,14 @@ function StateTransitions.Evaluate(org)
 
     if currentState == "Dormant" then
         -- Dormant -> Growing: when org has enough members and money
-        if org.runtime.members >= 10 and org.runtime.money >= 5000 then
+        local Config = getConfig()
+        local membersThreshold = 10
+        local moneyThreshold = 5000
+        if Config.AI and Config.AI.StateTransitions and Config.AI.StateTransitions.DormantToGrowing then
+            membersThreshold = Config.AI.StateTransitions.DormantToGrowing.MembersThreshold or membersThreshold
+            moneyThreshold = Config.AI.StateTransitions.DormantToGrowing.MoneyThreshold or moneyThreshold
+        end
+        if org.runtime.members >= membersThreshold and org.runtime.money >= moneyThreshold then
             newState = "Growing"
         end
 
@@ -28,7 +35,18 @@ function StateTransitions.Evaluate(org)
         for _, _ in pairs(org.runtime.territories) do
             territoryCount = territoryCount + 1
         end
-        if territoryCount >= 1 and org.runtime.members >= 15 and org.runtime.morale >= 50 then
+        
+        local Config = getConfig()
+        local minTerritory = 1
+        local membersThreshold = 15
+        local minMorale = 50
+        if Config.AI and Config.AI.StateTransitions and Config.AI.StateTransitions.GrowingToStable then
+            minTerritory = Config.AI.StateTransitions.GrowingToStable.TerritoryCount or minTerritory
+            membersThreshold = Config.AI.StateTransitions.GrowingToStable.MembersThreshold or membersThreshold
+            minMorale = Config.AI.StateTransitions.GrowingToStable.MinMorale or minMorale
+        end
+        
+        if territoryCount >= minTerritory and org.runtime.members >= membersThreshold and org.runtime.morale >= minMorale then
             newState = "Stable"
         end
 
@@ -59,7 +77,14 @@ function StateTransitions.Evaluate(org)
     elseif currentState == "Aggressive Expansion" then
         -- Aggressive Expansion -> Conflict: triggered by external events (handled via event)
         -- Aggressive Expansion -> Stable: if heat gets too high or morale drops
-        if org.runtime.heat > 60 or org.runtime.morale < 40 then
+        local Config = getConfig()
+        local maxHeat = 60
+        local minMorale = 40
+        if Config.AI and Config.AI.StateTransitions and Config.AI.StateTransitions.AggressiveToStable then
+            maxHeat = Config.AI.StateTransitions.AggressiveToStable.MaxHeat or maxHeat
+            minMorale = Config.AI.StateTransitions.AggressiveToStable.MinMorale or minMorale
+        end
+        if org.runtime.heat > maxHeat or org.runtime.morale < minMorale then
             newState = "Stable"
         end
 
@@ -99,7 +124,17 @@ function StateTransitions.Evaluate(org)
 
     elseif currentState == "Recovering" then
         -- Recovering -> Growing: when org has rebuilt enough
-        if org.runtime.members >= 15 and org.runtime.money >= 10000 and org.runtime.morale >= 50 then
+        local Config = getConfig()
+        local membersThreshold = 15
+        local moneyThreshold = 10000
+        local minMorale = 50
+        if Config.AI and Config.AI.StateTransitions and Config.AI.StateTransitions.RecoveringToGrowing then
+            membersThreshold = Config.AI.StateTransitions.RecoveringToGrowing.MembersThreshold or membersThreshold
+            moneyThreshold = Config.AI.StateTransitions.RecoveringToGrowing.MoneyThreshold or moneyThreshold
+            minMorale = Config.AI.StateTransitions.RecoveringToGrowing.MinMorale or minMorale
+        end
+        
+        if org.runtime.members >= membersThreshold and org.runtime.money >= moneyThreshold and org.runtime.morale >= minMorale then
             newState = "Growing"
         end
     end

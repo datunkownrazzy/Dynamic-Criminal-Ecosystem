@@ -1,10 +1,6 @@
 -- DCE Evidence Service - Resource Entry Point
+-- Defensive nil-check patterns are intentional for FiveM resource timing safety per ADR-0001
 
-local EvidenceService = DCEEvidenceService
-local EvidenceFactory = DCEEvidenceFactory
-local ERSAdapter = DCERSAdapter
-
--- ============================================================================
 -- Resource Lifecycle
 -- ============================================================================
 
@@ -15,7 +11,10 @@ local function GetDCEAPI()
         attempts = attempts + 1
         Citizen.Wait(100)
         local success, api = pcall(function()
-            return exports['dce-core']:GetDCEAPI()
+            if exports and exports['dce-core'] and exports['dce-core'].GetDCEAPI then
+                return exports['dce-core']:GetDCEAPI()
+            end
+            return nil
         end)
         if success then
             DCEAPI = api
@@ -32,45 +31,75 @@ local function OnEvidenceStart()
     end
     _G.DCE = DCEAPI
 
-    DCE.Log("evidence", "info", "=== DCE Evidence Service Starting ===")
+    if DCE and DCE.Log then
+        DCE.Log("evidence", "info", "=== DCE Evidence Service Starting ===")
+    end
 
-    EvidenceService.Initialize()
-    EvidenceService.InitializeAdapter()
+    -- Initialize evidence service (DCEEvidenceService is set by services/evidence.lua at load time)
+    if DCEEvidenceService and DCEEvidenceService.Initialize then
+        DCEEvidenceService.Initialize()
+    end
+    if DCEEvidenceService and DCEEvidenceService.InitializeAdapter then
+        DCEEvidenceService.InitializeAdapter()
+    end
 
     -- Register the Evidence service
-    DCE.RegisterService("Evidence", {
-        CreateEvidence = function(data) return EvidenceService.CreateEvidence(data) end,
-        GetEvidence = function(evidenceId) return EvidenceService.GetEvidence(evidenceId) end,
-        GetAllEvidence = function() return EvidenceService.GetAllEvidence() end,
-        GetEvidenceByScenario = function(scenarioId) return EvidenceService.GetEvidenceByScenario(scenarioId) end,
-        GetEvidenceByOrganization = function(orgId) return EvidenceService.GetEvidenceByOrganization(orgId) end,
-        TransferEvidence = function(evidenceId, from, to, reason) return EvidenceService.TransferEvidence(evidenceId, from, to, reason) end,
-        GetCustodyChain = function(evidenceId) return EvidenceService.GetCustodyChain(evidenceId) end,
-        VerifyEvidence = function(evidenceId) return EvidenceService.VerifyEvidence(evidenceId) end,
-        LinkToCase = function(evidenceId, caseId) return EvidenceService.LinkToCase(evidenceId, caseId) end,
-        SetAdapter = function(adapter) EvidenceService.SetAdapter(adapter) end,
-        GetAdapter = function() return EvidenceService.GetAdapter() end,
-    })
+    -- Defensive patterns: return nil OR actual value for service timing safety
+    if DCE and DCE.RegisterService then
+        DCE.RegisterService("Evidence", {
+            CreateEvidence = function(data) return DCEEvidenceService and DCEEvidenceService.CreateEvidence(data) end,
+            GetEvidence = function(evidenceId) return DCEEvidenceService and DCEEvidenceService.GetEvidence(evidenceId) end,
+            GetAllEvidence = function() return DCEEvidenceService and DCEEvidenceService.GetAllEvidence() end,
+            GetEvidenceByScenario = function(scenarioId) return DCEEvidenceService and DCEEvidenceService.GetEvidenceByScenario(scenarioId) end,
+            GetEvidenceByOrganization = function(orgId) return DCEEvidenceService and DCEEvidenceService.GetEvidenceByOrganization(orgId) end,
+            TransferEvidence = function(evidenceId, from, to, reason) return DCEEvidenceService and DCEEvidenceService.TransferEvidence(evidenceId, from, to, reason) end,
+            GetCustodyChain = function(evidenceId) return DCEEvidenceService and DCEEvidenceService.GetCustodyChain(evidenceId) end,
+            VerifyEvidence = function(evidenceId) return DCEEvidenceService and DCEEvidenceService.VerifyEvidence(evidenceId) end,
+            LinkToCase = function(evidenceId, caseId) return DCEEvidenceService and DCEEvidenceService.LinkToCase(evidenceId, caseId) end,
+            SetAdapter = function(adapter) 
+                if DCEEvidenceService and DCEEvidenceService.SetAdapter then 
+                    DCEEvidenceService.SetAdapter(adapter) 
+                end 
+            end,
+            GetAdapter = function() return DCEEvidenceService and DCEEvidenceService.GetAdapter() end,
+        })
+    end
 
     -- Subscribe to scenario completion events to create evidence
-    DCE.On("scenario:completed", function(payload)
-        local data = payload.payload or payload
-        local evidenceData = EvidenceFactory.FromScenarioCompletion(data)
-        if evidenceData then
-            EvidenceService.CreateEvidence(evidenceData)
-        end
-    end)
+    if DCE and DCE.On then
+        DCE.On("scenario:completed", function(payload)
+            local data = payload and (payload.payload or payload)
+            if data and DCEEvidenceFactory and DCEEvidenceFactory.FromScenarioCompletion then
+                local evidenceData = DCEEvidenceFactory.FromScenarioCompletion(data)
+                if evidenceData and DCEEvidenceService and DCEEvidenceService.CreateEvidence then
+                    DCEEvidenceService.CreateEvidence(evidenceData)
+                end
+            end
+        end)
+    end
 
-    DCE.Log("evidence", "info", "=== DCE Evidence Service Started ===")
+    if DCE and DCE.Log then
+        DCE.Log("evidence", "info", "=== DCE Evidence Service Started ===")
+    end
 end
 
 local function OnEvidenceStop()
-    DCE.Log("evidence", "info", "=== DCE Evidence Service Stopping ===")
-
-    DCE.UnregisterService("Evidence")
-    EvidenceService.Shutdown()
-
-    DCE.Log("evidence", "info", "=== DCE Evidence Service Stopped ===")
+    -- Safely clean up - DCE may be nil if core shut down first
+    if DCE and DCE.Log then
+        DCE.Log("evidence", "info", "=== DCE Evidence Service Stopping ===")
+    end
+    
+    if DCE and DCE.UnregisterService then
+        DCE.UnregisterService("Evidence")
+    end
+    
+    if DCEEvidenceService and DCEEvidenceService.Shutdown then
+        DCEEvidenceService.Shutdown()
+    end
+    
+    if DCE and DCE.Log then
+        DCE.Log("evidence", "info", "=== DCE Evidence Service Stopped ===")
+    end
 end
 
 -- ============================================================================

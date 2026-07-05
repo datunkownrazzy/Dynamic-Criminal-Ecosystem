@@ -1,11 +1,8 @@
 -- DCE AI Director & Organizations - Resource Entry Point
 -- Registers both the Organizations and AI Director services.
 -- Per ADR-0001: they share this resource but are registered as separate services.
+-- Defensive nil-check patterns are intentional for FiveM resource timing safety per ADR-0001
 
-local OrganizationsService = DCEOrganizationsService
-local AIDirectorService = DCEAIDirectorService
-
--- ============================================================================
 -- Resource Lifecycle
 -- ============================================================================
 
@@ -18,7 +15,10 @@ local function GetDCEAPI()
         attempts = attempts + 1
         Citizen.Wait(100)
         local success, api = pcall(function()
-            return exports['dce-core']:GetDCEAPI()
+            if exports and exports['dce-core'] and exports['dce-core'].GetDCEAPI then
+                return exports['dce-core']:GetDCEAPI()
+            end
+            return nil
         end)
         if success then
             DCEAPI = api
@@ -35,60 +35,86 @@ local function OnAIStart()
     end
     _G.DCE = DCEAPI
 
-    DCE.Log("ai", "info", "=== DCE AI Director & Organizations Starting ===")
+    if DCE and DCE.Log then
+        DCE.Log("ai", "info", "=== DCE AI Director & Organizations Starting ===")
+    end
 
-    -- Initialize services
-    OrganizationsService.Initialize()
-    AIDirectorService.Initialize()
+    -- Initialize services (DCEOrganizationsService and DCEAIDirectorService are set by their files at load time)
+    if DCEOrganizationsService and DCEOrganizationsService.Initialize then
+        DCEOrganizationsService.Initialize()
+    end
+    if DCEAIDirectorService and DCEAIDirectorService.Initialize then
+        DCEAIDirectorService.Initialize()
+    end
 
     -- Register the Organizations service
-    DCE.RegisterService("Organizations", {
-        GetState = function(orgId) return OrganizationsService.GetState(orgId) end,
-        GetIdentity = function(orgId) return OrganizationsService.GetIdentity(orgId) end,
-        GetLeadership = function(orgId) return OrganizationsService.GetLeadership(orgId) end,
-        GetAllOrgIds = function() return OrganizationsService.GetAllOrgIds() end,
-        GetOrgState = function(orgId) return OrganizationsService.GetOrgState(orgId) end,
-        GetAllOrgStates = function() return OrganizationsService.GetAllOrgStates() end,
-        SetOrganizationState = function(orgId, newState) return OrganizationsService.SetOrganizationState(orgId, newState) end,
-        AddHeat = function(orgId, amount) OrganizationsService.AddHeat(orgId, amount) end,
-        AddMoney = function(orgId, amount) OrganizationsService.AddMoney(orgId, amount) end,
-    })
+    -- Defensive patterns: return nil OR actual value for service timing safety
+    if DCE and DCE.RegisterService then
+        DCE.RegisterService("Organizations", {
+            GetState = function(orgId) return DCEOrganizationsService and DCEOrganizationsService.GetState(orgId) end,
+            GetIdentity = function(orgId) return DCEOrganizationsService and DCEOrganizationsService.GetIdentity(orgId) end,
+            GetLeadership = function(orgId) return DCEOrganizationsService and DCEOrganizationsService.GetLeadership(orgId) end,
+            GetAllOrgIds = function() return DCEOrganizationsService and DCEOrganizationsService.GetAllOrgIds() end,
+            GetOrgState = function(orgId) return DCEOrganizationsService and DCEOrganizationsService.GetOrgState(orgId) end,
+            GetAllOrgStates = function() return DCEOrganizationsService and DCEOrganizationsService.GetAllOrgStates() end,
+            SetOrganizationState = function(orgId, newState) return DCEOrganizationsService and DCEOrganizationsService.SetOrganizationState(orgId, newState) end,
+            AddHeat = function(orgId, amount) if DCEOrganizationsService and DCEOrganizationsService.AddHeat then DCEOrganizationsService.AddHeat(orgId, amount) end end,
+            AddMoney = function(orgId, amount) if DCEOrganizationsService and DCEOrganizationsService.AddMoney then DCEOrganizationsService.AddMoney(orgId, amount) end end,
+        })
+    end
 
     -- Register the AI Director service
-    DCE.RegisterService("AIDirector", {
-        Tick = function() return AIDirectorService.Tick() end,
-        EvaluateOrganization = function(orgId) return AIDirectorService.EvaluateOrganization(orgId) end,
-        GetActiveDecision = function(orgId) return AIDirectorService.GetActiveDecision(orgId) end,
-        ClearDecision = function(orgId) AIDirectorService.ClearDecision(orgId) end,
-    })
+    if DCE and DCE.RegisterService then
+        DCE.RegisterService("AIDirector", {
+            Tick = function() return DCEAIDirectorService and DCEAIDirectorService.Tick() end,
+            EvaluateOrganization = function(orgId) return DCEAIDirectorService and DCEAIDirectorService.EvaluateOrganization(orgId) end,
+            GetActiveDecision = function(orgId) return DCEAIDirectorService and DCEAIDirectorService.GetActiveDecision(orgId) end,
+            ClearDecision = function(orgId) if DCEAIDirectorService and DCEAIDirectorService.ClearDecision then DCEAIDirectorService.ClearDecision(orgId) end end,
+        })
+    end
 
--- Schedule AI Director tick (time-sliced)
+    -- Schedule AI Director tick (time-sliced)
     local Config = _G.Config or {}
     local directorTickInterval = 5000
     if Config.AI and Config.AI.DirectorTickInterval then
         directorTickInterval = Config.AI.DirectorTickInterval
     end
-    DCE.Schedule("ai:director:tick", directorTickInterval, function()
-        AIDirectorService.Tick()
-    end, { immediate = true })
+    if DCE and DCE.Schedule then
+        DCE.Schedule("ai:director:tick", directorTickInterval, function()
+            if DCEAIDirectorService and DCEAIDirectorService.Tick then
+                DCEAIDirectorService.Tick()
+            end
+        end, { immediate = true })
+    end
 
     initialized = true
-    DCE.Log("ai", "info", "=== DCE AI Director & Organizations Started ===")
+    if DCE and DCE.Log then
+        DCE.Log("ai", "info", "=== DCE AI Director & Organizations Started ===")
+    end
 end
 
 local function OnAIStop()
-    DCE.Log("ai", "info", "=== DCE AI Director & Organizations Stopping ===")
-
-    -- Unregister services
-    DCE.UnregisterService("AIDirector")
-    DCE.UnregisterService("Organizations")
-
-    -- Shutdown services
-    AIDirectorService.Shutdown()
-    OrganizationsService.Shutdown()
-
+    -- Safely clean up - DCE may be nil if core shut down first
+    if DCE and DCE.Log then
+        DCE.Log("ai", "info", "=== DCE AI Director & Organizations Stopping ===")
+    end
+    
+    if DCE and DCE.UnregisterService then
+        DCE.UnregisterService("AIDirector")
+        DCE.UnregisterService("Organizations")
+    end
+    
+    if DCEAIDirectorService and DCEAIDirectorService.Shutdown then
+        DCEAIDirectorService.Shutdown()
+    end
+    if DCEOrganizationsService and DCEOrganizationsService.Shutdown then
+        DCEOrganizationsService.Shutdown()
+    end
+    
     initialized = false
-    DCE.Log("ai", "info", "=== DCE AI Director & Organizations Stopped ===")
+    if DCE and DCE.Log then
+        DCE.Log("ai", "info", "=== DCE AI Director & Organizations Stopped ===")
+    end
 end
 
 -- ============================================================================

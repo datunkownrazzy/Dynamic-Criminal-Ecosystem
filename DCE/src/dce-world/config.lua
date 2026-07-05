@@ -47,3 +47,6 @@ Config.World.Weather = {
     ChangeInterval = 600000,    -- minimum ms between weather changes (10 minutes)
     Types = { "EXTRASUNNY", "CLEAR", "CLOUDS", "SMOG", "FOGGY", "OVERCAST", "RAIN", "THUNDER", "CLEARING" },
 }
+
+-- Set global Config (extends the core config)
+_G.Config = Config

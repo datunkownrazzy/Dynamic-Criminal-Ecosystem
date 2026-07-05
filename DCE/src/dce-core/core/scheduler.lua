@@ -29,9 +29,9 @@ end
 local function safeSetInterval(callback, intervalMs)
     local timerId = nil
     
-    -- Try FiveM native first
+    -- Try FiveM native first (native signature: SetInterval(intervalMs, callback))
     local success, result = pcall(function()
-        return SetInterval(callback, intervalMs)
+        return SetInterval(intervalMs, callback)
     end)
     
     if success and result then
@@ -65,8 +65,9 @@ end
 local function safeSetTimeout(callback, delayMs)
     local timerId = nil
     
+    -- FiveM native signature: SetTimeout(delayMs, callback)
     local success, result = pcall(function()
-        return SetTimeout(callback, delayMs)
+        return SetTimeout(delayMs, callback)
     end)
     
     if success and result then

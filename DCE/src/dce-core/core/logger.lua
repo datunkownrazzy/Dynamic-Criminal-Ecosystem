@@ -8,9 +8,15 @@ local LogLevels = { debug = 1, info = 2, warn = 3, error = 4, off = 5 }
 local currentLevel
 local config
 
+--- Get Config safely
+local function getConfig()
+    return _G.Config or {}
+end
+
 --- Initialize the logger with configuration.
 function Logger.Init(cfg)
-    config = cfg or Config.Logger
+    local Config = getConfig()
+    config = Config.Logger or {}
     currentLevel = LogLevels[config.Level] or LogLevels.info
 end
 

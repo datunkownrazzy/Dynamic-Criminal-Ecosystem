@@ -1,8 +1,5 @@
 -- DCE Dispatch Service - Resource Entry Point
-
-local DispatchService = DCEDispatchService
-local NativeAdapter = DCENativeAdapter
-local ERSAdapter = DCERSAdapter
+-- Defensive nil-check patterns are intentional for FiveM resource timing safety per ADR-0001
 
 -- ============================================================================
 -- Resource Lifecycle
@@ -15,7 +12,10 @@ local function GetDCEAPI()
         attempts = attempts + 1
         Citizen.Wait(100)
         local success, api = pcall(function()
-            return exports['dce-core']:GetDCEAPI()
+            if exports and exports['dce-core'] and exports['dce-core'].GetDCEAPI then
+                return exports['dce-core']:GetDCEAPI()
+            end
+            return nil
         end)
         if success then
             DCEAPI = api
@@ -42,17 +42,22 @@ local function GetConfiguredAdapter()
     end
 
     if mode == "ers" then
-        local adapter = ERSAdapter.New(integration)
-        if adapter:IsAvailable() then
-            return adapter
+        -- ERS adapter is optional - check at runtime
+        if _G.DCERSAdapter and _G.DCERSAdapter.New then
+            local adapter = _G.DCERSAdapter.New(integration)
+            if adapter and adapter.IsAvailable and adapter:IsAvailable() then
+                return adapter
+            end
         end
 
         if integration.EnableStandaloneFallback ~= false then
-            DCE.Log("dispatch", "warn", "ERS dispatch adapter unavailable; falling back to native standalone")
+            if DCE and DCE.Log then
+                DCE.Log("dispatch", "warn", "ERS dispatch adapter unavailable; falling back to native standalone")
+            end
         end
     end
 
-    return NativeAdapter
+    return _G.DCENativeAdapter or {}
 end
 
 local function OnDispatchStart()
@@ -63,48 +68,78 @@ local function OnDispatchStart()
     end
     _G.DCE = DCEAPI
 
-    DCE.Log("dispatch", "info", "=== DCE Dispatch Service Starting ===")
+    if DCE and DCE.Log then
+        DCE.Log("dispatch", "info", "=== DCE Dispatch Service Starting ===")
+    end
 
-    DispatchService.Initialize()
+    -- Initialize dispatch service (DCEDispatchService is set by services/dispatch.lua at load time)
+    if DCEDispatchService and DCEDispatchService.Initialize then
+        DCEDispatchService.Initialize()
+    end
 
-    DispatchService.SetAdapter(GetConfiguredAdapter())
+    if DCEDispatchService and DCEDispatchService.SetAdapter then
+        DCEDispatchService.SetAdapter(GetConfiguredAdapter())
+    end
 
     -- Register the Dispatch service
-    DCE.RegisterService("Dispatch", {
-        CreateCall = function(data) return DispatchService.CreateCall(data) end,
-        GetCallDetails = function(callId) return DispatchService.GetCallDetails(callId) end,
-        GetActiveCalls = function() return DispatchService.GetActiveCalls() end,
-        GetAllCalls = function() return DispatchService.GetAllCalls() end,
-        ActivateCall = function(callId) return DispatchService.ActivateCall(callId) end,
-        UpdateCall = function(callId, updateText) return DispatchService.UpdateCall(callId, updateText) end,
-        ResolveCall = function(callId, disposition) return DispatchService.ResolveCall(callId, disposition) end,
-        IsIncidentReported = function(incidentId) return DispatchService.IsIncidentReported(incidentId) end,
-        SetAdapter = function(adapter) DispatchService.SetAdapter(adapter) end,
-    })
+    -- Defensive patterns: return nil OR actual value for service timing safety
+    if DCE and DCE.RegisterService then
+        DCE.RegisterService("Dispatch", {
+            CreateCall = function(data) return DCEDispatchService and DCEDispatchService.CreateCall(data) end,
+            GetCallDetails = function(callId) return DCEDispatchService and DCEDispatchService.GetCallDetails(callId) end,
+            GetActiveCalls = function() return DCEDispatchService and DCEDispatchService.GetActiveCalls() end,
+            GetAllCalls = function() return DCEDispatchService and DCEDispatchService.GetAllCalls() end,
+            ActivateCall = function(callId) return DCEDispatchService and DCEDispatchService.ActivateCall(callId) end,
+            UpdateCall = function(callId, updateText) return DCEDispatchService and DCEDispatchService.UpdateCall(callId, updateText) end,
+            ResolveCall = function(callId, disposition) return DCEDispatchService and DCEDispatchService.ResolveCall(callId, disposition) end,
+            IsIncidentReported = function(incidentId) return DCEDispatchService and DCEDispatchService.IsIncidentReported(incidentId) end,
+            SetAdapter = function(adapter) 
+                if DCEDispatchService and DCEDispatchService.SetAdapter then 
+                    DCEDispatchService.SetAdapter(adapter) 
+                end 
+            end,
+        })
+    end
 
     -- Subscribe to dispatch call requests from the scenario engine
-    DCE.On("dispatch:call:requested", function(payload)
-        local data = payload.payload or payload
-        DispatchService.CreateCall({
-            incidentId = data.scenarioId,
-            description = data.description or "Suspicious activity reported",
-            regionId = data.regionId,
-            priority = data.priority or "medium",
-            organizationId = data.organizationId,
-            scenarioId = data.scenarioId,
-        })
-    end)
+    if DCE and DCE.On then
+        DCE.On("dispatch:call:requested", function(payload)
+            local data = payload and (payload.payload or payload)
+            if data and DCEDispatchService and DCEDispatchService.CreateCall then
+                DCEDispatchService.CreateCall({
+                    incidentId = data.scenarioId,
+                    description = data.description or "Suspicious activity reported",
+                    regionId = data.regionId,
+                    priority = data.priority or "medium",
+                    organizationId = data.organizationId,
+                    scenarioId = data.scenarioId,
+                })
+            end
+        end)
+    end
 
-    DCE.Log("dispatch", "info", "=== DCE Dispatch Service Started ===")
+    if DCE and DCE.Log then
+        DCE.Log("dispatch", "info", "=== DCE Dispatch Service Started ===")
+    end
 end
 
 local function OnDispatchStop()
-    DCE.Log("dispatch", "info", "=== DCE Dispatch Service Stopping ===")
-
-    DCE.UnregisterService("Dispatch")
-    DispatchService.Shutdown()
-
-    DCE.Log("dispatch", "info", "=== DCE Dispatch Service Stopped ===")
+    -- Safely clean up - DCE may be nil if core shut down first
+    if DCE and DCE.Log then
+        DCE.Log("dispatch", "info", "=== DCE Dispatch Service Stopping ===")
+    end
+    
+    if DCE and DCE.UnregisterService then
+        DCE.UnregisterService("Dispatch")
+    end
+    
+    if DCEDispatchService and DCEDispatchService.Shutdown then
+        DCEDispatchService.Shutdown()
+    end
+    
+    if DCE and DCE.Log then
+        DCE.Log("dispatch", "info", "=== DCE Dispatch Service Stopped ===")
+    end
 end
 
 -- ============================================================================

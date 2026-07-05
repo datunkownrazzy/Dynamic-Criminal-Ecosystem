@@ -1,0 +1,33 @@
+-- DCE Event Envelope and Payload Type Declarations
+-- This file contains ONLY type declarations for event envelopes and payloads.
+-- Every event in Event_Catalog_v1.md has a corresponding payload type.
+-- No runtime logic, no business logic.
+
+--- @class DCEEventEnvelope
+--- Base envelope for all DCE events.
+--- Every event follows this structure with a typed payload.
+---@field eventName string The canonical event name
+---@field eventVersion number The event schema version
+---@field timestamp number Unix timestamp when event was emitted
+---@field source string Resource that emitted the event
+---@field correlationId string|nil ID linking related events
+---@field payload table The typed event payload
+
+--- @class TimeState
+--- Time state read model for events.
+---@field hour number Current hour (0-23)
+---@field minute number Current minute (0-59)
+---@field day number Current day (1+)
+---@field isNight boolean Is it night time
+
+--- @class RegionState
+--- Region read model for events.
+---@field id string
+---@field displayName string
+---@field civilianDensity number 0-100
+---@field economicHealth number 0-100
+---@field heat number 0-100
+---@field violence number 0-100
+---@field policePresence number 0-100
+---@field layer number 0 or 1
+---@field gangInfluence table<string, number>

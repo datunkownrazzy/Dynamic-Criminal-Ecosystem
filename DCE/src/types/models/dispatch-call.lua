@@ -1,0 +1,72 @@
+-- DCE Model Summary Type Declarations
+-- This file contains ONLY type declarations for read model summaries.
+-- Used as return types and event payload types.
+-- No runtime logic, no business logic.
+
+--- @class DispatchCallSummary
+--- Dispatch Call Read Model: Summary for API responses and event payloads.
+---@field id string Call identifier
+---@field incidentId string Parent incident ID
+---@field description string Call description
+---@field regionId string Region where incident occurred
+---@field priority string Priority level (low|medium|high|critical)
+---@field organizationId string|nil Originating organization
+---@field scenarioId string|nil Originating scenario
+---@field status string Current status (pending|active|resolved|cancelled)
+---@field createdAt number Unix timestamp
+---@field updatedAt number Unix timestamp
+---@field resolvedAt number|nil Unix timestamp
+---@field disposition string|nil Resolution disposition
+---@field updateCount number Number of updates
+---@field score number|nil AI decision score (if applicable)
+
+--- @class EvidenceSummary
+--- Evidence Read Model: Summary for API responses and event payloads.
+---@field id string Evidence identifier
+---@field type string Evidence type (physical, dna, fingerprint, etc.)
+---@field description string Evidence description
+---@field source string Source of evidence
+---@field organizationId string|nil Originating organization
+---@field scenarioId string|nil Originating scenario
+---@field regionId string|nil Region where collected
+---@field confidence number Confidence level 0-100
+---@field verified boolean Verification status
+---@field createdAt number Unix timestamp
+---@field lastUpdatedAt number Unix timestamp
+---@field caseId string|nil Linked investigation case
+---@field custodian string|nil Current custodian
+
+--- @class OrganizationState
+--- Organization State Read Model: Summary for API responses and event payloads.
+---@field id string Organization identifier
+---@field displayName string Organization display name
+---@field money number Current funds
+---@field members number Member count
+---@field heat number Heat level 0-100
+---@field morale number Morale level 0-100
+---@field influence number Influence level 0-100
+---@field intelligence number Police intelligence level
+---@field state string Current state (Dormant, Growing, Stable, etc.)
+---@field territories string[] Controlled territories
+
+--- @class ScenarioSummary
+--- Scenario Read Model: Summary for API responses and event payloads.
+---@field id string Scenario identifier
+---@field type string Activity type
+---@field displayName string Human-readable name
+---@field organizationId string Owning organization
+---@field regionId string Region where active
+---@field currentStage string Current escalation stage
+---@field stageIndex number Current stage index (1-based)
+---@field stageCount number Total stages
+---@field stageProgress number Progress through current stage 0-1.0
+---@field status string Current status (Active, Completed, Failed, etc.)
+---@field layer number Simulation layer
+---@field priority string Priority level
+---@field heatGenerated number Heat impact
+---@field violenceGenerated number Violence impact
+---@field evidenceGenerated number Evidence count
+---@field dispatchTriggered boolean Has dispatch been triggered
+---@field dispatchCallId string|nil Associated dispatch call
+---@field createdAt number Unix timestamp
+---@field completedAt number|nil Unix timestamp

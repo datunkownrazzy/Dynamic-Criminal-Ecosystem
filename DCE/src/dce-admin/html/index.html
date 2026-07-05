@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DCE Admin Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>DCE Admin Dashboard</h1>
+            <div class="header-controls">
+                <button id="refreshBtn" class="btn">Refresh</button>
+                <span id="timestamp" class="timestamp"></span>
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab-btn active" data-view="overview">Overview</button>
+            <button class="tab-btn" data-view="organizations">Organizations</button>
+            <button class="tab-btn" data-view="incidents">Incidents</button>
+            <button class="tab-btn" data-view="performance">Performance</button>
+            <button class="tab-btn" data-view="services">Services</button>
+            <button class="tab-btn" data-view="debug">Debug Console</button>
+        </nav>
+
+        <main>
+            <!-- Overview View -->
+            <section id="view-overview" class="view active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Active Tasks</h3>
+                        <span id="stat-tasks" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total Errors</h3>
+                        <span id="stat-errors" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Organizations</h3>
+                        <span id="stat-orgs" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Active Incidents</h3>
+                        <span id="stat-incidents" class="stat-value">0</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Organizations View -->
+            <section id="view-organizations" class="view">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>State</th>
+                            <th>Members</th>
+                            <th>Money</th>
+                            <th>Heat</th>
+                            <th>Morale</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orgs-table">
+                        <tr><td colspan="7" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Incidents View -->
+            <section id="view-incidents" class="view">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Organization</th>
+                            <th>Activity</th>
+                            <th>Stage</th>
+                            <th>Status</th>
+                            <th>Region</th>
+                        </tr>
+                    </thead>
+                    <tbody id="incidents-table">
+                        <tr><td colspan="6" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Performance View -->
+            <section id="view-performance" class="view">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Task Name</th>
+                            <th>Interval</th>
+                            <th>Status</th>
+                            <th>Errors</th>
+                            <th>Run Count</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasks-table">
+                        <tr><td colspan="5" class="loading">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Services View -->
+            <section id="view-services" class="view">
+                <div id="services-list" class="services-grid">
+                    <div class="loading">Loading...</div>
+                </div>
+            </section>
+
+            <!-- Debug Console View -->
+            <section id="view-debug" class="view">
+                <div class="debug-console">
+                    <div class="debug-input">
+                        <input type="text" id="debug-command" placeholder="Enter command (e.g., orgs, incidents, tasks)">
+                        <button id="debug-exec" class="btn">Execute</button>
+                    </div>
+                    <div id="debug-output" class="debug-output"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -2,8 +2,6 @@
 -- Provides admin dashboard, monitoring, and debug console
 -- v1.0 Scope: Organization overview, Active incidents, Performance metrics
 
-local AdminService = DCEAdminService
-
 -- ============================================================================
 -- Resource Lifecycle
 -- ============================================================================
@@ -15,7 +13,10 @@ local function GetDCEAPI()
         attempts = attempts + 1
         Citizen.Wait(100)
         local success, api = pcall(function()
-            return exports['dce-core']:GetDCEAPI()
+            if exports and exports['dce-core'] and exports['dce-core'].GetDCEAPI then
+                return exports['dce-core']:GetDCEAPI()
+            end
+            return nil
         end)
         if success then
             DCEAPI = api
@@ -32,68 +33,175 @@ local function OnAdminStart()
     end
     _G.DCE = DCEAPI
 
-    DCE.Log("admin", "info", "=== DCE Admin UI Starting ===")
+    if DCE and DCE.Log then
+        DCE.Log("admin", "info", "=== DCE Admin UI Starting ===")
+    end
 
--- Initialize the admin service
-    AdminService.Initialize(function(module, level, message, ...)
-        DCE.Log(module, level, message, ...)
-    end)
+    -- Initialize the admin service (DCEAdminService is set by services/admin.lua at load time)
+    if DCEAdminService and DCEAdminService.Initialize then
+        DCEAdminService.Initialize(function(module, level, message, ...)
+            if DCE and DCE.Log then
+                DCE.Log(module, level, message, ...)
+            end
+        end)
+    end
 
     -- Initialize commands module
-    DCEAdminCommands.Initialize(function(module, level, message, ...)
-        DCE.Log(module, level, message, ...)
-    end)
+    if DCEAdminCommands and DCEAdminCommands.Initialize then
+        DCEAdminCommands.Initialize(function(module, level, message, ...)
+            if DCE and DCE.Log then
+                DCE.Log(module, level, message, ...)
+            end
+        end)
+    end
 
     -- Register admin commands (after core is ready and services are registered)
     Citizen.CreateThread(function()
         Citizen.Wait(1000) -- Wait for all services to be registered
-        DCEAdminCommands.RegisterCommands()
-        DCE.Log("admin", "info", "Admin commands registered")
+        if DCEAdminCommands and DCEAdminCommands.RegisterCommands then
+            DCEAdminCommands.RegisterCommands()
+        end
+        if DCE and DCE.Log then
+            DCE.Log("admin", "info", "Admin commands registered")
+        end
     end)
 
--- Register the Admin service
-    DCE.RegisterService("Admin", {
-        HasPermission = function(source) return AdminService.HasPermission(source) end,
-        GetOrganizationOverview = function() return AdminService.GetOrganizationOverview() end,
-        GetActiveIncidents = function() return AdminService.GetActiveIncidents() end,
-        GetPerformanceMetrics = function() return AdminService.GetPerformanceMetrics() end,
-        GetIntegrationHealth = function() return AdminService.GetIntegrationHealth() end,
-        ExecuteDebugCommand = function(source, command, args) return AdminService.ExecuteDebugCommand(source, command, args) end,
-        GetAuditLog = function(limit) return AdminService.GetAuditLog(limit) end,
-        GetDebugHistory = function(limit) return AdminService.GetDebugHistory(limit) end,
-        GetDashboardData = function() return AdminService.GetDashboardData() end,
-        LogAction = function(adminId, action, target) AdminService.LogAction(adminId, action, target) end,
-        GetAllConfigs = function() return AdminService.GetAllConfigs() end,
-        UpdateConfig = function(resource, key, value) return AdminService.UpdateConfig(resource, key, value) end,
-        GetConfig = function() return AdminService.GetConfig() end,
-    })
+    -- Register the Admin service
+    -- Defensive patterns: return nil OR actual value for service timing safety
+    if DCE and DCE.RegisterService then
+        DCE.RegisterService("Admin", {
+            HasPermission = function(source) 
+                if DCEAdminService and DCEAdminService.HasPermission then
+                    return DCEAdminService.HasPermission(source)
+                end
+                return false
+            end,
+            GetOrganizationOverview = function() 
+                if DCEAdminService and DCEAdminService.GetOrganizationOverview then
+                    return DCEAdminService.GetOrganizationOverview()
+                end
+                return {}
+            end,
+            GetActiveIncidents = function() 
+                if DCEAdminService and DCEAdminService.GetActiveIncidents then
+                    return DCEAdminService.GetActiveIncidents()
+                end
+                return {}
+            end,
+            GetPerformanceMetrics = function() 
+                if DCEAdminService and DCEAdminService.GetPerformanceMetrics then
+                    return DCEAdminService.GetPerformanceMetrics()
+                end
+                return {}
+            end,
+            GetIntegrationHealth = function() 
+                if DCEAdminService and DCEAdminService.GetIntegrationHealth then
+                    return DCEAdminService.GetIntegrationHealth()
+                end
+                return {}
+            end,
+            ExecuteDebugCommand = function(source, command, args) 
+                if DCEAdminService and DCEAdminService.ExecuteDebugCommand then
+                    return DCEAdminService.ExecuteDebugCommand(source, command, args)
+                end
+                return {}
+            end,
+            GetAuditLog = function(limit) 
+                if DCEAdminService and DCEAdminService.GetAuditLog then
+                    return DCEAdminService.GetAuditLog(limit)
+                end
+                return {}
+            end,
+            GetDebugHistory = function(limit) 
+                if DCEAdminService and DCEAdminService.GetDebugHistory then
+                    return DCEAdminService.GetDebugHistory(limit)
+                end
+                return {}
+            end,
+            GetDashboardData = function() 
+                if DCEAdminService and DCEAdminService.GetDashboardData then
+                    return DCEAdminService.GetDashboardData()
+                end
+                return {}
+            end,
+            LogAction = function(adminId, action, target) 
+                if DCEAdminService and DCEAdminService.LogAction then
+                    DCEAdminService.LogAction(adminId, action, target)
+                end
+            end,
+            GetAllConfigs = function() 
+                if DCEAdminService and DCEAdminService.GetAllConfigs then
+                    return DCEAdminService.GetAllConfigs()
+                end
+                return {}
+            end,
+            UpdateConfig = function(resource, key, value) 
+                if DCEAdminService and DCEAdminService.UpdateConfig then
+                    return DCEAdminService.UpdateConfig(resource, key, value)
+                end
+                return false, "Admin service not available"
+            end,
+            GetConfig = function() 
+                if DCEAdminService and DCEAdminService.GetConfig then
+                    return DCEAdminService.GetConfig()
+                end
+                return {}
+            end,
+            GetServicesList = function() 
+                if DCEAdminService and DCEAdminService.GetServicesList then
+                    return DCEAdminService.GetServicesList()
+                end
+                return {}
+            end,
+            GetTasksList = function() 
+                if DCEAdminService and DCEAdminService.GetTasksList then
+                    return DCEAdminService.GetTasksList()
+                end
+                return {}
+            end,
+        })
+    end
 
     -- Subscribe to admin action events for logging
-    DCE.On("admin:action:executed", function(payload)
-        local data = payload.payload or payload
-        DCE.Log("admin", "debug", "Admin action: %s by %s on %s", data.action, data.adminId, tostring(data.target))
-    end)
+    if DCE and DCE.On then
+        DCE.On("admin:action:executed", function(payload)
+            if DCE and DCE.Log then
+                local data = payload and (payload.payload or payload)
+                if data then
+                    DCE.Log("admin", "debug", "Admin action: %s by %s on %s", data.action, data.adminId, tostring(data.target))
+                end
+            end
+        end)
+    end
 
-    DCE.Log("admin", "info", "=== DCE Admin UI Started ===")
+    if DCE and DCE.Log then
+        DCE.Log("admin", "info", "=== DCE Admin UI Started ===")
+    end
 end
 
 local function OnAdminStop()
-    DCE.Log("admin", "info", "=== DCE Admin UI Stopping ===")
-
-    -- Unregister service
-    DCE.UnregisterService("Admin")
-
-    -- Shutdown service
-    AdminService.Shutdown()
-
-    DCE.Log("admin", "info", "=== DCE Admin UI Stopped ===")
+    -- Safely clean up - DCE may be nil if core shut down first
+    if DCE and DCE.Log then
+        DCE.Log("admin", "info", "=== DCE Admin UI Stopping ===")
+    end
+    
+    if DCE and DCE.UnregisterService then
+        DCE.UnregisterService("Admin")
+    end
+    
+    if DCEAdminService and DCEAdminService.Shutdown then
+        DCEAdminService.Shutdown()
+    end
+    
+    if DCE and DCE.Log then
+        DCE.Log("admin", "info", "=== DCE Admin UI Stopped ===")
+    end
 end
 
 -- ============================================================================
 -- Lifecycle Hooks
 -- ============================================================================
 
--- Ready immediately (no strong dependencies)
 AddEventHandler("onResourceStart", function(resourceName)
     if resourceName == GetCurrentResourceName() then
         OnAdminStart()
