@@ -39,21 +39,11 @@ local function OnAdminStart()
 
     -- Initialize the admin service (DCEAdminService is set by services/admin.lua at load time)
     if DCEAdminService and DCEAdminService.Initialize then
-        DCEAdminService.Initialize(function(module, level, message, ...)
-            if DCE and DCE.Log then
-                DCE.Log(module, level, message, ...)
-            end
-        end)
+        DCEAdminService.Initialize()
     end
 
     -- Initialize commands module
-    if DCEAdminCommands and DCEAdminCommands.Initialize then
-        DCEAdminCommands.Initialize(function(module, level, message, ...)
-            if DCE and DCE.Log then
-                DCE.Log(module, level, message, ...)
-            end
-        end)
-    end
+    -- Commands module uses DCE.Log directly, no initialization needed
 
     -- Register admin commands (after core is ready and services are registered)
     Citizen.CreateThread(function()

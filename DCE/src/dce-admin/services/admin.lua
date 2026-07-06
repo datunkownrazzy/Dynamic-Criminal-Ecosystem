@@ -3,7 +3,6 @@
 -- v1.0 Scope: Organization overview, Active incidents, Performance metrics
 
 local AdminService = {}
-local logger
 local auditLog = {}
 local debugHistory = {}
 
@@ -12,10 +11,9 @@ local function getConfig()
     return _G.Config or {}
 end
 
---- Initialize the admin service
----@param log ILogger Logger function
-function AdminService.Initialize(log)
-    logger = log
+--- Initialize the admin service (no logger injection - uses DCE.Log directly)
+function AdminService.Initialize()
+    -- No initialization required - service uses DCE.Log directly
 end
 
 --- Check if a source has admin permission
@@ -441,8 +439,8 @@ end
 
 --- Shutdown the admin service
 function AdminService.Shutdown()
-    if logger and logger.Log then
-        logger.Log("admin", "info", "Admin service shutting down")
+    if DCE and DCE.Log then
+        DCE.Log("admin", "info", "Admin service shutting down")
     end
     auditLog = {}
     debugHistory = {}

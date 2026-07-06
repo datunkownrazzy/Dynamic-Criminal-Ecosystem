@@ -4,7 +4,7 @@
 
 --- @class IAdminService
 --- Admin Service: Provides admin dashboard, monitoring, and debug console functionality.
----@field Initialize fun(self:IAdminService, log:ILogger):nil
+---@field Initialize fun(self:IAdminService):nil
 ---@field HasPermission fun(self:IAdminService, source:number):boolean
 ---@field GetOrganizationOverview fun(self:IAdminService):table
 ---@field GetActiveIncidents fun(self:IAdminService):table
