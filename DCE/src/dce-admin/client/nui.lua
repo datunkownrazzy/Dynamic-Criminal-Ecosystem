@@ -1,6 +1,7 @@
+---@diagnostic disable: redundant-parameter
 -- DCE Control Center NUI Client
 -- Handles NUI display and user interaction
--- Implements the desktop environment with proper focus management
+-- Note: SetNuiFocus takes 2 parameters in FiveM (hasFocus, hasCursor)
 
 -- ============================================================================
 -- NUI State Management
@@ -214,8 +215,8 @@ end)
 
 RegisterNUICallback('updateConfig', function(data, cb)
     local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
-    if AdminService then
-        local success, err = AdminService.UpdateConfig and AdminService.UpdateConfig(data.resource, data.key, data.value)
+    if AdminService and AdminService.UpdateConfig then
+        local success, err = AdminService.UpdateConfig(data.resource, data.key, data.value)
         cb({ success = success, error = err })
     else
         cb({ success = false, error = "Admin service not available" })

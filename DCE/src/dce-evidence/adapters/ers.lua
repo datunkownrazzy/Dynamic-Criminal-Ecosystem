@@ -12,6 +12,8 @@ function ERSAdapter.New(config)
     local self = setmetatable({}, ERSAdapter)
     self.config = config or {}
     self.available = false
+    self._errors = 0
+    self._lastCheck = os.time()
 
     -- Get ERS resource name from config (defaults to "ers")
     local Config = _G.Config or {}
@@ -86,6 +88,41 @@ function ERSAdapter:LinkToCase(evidenceId, caseId)
     if exports and exports.ers and exports.ers.LinkEvidenceToCase then
         exports.ers.LinkEvidenceToCase(evidenceId, caseId)
     end
+end
+
+--- Get diagnostics for the adapter.
+---@return table Diagnostics information
+function ERSAdapter:GetDiagnostics()
+    return {
+        status = self.available and "active" or "inactive",
+        health = self.available and 100 or 0,
+        latency = 0,
+        queue = 0,
+        errors = self._errors,
+        lastCheck = self._lastCheck,
+        capabilities = { "CreateEvidence", "TransferEvidence", "VerifyEvidence", "LinkToCase" }
+    }
+end
+
+--- Health check for the adapter.
+---@return boolean success
+function ERSAdapter:HealthCheck()
+    self._lastCheck = os.time()
+    local wasAvailable = self.available
+
+    if GetResourceState and GetResourceState(self.config.ResourceName or "ers") == "started" then
+        self.available = true
+        if DCE and DCE.Log and not wasAvailable then
+            DCE.Log("evidence", "info", "ERS evidence adapter: Connection restored")
+        end
+    else
+        self.available = false
+        if DCE and DCE.Log and wasAvailable then
+            DCE.Log("evidence", "warn", "ERS evidence adapter: Connection lost")
+        end
+    end
+
+    return self.available
 end
 
 _G.DCEERSEvidenceAdapter = ERSAdapter

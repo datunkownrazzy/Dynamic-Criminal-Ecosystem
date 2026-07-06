@@ -1,6 +1,7 @@
 -- DCE Evidence Domain Type Declarations
 -- This file contains ONLY type declarations for the Evidence domain.
 -- No runtime logic, no business logic.
+-- Note: EvidenceSummary is defined in types/models/dispatch-call.lua
 
 --- @class IEvidence
 --- Evidence Model: Represents a single evidence item in the registry.

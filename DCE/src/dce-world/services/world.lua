@@ -148,6 +148,19 @@ function WorldService.Layer0Tick()
         return
     end
 
+    if DCE and DCE.Emit then
+        DCE.Emit("world:tick:started", {
+            eventName = "world:tick:started",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-world",
+            payload = {
+                tickId = "layer0",
+                priority = "normal",
+            },
+        })
+    end
+
     local changedRegions = Layer0.Tick(regions, worldState)
 
     -- Emit events for significantly changed regions
@@ -162,12 +175,39 @@ function WorldService.Layer0Tick()
             })
         end
     end
+
+    if DCE and DCE.Emit then
+        DCE.Emit("world:tick:completed", {
+            eventName = "world:tick:completed",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-world",
+            payload = {
+                tickId = "layer0",
+                durationMs = 0,
+                regionsProcessed = #changedRegions,
+            },
+        })
+    end
 end
 
 --- Layer 1 tick: ambient materialization/dematerialization.
 function WorldService.Layer1Tick()
     if not isInitialized then
         return
+    end
+
+    if DCE and DCE.Emit then
+        DCE.Emit("world:tick:started", {
+            eventName = "world:tick:started",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-world",
+            payload = {
+                tickId = "layer1",
+                priority = "normal",
+            },
+        })
     end
 
     local promotions = Layer1.Tick(regions)
@@ -182,6 +222,20 @@ function WorldService.Layer1Tick()
                 payload = promo,
             })
         end
+    end
+
+    if DCE and DCE.Emit then
+        DCE.Emit("world:tick:completed", {
+            eventName = "world:tick:completed",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-world",
+            payload = {
+                tickId = "layer1",
+                durationMs = 0,
+                regionsProcessed = #promotions,
+            },
+        })
     end
 end
 

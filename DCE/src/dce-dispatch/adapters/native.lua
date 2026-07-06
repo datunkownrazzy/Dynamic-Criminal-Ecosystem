@@ -145,4 +145,24 @@ function NativeAdapter.CancelCall(callData)
     end
 end
 
+--- Get diagnostics for the adapter.
+---@return table Diagnostics information
+function NativeAdapter.GetDiagnostics()
+    return {
+        status = "active",
+        health = 100,
+        latency = 0,
+        queue = 0,
+        errors = 0,
+        lastCheck = os.time(),
+        capabilities = { "CreateCall", "UpdateCall", "ResolveCall", "CancelCall" }
+    }
+end
+
+--- Check if the adapter is available.
+---@return boolean
+function NativeAdapter.IsAvailable()
+    return true
+end
+
 _G.DCENativeAdapter = NativeAdapter

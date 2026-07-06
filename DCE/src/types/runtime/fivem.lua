@@ -28,7 +28,7 @@
 ---@field TriggerServerEvent fun(eventName:string, ...:any):nil
 ---@field TriggerClientEvent fun(eventName:string, target:number|string|string[], ...:any):nil
 ---@field SendNUIMessage fun(data:table):nil
----@field SetNuiFocus fun(hasFocus:boolean, hasCursor?:boolean):nil
+---@field SetNuiFocus fun(...:boolean):nil
 ---@field GetPlayerPed fun(playerId:number):number
 ---@field PlayerPedId fun():number
 ---@field GetEntityCoords fun(entity:number):vector3
@@ -80,7 +80,7 @@ TriggerClientEvent = nil
 ---@type fun(data:table):nil
 SendNUIMessage = nil
 
----@type fun(hasFocus:boolean, hasCursor?:boolean):nil
+---@type fun(...:boolean):nil
 SetNuiFocus = nil
 
 ---@type fun(playerId:number):number
