@@ -435,4 +435,25 @@ AddEventHandler('dce-admin:server:updateConfig', function(resource, key, value)
     end
 end)
 
+-- ============================================================================
+-- NUI Event Subscription Handler
+-- ============================================================================
+
+RegisterNetEvent('dce-admin:server:subscribe')
+AddEventHandler('dce-admin:server:subscribe', function(eventName)
+    local src = source
+    if not HasPermission(src) then return end
+    
+    -- Store subscription for this player
+    if DCE and DCE.On then
+        DCE.On(eventName, function(payload)
+            -- Forward event to NUI
+            TriggerClientEvent('dce-admin:client:eventbus:emit', src, {
+                eventName = eventName,
+                payload = payload
+            })
+        end)
+    end
+end)
+
 _G.DCEAdminCommands = AdminCommands

@@ -135,31 +135,66 @@ function AdminService.GetPerformanceMetrics()
     }
 end
 
---- Get integration health status
+-- Adapter diagnostics cache
+local adapterDiagnostics = {}
+
+-- Get diagnostics for a specific adapter
+local function getAdapterDiagnostics(serviceName, service)
+    if service and service.GetDiagnostics then
+        local diag = service.GetDiagnostics()
+        return {
+            status = diag.status or "active",
+            adapter = diag.adapter or serviceName,
+            health = diag.health or 100,
+            latency = diag.latency or 0,
+            queue = diag.queue or 0,
+            errors = diag.errors or 0
+        }
+    end
+    return {
+        status = (service and "active") or "inactive",
+        adapter = serviceName,
+        health = 100,
+        latency = 0,
+        queue = 0,
+        errors = 0
+    }
+end
+
+--- Get integration health status with full diagnostics
 ---@return table Integration status
 function AdminService.GetIntegrationHealth()
-    local integrations = {
-        dispatch = { status = "unknown", adapter = "none" },
-        evidence = { status = "unknown", adapter = "none" },
+    local integrations = {}
+
+    -- Check all registered services that are adapters
+    local adapterServices = {
+        "Dispatch",
+        "Evidence",
+        "Weather",
+        "MDT",
+        "Economy",
+        "Inventory",
+        "Banking",
+        "Target",
+        "Fuel",
+        "Housing",
+        "Garage",
+        "Phone"
     }
 
-    -- Check Dispatch
-    local dispatch = (DCE and DCE.GetService) and DCE.GetService("Dispatch")
-    if dispatch then
-        integrations.dispatch.status = "active"
-        -- Adapter info would come from dispatch service
-        integrations.dispatch.adapter = "native" -- Default
-    end
-
-    -- Check Evidence
-    local evidence = (DCE and DCE.GetService) and DCE.GetService("Evidence")
-    if evidence then
-        integrations.evidence.status = "active"
-        local adapter = evidence.GetAdapter and evidence.GetAdapter()
-        if adapter then
-            integrations.evidence.adapter = (adapter.GetName and adapter.GetName()) or "custom"
+    for _, serviceName in ipairs(adapterServices) do
+        local service = (DCE and DCE.GetService) and DCE.GetService(serviceName)
+        if service then
+            integrations[serviceName:lower()] = getAdapterDiagnostics(serviceName, service)
         else
-            integrations.evidence.adapter = "none"
+            integrations[serviceName:lower()] = {
+                status = "inactive",
+                adapter = "none",
+                health = 0,
+                latency = 0,
+                queue = 0,
+                errors = 0
+            }
         end
     end
 

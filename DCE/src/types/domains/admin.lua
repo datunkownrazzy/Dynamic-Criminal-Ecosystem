@@ -25,8 +25,10 @@
 --- @class IAdminConfig
 --- Admin configuration structure.
 ---@field PermissionCheck fun(source:number):boolean Function to check admin permissions
----@field AuditLog table Audit log configuration
----@field DebugConsole table Debug console configuration
+---@field AuditLog IAuditLogConfig Audit log configuration
+---@field DebugConsole IDebugConsoleConfig Debug console configuration
+---@field ConfigRuntime IConfigRuntime Runtime config update configuration
+---@field Dashboard IDashboardConfig Dashboard configuration
 
 --- @class IAuditLogConfig
 --- Audit log configuration.
@@ -37,7 +39,22 @@
 --- Runtime config update configuration.
 ---@field Enabled boolean Whether runtime config updates are enabled
 
-
 --- @class IDebugConsoleConfig
 --- Debug console configuration.
+---@field Enabled boolean Whether debug console is enabled
 ---@field MaxHistorySize number Maximum debug history entries
+
+--- @class IDashboardConfig
+--- Dashboard configuration.
+---@field Enabled boolean Whether dashboard is enabled
+---@field RefreshInterval number Refresh interval in milliseconds
+
+--- @class IAdapterDiagnostics
+--- Adapter diagnostics interface for all DCE adapters.
+---@field status "active"|"inactive"|"error" Current adapter state
+---@field health number 0-100 Health score
+---@field latency number Milliseconds
+---@field queue number Pending operations
+---@field errors number Total errors
+---@field lastCheck number Unix timestamp
+---@field capabilities string[] Supported features

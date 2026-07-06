@@ -3,128 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DCE Admin Dashboard</title>
+    <title>DCE Control Center</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div id="app">
-        <header>
-            <h1>DCE Admin Dashboard</h1>
-            <div class="header-controls">
-                <button id="refreshBtn" class="btn">Refresh</button>
-                <span id="timestamp" class="timestamp"></span>
+    <!-- Desktop Environment Container -->
+    <div id="desktop">
+        <!-- Main Toolbar -->
+        <div id="main-toolbar">
+            <button class="toolbar-btn" data-action="open-window" data-window="organizations">Organizations</button>
+            <button class="toolbar-btn" data-action="open-window" data-window="dispatch">Dispatch</button>
+            <button class="toolbar-btn" data-action="open-window" data-window="analytics">Analytics</button>
+            <button class="toolbar-btn" data-action="open-window" data-window="performance">Performance</button>
+            <button class="toolbar-btn" data-action="open-window" data-window="services">Services</button>
+            <div class="toolbar-separator"></div>
+            <button class="toolbar-btn" data-action="open-window" data-window="plugins">Plugins</button>
+            <button class="toolbar-btn" data-action="open-window" data-window="adapters">Adapters</button>
+            <div class="toolbar-separator"></div>
+            <button class="toolbar-btn" data-action="open-window" data-window="settings">Settings</button>
+        </div>
+
+        <!-- Notifications Container -->
+        <div id="notifications"></div>
+
+        <!-- Status Bar -->
+        <div id="status-bar">
+            <div class="status-item">
+                <span class="status-indicator" id="status-indicator"></span>
+                <span id="status-text">Ready</span>
             </div>
-        </header>
-
-        <nav class="tabs">
-            <button class="tab-btn active" data-view="overview">Overview</button>
-            <button class="tab-btn" data-view="organizations">Organizations</button>
-            <button class="tab-btn" data-view="incidents">Incidents</button>
-            <button class="tab-btn" data-view="performance">Performance</button>
-            <button class="tab-btn" data-view="services">Services</button>
-            <button class="tab-btn" data-view="debug">Debug Console</button>
-        </nav>
-
-        <main>
-            <!-- Overview View -->
-            <section id="view-overview" class="view active">
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <h3>Active Tasks</h3>
-                        <span id="stat-tasks" class="stat-value">0</span>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Total Errors</h3>
-                        <span id="stat-errors" class="stat-value">0</span>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Organizations</h3>
-                        <span id="stat-orgs" class="stat-value">0</span>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Active Incidents</h3>
-                        <span id="stat-incidents" class="stat-value">0</span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Organizations View -->
-            <section id="view-organizations" class="view">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>State</th>
-                            <th>Members</th>
-                            <th>Money</th>
-                            <th>Heat</th>
-                            <th>Morale</th>
-                        </tr>
-                    </thead>
-                    <tbody id="orgs-table">
-                        <tr><td colspan="7" class="loading">Loading...</td></tr>
-                    </tbody>
-                </table>
-            </section>
-
-            <!-- Incidents View -->
-            <section id="view-incidents" class="view">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Organization</th>
-                            <th>Activity</th>
-                            <th>Stage</th>
-                            <th>Status</th>
-                            <th>Region</th>
-                        </tr>
-                    </thead>
-                    <tbody id="incidents-table">
-                        <tr><td colspan="6" class="loading">Loading...</td></tr>
-                    </tbody>
-                </table>
-            </section>
-
-            <!-- Performance View -->
-            <section id="view-performance" class="view">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Task Name</th>
-                            <th>Interval</th>
-                            <th>Status</th>
-                            <th>Errors</th>
-                            <th>Run Count</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tasks-table">
-                        <tr><td colspan="5" class="loading">Loading...</td></tr>
-                    </tbody>
-                </table>
-            </section>
-
-            <!-- Services View -->
-            <section id="view-services" class="view">
-                <div id="services-list" class="services-grid">
-                    <div class="loading">Loading...</div>
-                </div>
-            </section>
-
-            <!-- Debug Console View -->
-            <section id="view-debug" class="view">
-                <div class="debug-console">
-                    <div class="debug-input">
-                        <input type="text" id="debug-command" placeholder="Enter command (e.g., orgs, incidents, tasks)">
-                        <button id="debug-exec" class="btn">Execute</button>
-                    </div>
-                    <div id="debug-output" class="debug-output"></div>
-                </div>
-            </section>
-        </main>
+            <div class="status-item" id="status-timestamp"></div>
+            <div class="status-item" id="status-version">
+                DCE v1.0.0
+            </div>
+        </div>
     </div>
 
+    <!-- Window Templates (cloned for actual windows) -->
+    <template id="template-window">
+        <div class="window" data-window-id="">
+            <div class="window-header">
+                <div class="window-title"></div>
+                <div class="window-controls">
+                    <button class="window-btn pin" title="Pin">📌</button>
+                    <button class="window-btn minimize" title="Minimize">—</button>
+                    <button class="window-btn maximize" title="Maximize">□</button>
+                    <button class="window-btn close" title="Close">✕</button>
+                </div>
+            </div>
+            <div class="window-content">
+                <!-- Module content injected here -->
+            </div>
+            <div class="window-resize-handle"></div>
+        </div>
+    </template>
+
+    <!-- Chart.js (CDN for now, can be cached later) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="js/framework.js"></script>
+    <script src="js/window-manager.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/modules/overview.js"></script>
+    <script src="js/modules/organizations.js"></script>
+    <script src="js/modules/dispatch.js"></script>
+    <script src="js/modules/analytics.js"></script>
+    <script src="js/modules/performance.js"></script>
+    <script src="js/modules/services.js"></script>
+    <script src="js/modules/plugins.js"></script>
+    <script src="js/modules/adapters.js"></script>
+    <script src="js/modules/settings.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
