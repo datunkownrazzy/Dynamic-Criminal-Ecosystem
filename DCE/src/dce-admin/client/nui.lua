@@ -404,13 +404,33 @@ RegisterNetEvent('dce-admin:client:eventbus:emit', function(payload)
 end)
 
 -- ============================================================================
--- Keybind Registration (FiveM client-side)
+-- NUI Lifecycle: Focus Safety
 -- ============================================================================
 
--- Register keybind when resource starts (FiveM-specific)
--- Note: RegisterKeyMapping is FiveM-specific and may not exist in all environments
+-- FiveM Focus Behavior Documentation:
+-- When a resource with ui_page loads, FiveM may automatically grant NUI focus
+-- without an explicit message. This causes a gray overlay on spawn.
+-- The fix: Always release focus on onClientResourceStart to ensure clean state.
+--
+-- Lifecycle:
+--   Resource Start → NUI loads → (optional auto-focus) → onClientResourceStart fires
+--   We release focus here → UI stays hidden until /dce admin or keybind pressed
+--
+-- Note: We send "close" action to JS even if UI not open, as it's idempotent
 AddEventHandler("onClientResourceStart", function(resourceName)
     if resourceName == GetCurrentResourceName() then
+        -- Step 1: Release any orphaned focus (FiveM auto-focus defense)
+        hasFocus = false
+        if SetNuiFocus then
+            SetNuiFocus(false, false)
+        end
+        if SendNUIMessage then
+            SendNUIMessage({
+                action = "close"
+            })
+        end
+        
+        -- Step 2: Register keybind (only after focus is released)
         local keybindName = "dce_controlcenter"
         local keybindDesc = "Toggle DCE Control Center"
         
