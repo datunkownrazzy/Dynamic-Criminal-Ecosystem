@@ -27,13 +27,13 @@ If you are new to the project, the best entry points are:
 
 1. [DCE/docs/01_Project/Vision.md](DCE/docs/01_Project/Vision.md) — the high-level purpose and direction of DCE
 2. [DCE/docs/01_Project/Goals.md](DCE/docs/01_Project/Goals.md) — the v1.0 milestones and deferred work
-3. [DCE/docs/02_Arcitecture/Architecture_Overview.md](DCE/docs/02_Arcitecture/Architecture_Overview.md) — the overall architecture and module boundaries
-4. [DCE/docs/01_Project/AI_Developer_GUDIE.md](DCE/docs/01_Project/AI_Developer_GUDIE.md) — guidance for contributors and AI-assisted development
+3. [DCE/docs/02_Architecture/Architecture_Overview.md](DCE/docs/02_Architecture/Architecture_Overview.md) — the overall architecture and module boundaries
+4. [DCE/docs/01_Project/AI_Developer_GUIDE.md](DCE/docs/01_Project/AI_Developer_GUIDE.md) — guidance for contributors and AI-assisted development
 
 ## Documentation map
 
 - Foundation: [DCE/docs/01_Project](DCE/docs/01_Project)
-- Architecture: [DCE/docs/02_Arcitecture](DCE/docs/02_Arcitecture)
+- Architecture: [DCE/docs/02_Architecture](DCE/docs/02_Architecture)
 - Core systems: [DCE/docs/03_Core](DCE/docs/03_Core)
 - Simulation layers: [DCE/docs/04_Simulation](DCE/docs/04_Simulation)
 - Organizations and territories: [DCE/docs/05_Organizations](DCE/docs/05_Organizations) and [DCE/docs/06_Territories](DCE/docs/06_Territories)
@@ -48,7 +48,7 @@ If you are new to the project, the best entry points are:
 
 ## Contributing
 
-If you are implementing against these specifications, start with [DCE/docs/02_Arcitecture/Coding_Standards.md](DCE/docs/02_Arcitecture/Coding_Standards.md) and [DCE/docs/01_Project/PROJECT_PRINCIPLES.md](DCE/docs/01_Project/PROJECT_PRINCIPLES.md). They describe the architectural rules, service/event boundaries, and expectations for contributing safely.
+If you are implementing against these specifications, start with [DCE/docs/02_Architecture/Coding_Standards.md](DCE/docs/02_Architecture/Coding_Standards.md) and [DCE/docs/01_Project/PROJECT_PRINCIPLES.md](DCE/docs/01_Project/PROJECT_PRINCIPLES.md). They describe the architectural rules, service/event boundaries, and expectations for contributing safely.
 
 ## License
 

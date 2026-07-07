@@ -1,191 +1,358 @@
-# DCE Performance Framework
+# DCE Performance Documentation
 
-**Status:** Proposed
+**Status:** Accepted
 **Version:** 1.0
 **Owner:** Architecture
-**Dependencies:** ADR-0015
+**Dependencies:** ADR-0015, SimulationScheduler.md, SimulationBudget.md
 
 ---
 
-## Overview
+## Purpose
 
-The DCE Performance Framework provides systematic performance monitoring, optimization, and alerting capabilities. Every component is designed to meet the target performance budgets:
+This document describes the performance architecture of DCE, including budgets, optimization strategies, monitoring, and best practices for maintaining the target performance envelope.
 
-- **Idle Server:** < 0.10 ms
-- **Typical RP Server:** 0.25–0.75 ms
-- **Heavy Criminal Activity:** < 1.5 ms
-- **Absolute Maximum:** 2.5 ms
+---
 
-## Core Components
+## Performance Budget Structure
 
-### Profiler Service (`dce-core/core/profiler.lua`)
+### Target Budgets
 
-Measures and tracks performance metrics for all services:
+DCE targets specific CPU budgets per server state:
+
+| Server State | Budget | Description |
+|---|---|---|
+| Idle | 0.10 ms/tick | Minimal activity, background simulation |
+| RP Typical | 0.75 ms/tick | Normal roleplay activity |
+| Heavy Activity | 1.5 ms/tick | High criminal/org activity |
+| Maximum | 2.5 ms/tick | Hard limit before throttling |
+
+### Per-Service Budgets
+
+Each service receives an allocated budget:
+
+| Service | Budget | Priority Tier |
+|---|---|---|
+| Scheduler | 0.05 ms | High |
+| AI Director | 0.40 ms | Medium |
+| Dispatch | 0.20 ms | High |
+| Evidence | 0.15 ms | Medium |
+| Economy | 0.25 ms | Medium |
+| Weather | 0.02 ms | Low |
+| Organizations | 0.30 ms | Medium |
+| World (Layer 0) | 0.20 ms | Medium |
+| World (Layer 1) | 0.30 ms | Medium |
+
+### Budget Enforcement
+
+The Profiler service monitors each service:
 
 ```lua
--- Start measuring a task
-DCEProfiler.RecordStart("ai:director:tick")
+-- Before work
+DCEProfiler.RecordStart("dispatch")
+-- ... do work ...
+-- After work
+DCEProfiler.RecordEnd("dispatch")
 
--- Do work...
-
--- End measurement
-DCEProfiler.RecordEnd("ai:director:tick")
-
--- Get metrics
-local metrics = DCEProfiler.GetMetrics("ai:director:tick")
--- Returns: { cpuMs, memoryBytes, eventCount, queueDepth, execFrequency, lastUpdate }
+-- If over budget, emits:
+-- performance:budget:exceeded
 ```
 
-### Cache Service (`dce-core/core/cache.lua`)
+When a service exceeds its budget:
 
-Configurable caching with TTL, max size, and invalidation:
+1. Warning logged
+2. Throttled/deferred execution applied
+3. Admin dashboard notified
+4. Work split across multiple ticks if possible
 
-```lua
--- Create a cache
-DCECache.Create("organizations", { ttl = 300, maxSize = 1000 })
+---
 
--- Set a value
-DCECache.Set("organizations", "org:123", orgData)
+## Optimization Strategies
 
--- Get a value (respects TTL)
-local data = DCECache.Get("organizations", "org:123")
+### 1. Service Isolation
 
--- Invalidate by pattern
-DCECache.InvalidatePattern("organizations", "org:%d+")
+Services are isolated to prevent cascading performance issues:
 
--- Get statistics
-local stats = DCECache.GetStats("organizations")
--- Returns: { hits, misses, evictions, size, maxSize, ttl }
-```
+- Each service has independent budget
+- Handler errors don't crash other services
+- Work can be paused/resumed independently
 
-### Pool Service (`dce-core/core/pool.lua`)
+### 2. Caching
 
-Object pooling to minimize allocations:
+The Cache service provides TTL-based caching:
 
 ```lua
--- Acquire a pooled object
-local npc = DCEPool.Acquire("npc")
-
--- Release back to pool
-DCEPool.Release("npc", npc)
-
--- Get pool statistics
-local stats = DCEPool.GetStats("npc")
--- Returns: { available, inUse, totalCreated, totalReused, maxSize }
-```
-
-### Alert Handler (`dce-core/core/alert-handler.lua`)
-
-Automatic performance alerts when budgets are exceeded:
-
-```lua
--- Listens to performance:budget:exceeded events
--- Emits admin:performance:alert for dashboard display
-
--- Get recent alerts
-local alerts = DCEAdminService.GetPerformanceAlerts()
-```
-
-## Configuration
-
-Performance settings are configured in `dce-core/config.lua`:
-
-```lua
-Config.Performance = {
-    IdleBudget = 0.10,
-    RPBudget = 0.75,
-    HeavyBudget = 1.5,
-    MaxBudget = 2.5,
-    AlertThreshold = 1.25,
-    ProfilerEnabled = true,
-    MaxHistorySize = 600,
-}
-
-Config.SimulationBudget = {
-    Scheduler = 0.05,
-    AI = 0.40,
-    Dispatch = 0.20,
-    Evidence = 0.15,
-}
-```
-
-## Event Bus Optimizations
-
-The Event Bus supports several performance optimizations:
-
-### Priority Handlers
-
-```lua
--- Register high-priority handler (runs before low-priority)
-DCE.OnPriority("organization:activity:started", handlerFn, "high")
-```
-
-### Batching
-
-```lua
--- Emit multiple events at once
-DCE.EmitBatch({
-    { eventName = "evidence:item:created", payload = {...} },
-    { eventName = "dispatch:call:requested", payload = {...} },
-})
-```
-
-### Debouncing
-
-```lua
--- Rate-limit event emission
-DCE.EmitDebounced("world:tick:event", payload, 100) -- 100ms minimum between emits
-```
-
-### Delayed Execution
-
-```lua
--- Emit after delay (async)
-DCE.EmitDelayed("cleanup:finished", payload, 5000) -- 5 second delay
-```
-
-## Service Integration
-
-All services should implement `GetMetrics()`:
-
-```lua
-function Service:GetMetrics()
-    return {
-        cpuMs = self.lastCpuTime or 0,
-        memoryBytes = self.memoryUsage or 0,
-        eventCount = self.eventsProcessed or 0,
-        queueDepth = #self.taskQueue,
-        execFrequency = self.currentInterval or 1000,
-    }
+-- Cache expensive computations
+local result = DCECache.Get("world:region:" .. regionId)
+if not result then
+    result = ComputeRegionState(regionId)
+    DCECache.Set("world:region:" .. regionId, result, { ttl = 30 })
 end
 ```
 
-## Debug Modes
+**Default caches:**
+- `world:regions` - Region state (5 min TTL)
+- `organization:states` - Org states (5 min TTL)
+- `dispatch:calls` - Active calls (2 min TTL)
 
-Set debug mode via config or runtime:
+### 3. Object Pooling
 
-- **production:** Minimal logging, full performance
-- **development:** Verbose logging, profiler enabled
-- **verbose:** Debug traces, stack traces
-- **profiler:** Detailed metrics collection
-- **stress_test:** Simulate heavy load
-- **benchmark:** Run performance tests
-
-## Benchmark Suite
+The Pool service minimizes allocations:
 
 ```lua
--- Run benchmarks programmatically
-BenchmarkSuite.RunAll()
-
--- Get report
-local report = BenchmarkSuite.GenerateReport()
+-- Use pooled objects
+local npc = DCEPool.Acquire("npc")
+if npc then
+    npc.state = "active"
+    npc.position = GetEntityCoords(entity)
+    -- ... use npc ...
+    DCEPool.Release("npc", npc)
+end
 ```
 
-## Best Practices
+**Pooled object types:**
+- `npc` - Ambient civilians/criminals (max 50)
+- `vehicle` - Scenario vehicles (max 30)
+- `evidence` - Evidence items (max 100)
+- `incident` - Active incidents (max 50)
+- `dispatch_call` - Dispatch calls (max 30)
 
-1. **Always use the Profiler** when implementing new services
-2. **Cache frequently accessed data** with appropriate TTL
-3. **Pool temporary objects** (NPCs, vehicles, evidence)
-4. **Use priority handlers** for time-sensitive events
-5. **Debounce high-frequency events** to prevent spam
-6. **Monitor alerts** and respond to budget warnings
+### 4. Event Bus Optimization
+
+The Event Bus (per ADR-0015) supports optimization features:
+
+| Feature | Purpose | Implementation |
+|---|---|---|
+| Priority handlers | Critical events first | `DCE.OnPriority("event", fn, "high")` |
+| Debouncing | Rate limit high-frequency | `DCE.EmitDebounced("event", data, 100)` |
+| Coalescing | Merge similar events | `DCE.EmitCoalesced("event", data, 500)` |
+| Batching | Multiple events at once | `DCE.EmitBatch({events})` |
+| Delayed | Defer handler execution | `DCE.EmitDelayed("event", data, 5000)` |
+
+### 5. Simulation Layers
+
+DCE uses layered simulation to manage fidelity:
+
+| Layer | Frequency | Scope | CPU Budget |
+|---|---|---|---|
+| 0 - Statistical | 30s | Whole map | 0.20 ms |
+| 1 - Ambient | 5s | Near players | 0.30 ms |
+| 2 - Interactive | Event-driven | Active incidents | 0.50 ms |
+| 3 - Major Incident | Event-driven | High-priority calls | 1.0 ms |
+
+### 6. Adaptive AI Updates
+
+Organizations update at different frequencies based on relevance:
+
+| State | Frequency | Condition |
+|---|---|---|
+| Critical | 250 ms | Active incidents, heat spikes |
+| Nearby | 500 ms | Near players |
+| Active | 1000 ms | Normal operation |
+| Passive | 5000 ms | Idle but tracked |
+| Dormant | 30000 ms | Sleep until event |
+| Sleeping | Never | Event-driven only |
+
+---
+
+## Monitoring
+
+### Profiler API
+
+```lua
+-- Get current metrics
+local metrics = DCEProfiler.GetMetrics("dispatch")
+
+-- Get historical data (for graphs)
+local history = DCEProfiler.GetHistory("dispatch", 60)
+
+-- Get aggregate statistics
+local stats = DCEProfiler.GetStats()
+```
+
+### Event Bus Metrics
+
+```lua
+-- Get bus-wide metrics
+local busMetrics = DCE:GetService("CoreRegistry"):GetEventBusMetrics()
+
+-- Get specific event metrics
+local eventMetrics = DCE:GetService("CoreRegistry"):GetEventMetrics("dispatch:call:created")
+```
+
+### Scheduler Inspection
+
+```lua
+-- List all scheduled tasks
+local tasks = DCE:GetService("CoreRegistry"):GetTasks()
+
+-- Get task details
+local task = DCE:GetService("CoreRegistry"):GetTask("world:layer0:tick")
+```
+
+---
+
+## Admin Dashboard Integration
+
+The Admin service exposes performance data:
+
+```lua
+-- Get dashboard metrics
+local data = Admin.GetPerformanceMetrics()
+
+-- Returns:
+{
+    totalCpuMs = 0.45,
+    services = {
+        dispatch = { cpuMs = 0.15, budgetMs = 0.20, status = "ok" },
+        evidence = { cpuMs = 0.10, budgetMs = 0.15, status = "ok" },
+    },
+    eventsPerSecond = 42,
+    queueDepths = {
+        dispatch = 0,
+        evidence = 0,
+    },
+}
+```
+
+---
+
+## Debugging Performance Issues
+
+### Console Commands
+
+```
+# List services and their budgets
+dce.debug services --budgets
+
+# Monitor specific service
+dce.debug service dispatch --watch
+
+# Check cache hit rates
+dce.debug cache world:regions
+
+# Check pool utilization
+dce.debug pool npc
+
+# Reset metrics
+dce.debug profiler reset
+
+# Set custom budget
+dce.debug budget set dispatch 0.25
+```
+
+### Performance Events
+
+| Event | Payload | When Emitted |
+|---|---|---|
+| `performance:budget:exceeded` | `{ serviceId, actualMs, budgetMs }` | Service exceeds budget |
+| `admin:performance:alert` | `{ serviceId, actualMs, budgetMs }` | Admin dashboard warning |
+| `admin:debug:mode:changed` | `{ mode, previousMode }` | Debug mode changed |
+
+---
+
+## Performance Anti-Patterns
+
+### ❌ Don't Do This
+
+```lua
+-- Blocking SQL in event handler
+DCE.On("evidence:item:created", function(payload)
+    MySQL.Async.fetchAll("SELECT * FROM evidence WHERE ...", function(result)
+        -- Heavy DB work in tick
+    end)
+end)
+
+-- Unbounded iteration
+for _, org in pairs(AllOrganizations) do
+    UpdateOrganization(org) -- No budget check
+end
+
+-- Direct cross-module state mutation
+local Org = DCE:GetService("Organizations")
+Org.internalState.money = Org.internalState.money + 1000 -- Violates DataOwnership
+```
+
+### ✅ Do This Instead
+
+```lua
+-- Queue DB work
+DCE.On("evidence:item:created", function(payload)
+    -- Quick processing only
+    EnqueueEvidenceForDB(payload)
+end)
+
+-- Time-slice heavy work
+DCE.Schedule("economy:process", 5000, function()
+    ProcessEconomyBatch(10) -- Process 10 items per tick
+end)
+
+-- Request state change via service
+DCE:GetService("Economy").AddMoney(orgId, 1000)
+```
+
+---
+
+## Benchmarking
+
+### Running Benchmarks
+
+```lua
+-- Stress test mode
+Config.Performance.StressTest = true
+
+-- Run benchmark
+exports['dce-core']:RunBenchmark("layer0:tick", 1000)
+-- Returns: { avgMs, maxMs, minMs, samples }
+```
+
+### Expected Benchmarks (v1.0)
+
+| Operation | Target (ms) | Maximum (ms) |
+|---|---|---|
+| Scheduler tick overhead | 0.01 | 0.05 |
+| Event bus emit (10 handlers) | 0.05 | 0.20 |
+| Cache get (hit) | 0.001 | 0.01 |
+| Cache get (miss) | 0.01 | 0.05 |
+| Pool acquire/release | 0.005 | 0.02 |
+| World Layer 0 tick | 0.15 | 0.30 |
+| Organization evaluation | 0.25 | 0.50 |
+
+---
+
+## Memory Management
+
+### Leak Prevention
+
+- Pools clean up on shutdown
+- Caches respect TTL
+- Event handlers cleared on shutdown
+- Service references not cached long-term
+
+### GC Pressure
+
+- Minimize string concatenation
+- Reuse tables where possible
+- Use numeric keys in hot paths
+- Avoid closures in loops
+
+---
+
+## FiveM-Specific Considerations
+
+### Thread Safety
+
+- All DCE code runs on main thread
+- Citizen.CreateThread for background work
+- No coroutine-based async
+
+### Export Marshalling
+
+- FiveM exports marshal function arguments to proxy tables
+- Use `DCE_Subscribe` bridge for cross-resource events (ADR-0020)
+- Don't pass functions across resource boundary
+
+### Resource Timing
+
+- Resources may start in any order
+- Services use defensive nil checks
+- Event subscriptions deferred until ready
