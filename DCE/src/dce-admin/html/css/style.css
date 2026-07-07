@@ -54,11 +54,15 @@ body {
 }
 
 /* Visible state when Control Center is active */
+/* Hidden by default - Control Center must be explicitly opened */
 body.cc-ready {
-    opacity: 1;
-    pointer-events: all;
+    opacity: 0;
+    pointer-events: none;
+    height: 100vh;
+    overflow: hidden;
 }
 
+/* Opened state - only applied when admin explicitly opens Control Center */
 body.cc-open {
     opacity: 1;
     pointer-events: all;
@@ -175,6 +179,103 @@ body.cc-open {
 
 .window:hover .window-resize-handle {
     opacity: 0.5;
+}
+
+/* Snap-to-edge visual indicators */
+.window.snap-left,
+.window.snap-right {
+    border-left-width: 3px;
+    border-left-color: var(--cc-accent);
+    transition: border-color 0.2s ease;
+}
+
+.window.snap-top,
+.window.snap-bottom {
+    border-top-width: 3px;
+    border-top-color: var(--cc-accent);
+}
+
+.window.snap-left.snap-top {
+    border-left-width: 3px;
+    border-top-width: 3px;
+    border-left-color: var(--cc-accent);
+    border-top-color: var(--cc-accent);
+}
+
+/* Resize handles for all edges (CSS resize: both only does bottom-right) */
+.window-resize-edge {
+    position: absolute;
+    background: transparent;
+}
+
+.window-resize-edge.top {
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    cursor: ns-resize;
+}
+
+.window-resize-edge.bottom {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    cursor: ns-resize;
+}
+
+.window-resize-edge.left {
+    top: 5px;
+    bottom: 5px;
+    left: 0;
+    width: 5px;
+    cursor: ew-resize;
+}
+
+.window-resize-edge.right {
+    top: 5px;
+    bottom: 5px;
+    right: 0;
+    width: 5px;
+    cursor: ew-resize;
+}
+
+/* Corner resize handles */
+.window-resize-corner {
+    position: absolute;
+    background: transparent;
+}
+
+.window-resize-corner.top-left {
+    top: 0;
+    left: 0;
+    width: 10px;
+    height: 10px;
+    cursor: nw-resize;
+}
+
+.window-resize-corner.top-right {
+    top: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    cursor: ne-resize;
+}
+
+.window-resize-corner.bottom-left {
+    bottom: 0;
+    left: 0;
+    width: 10px;
+    height: 10px;
+    cursor: sw-resize;
+}
+
+.window-resize-corner.bottom-right {
+    bottom: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    cursor: se-resize;
 }
 
 /* ============================================================================

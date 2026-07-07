@@ -1,4 +1,4 @@
-    -- DCE Framework Core Type Declarations
+-- DCE Framework Core Type Declarations
 -- This file contains ONLY type declarations for the DCE framework runtime API.
 -- The framework API is used internally by DCE and provides core infrastructure.
 -- No runtime logic, no business logic, no plugin registration.
@@ -6,15 +6,31 @@
 ---@class DCEFramework
 --- The main DCE framework API exposed via the global DCE table.
 --- This interface is for internal DCE use, not plugin SDK.
----@field GetService fun(self:DCEFramework, name:string):table|nil
----@field HasService fun(self:DCEFramework, name:string):boolean
----@field GetServiceOrThrow fun(self:DCEFramework, name:string):table
----@field RegisterService fun(self:DCEFramework, name:string, service:table, options?:table):boolean
----@field UnregisterService fun(self:DCEFramework, name:string):boolean
----@field Emit fun(self:DCEFramework, eventName:string, payload:table):nil
----@field On fun(self:DCEFramework, eventName:string, handlerFn:function):number
----@field Once fun(self:DCEFramework, eventName:string, handlerFn:function):number
----@field Off fun(self:DCEFramework, eventName:string, handlerId:number):nil
----@field Schedule fun(self:DCEFramework, taskName:string, intervalMs:number, callback:function, options?:table):boolean
----@field ScheduleNow fun(self:DCEFramework, taskName:string):boolean
----@field Log fun(self:DCEFramework, module:string, level:string, message:string, ...:any):nil
+--- Service Registry API
+---@field GetService fun(name:string):table|nil
+---@field HasService fun(name:string):boolean
+---@field GetServiceOrThrow fun(name:string):table
+---@field RegisterService fun(name:string, service:table, options?:table):boolean
+---@field UnregisterService fun(name:string):boolean
+--- Event Bus API
+---@field Emit fun(eventName:string, payload:table):nil
+---@field On fun(eventName:string, handlerFn:function):number|nil
+---@field Once fun(eventName:string, handlerFn:function):number|nil
+---@field Off fun(eventName:string, handlerId:number):nil
+--- Scheduler API
+---@field Schedule fun(taskName:string, intervalMs:number, callback:function, options?:table):boolean
+---@field ScheduleNow fun(taskName:string):boolean
+--- Logger convenience
+---@field Log fun(module:string, level:string, message:string, ...:any):nil
+--- Plugin SDK functions
+---@field RegisterPlugin fun(manifest:table):(boolean, string|nil)
+---@field LoadConfig fun(path:string):table|nil
+---@field ValidateConfig fun(config:table, schema:table):boolean
+---@field RegisterOrganization fun(orgDataTable:table):(boolean, string|nil)
+---@field RegisterDispatchAdapter fun(adapterTable:table):boolean
+---@field RegisterEvidenceAdapter fun(adapterTable:table):boolean
+---@field RegisterMDTAdapter fun(adapterTable:table):boolean
+---@field RegisterBehavior fun(behaviorDataTable:table):boolean
+---@field RegisterEscalationChain fun(escalationSchemaTable:table):boolean
+---@type DCEFramework
+DCE = nil

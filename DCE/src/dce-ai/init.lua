@@ -33,7 +33,8 @@ local function OnAIStart()
         print("^1[DCE AI] FATAL: Could not obtain DCE API from dce-core^0")
         return
     end
-    _G.DCE = DCEAPI
+    -- _G.DCE is owned by dce-core; use the API locally
+    -- Do NOT overwrite _G.DCE to prevent race conditions
 
     if DCE and DCE.Log then
         DCE.Log("ai", "info", "=== DCE AI Director & Organizations Starting ===")

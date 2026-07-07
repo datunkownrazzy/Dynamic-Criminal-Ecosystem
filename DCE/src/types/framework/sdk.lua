@@ -8,10 +8,12 @@
 --- DCE Plugin SDK - Registration functions for plugin authors.
 --- These functions allow plugins to register organizations, adapters, behaviors, and escalation chains.
 --- All SDK functions emit events that DCE services handle.
----@field RegisterOrganization fun(self:DCEPluginSDK, orgDataTable:table):(boolean, string|nil)
----@field RegisterDispatchAdapter fun(self:DCEPluginSDK, adapterTable:table):boolean
----@field RegisterEvidenceAdapter fun(self:DCEPluginSDK, adapterTable:table):boolean
----@field RegisterMDTAdapter fun(self:DCEPluginSDK, adapterTable:table):boolean
----@field RegisterBehavior fun(self:DCEPluginSDK, behaviorDataTable:table):boolean
----@field RegisterEscalationChain fun(self:DCEPluginSDK, escalationSchemaTable:table):boolean
----@field RegisterPlugin fun(self:DCEPluginSDK, manifest:table):(boolean, string|nil)
+---@field RegisterOrganization fun(orgDataTable:table):(boolean, string|nil)
+---@field RegisterDispatchAdapter fun(adapterTable:table):boolean
+---@field RegisterEvidenceAdapter fun(adapterTable:table):boolean
+---@field RegisterMDTAdapter fun(adapterTable:table):boolean
+---@field RegisterBehavior fun(behaviorDataTable:table):boolean
+---@field RegisterEscalationChain fun(escalationSchemaTable:table):boolean
+---@field RegisterPlugin fun(manifest:table):(boolean, string|nil)
+---@type DCEPluginSDK
+DCEPluginSDK = nil

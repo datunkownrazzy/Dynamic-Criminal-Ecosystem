@@ -1,30 +1,33 @@
 -- DCE Core - Resource Entry Point
--- Initializes Service Registry, Event Bus, Scheduler, Logger, Config Loader, and Plugin Manager.
+-- Initializes Service Registry, Event Bus, Scheduler, Logger, Config Loader, Plugin Manager,
+-- Profiler, Cache, and Pool services.
 -- Registers the DCE global table that all other resources use.
 -- Files are loaded in dependency order via fxmanifest.lua, so globals are available.
 -- Defensive nil-check patterns are intentional for FiveM resource timing safety per ADR-0001
 
 -- Global DCE Table
--- ============================================================================
+-- ===========================================================================
 -- This is the single entry point all DCE resources use.
 -- It exposes: RegisterService, GetService, HasService, GetServiceOrThrow, UnregisterService,
 --             Emit, On, Once, Off, Schedule, Log, and SDK registration functions.
 
 DCE = {}
 
--- ============================================================================
+-- ===========================================================================
 -- Initialization Order
--- ============================================================================
+-- ===========================================================================
 -- 1. Logger (no dependencies)
 -- 2. Config (depends on Logger)
 -- 3. Registry (depends on Logger)
 -- 4. Event Bus (depends on Logger)
 -- 5. Scheduler (depends on Logger)
--- 6. Plugin Manager (depends on Logger, Config)
+-- 6. Profiler (depends on Logger)
+-- 7. Cache (depends on Logger)
+-- 8. Pool (depends on Logger)
+-- 9. Plugin Manager (depends on Logger, Config)
 
--- Export DCE table globally so other resources can use it without require()
--- This MUST be before initialization so dependent resources can access it
-_G.DCE = DCE
+-- NOTE: _G.DCE is set AFTER InitializeCore() completes (see below)
+-- This ensures DCE.On, DCE.Emit, etc. are available before other resources access them
 
 local function InitializeCore()
     local Logger = DCELogger
@@ -33,84 +36,183 @@ local function InitializeCore()
     local Scheduler = DCEScheduler
     local ConfigLoader = DCEConfigLoader
     local PluginManager = DCEPluginManager
+    local Profiler = DCEProfiler
+    local Cache = DCECache
+    local Pool = DCEPool
+    local AlertHandler = DCEAlertHandler
 
-    -- Step 1: Initialize Logger
-    Logger.Init()
-    Logger.Info("core", "=== DCE v1.0.0 Core Initializing ===")
+-- Step 1: Initialize Logger
+    if Logger then
+        Logger.Init()
+        Logger.Info("core", "=== DCE v1.0.0 Core Initializing ===")
+    else
+        print("^1[DCE Core] WARNING: Logger not available, using fallback logging^0")
+    end
 
-    -- Step 2: Initialize sub-systems
-    Registry.Init(Logger)
-    EventBus.Init(Logger)
-    Scheduler.Init(Logger)
-    ConfigLoader.Init(Logger)
-    PluginManager.Init(Logger)
+-- Step 2: Initialize core services (only if dependencies exist)
+    if Registry then Registry.Init(Logger) end
+    if EventBus then EventBus.Init(Logger) end
+    if Scheduler then Scheduler.Init(Logger) end
+    if Profiler then Profiler.Init(Logger) end
+    if Cache then Cache.Init(Logger) end
+    if Pool then Pool.Init(Logger) end
+    if AlertHandler then AlertHandler.Init(Logger) end
+    if ConfigLoader then ConfigLoader.Init(Logger) end
+    if PluginManager then PluginManager.Init(Logger) end
 
-    -- Step 3: Register DCE global API
+    -- Step 3: Register DCE global API (must be before AlertHandler.Setup)
     -- Service Registry
     DCE.RegisterService = function(name, serviceTable, options)
-        return Registry.Register(name, serviceTable, options)
+        if Registry then
+            return Registry.Register(name, serviceTable, options)
+        end
+        return false
     end
 
     DCE.GetService = function(name)
-        return Registry.Get(name)
+        if Registry then
+            return Registry.Get(name)
+        end
+        return nil
     end
 
     DCE.HasService = function(name)
-        return Registry.Has(name)
+        if Registry then
+            return Registry.Has(name)
+        end
+        return false
     end
 
     DCE.GetServiceOrThrow = function(name)
-        return Registry.GetOrThrow(name)
+        if Registry then
+            return Registry.GetOrThrow(name)
+        end
+        error("DCE Service Registry: required service '" .. name .. "' is not registered")
     end
 
     DCE.UnregisterService = function(name)
-        return Registry.Unregister(name)
+        if Registry then
+            return Registry.Unregister(name)
+        end
+        return false
     end
 
-    -- Event Bus
-    DCE.Emit = function(eventName, payload)
-        EventBus.Emit(eventName, payload)
-    end
+     -- Event Bus (must be available before AlertHandler.Setup)
+     DCE.Emit = function(eventName, payload)
+         if EventBus then
+             EventBus.Emit(eventName, payload)
+         end
+     end
 
-    DCE.On = function(eventName, handlerFn)
-        return EventBus.On(eventName, handlerFn)
-    end
+     DCE.On = function(eventName, handlerFn)
+          -- AUDIT INSTRUMENTATION: must be removed after root cause is found
+          print("[DCE-AUDIT] DCE.On called: event=" .. tostring(eventName) .. " type=" .. type(handlerFn) .. " val=" .. tostring(handlerFn))
+          local dceTrace = debug and debug.traceback and debug.traceback("", 2) or "no trace"
+          print("[DCE-AUDIT] stack:")
+          print(dceTrace)
+          print("[DCE-AUDIT] ---")
+          
+          -- Validation at DCE API boundary prevents invalid callbacks reaching EventBus.On
+          -- Per Architecture rules: "Defensive nil-check patterns are intentional for FiveM timing safety"
+          if not handlerFn or type(handlerFn) ~= "function" then
+              local Logger = DCELogger
+              local msg = ("EventBus.On: handlerFn must be a function for event '%s'"):format(
+                  type(eventName) == "string" and eventName or tostring(eventName)
+              )
+              if Logger and Logger.Log then
+                  Logger.Log("core", "error", msg)
+              else
+                  print(("[DCE] %s"):format(msg))
+              end
+              return nil
+          end
+          
+          if EventBus then
+              -- AUDIT INSTRUMENTATION: tracing call through to EventBus.On
+              print("[DCE-AUDIT] Calling EventBus.On: event=" .. tostring(eventName) .. " type=" .. type(handlerFn))
+              return EventBus.On(eventName, handlerFn)
+          end
+          
+          -- EventBus not initialized - likely race condition
+          print("[DCE-AUDIT] WARNING: EventBus is nil for event=" .. tostring(eventName))
+          return nil
+      end
 
     DCE.Once = function(eventName, handlerFn)
-        return EventBus.Once(eventName, handlerFn)
+        if not handlerFn or type(handlerFn) ~= "function" then
+            local Logger = DCELogger
+            local msg = ("EventBus.Once: handlerFn must be a function for event '%s'"):format(
+                type(eventName) == "string" and eventName or tostring(eventName)
+            )
+            if Logger and Logger.Log then
+                Logger.Log("core", "error", msg)
+            else
+                print(("[DCE] %s"):format(msg))
+            end
+            return nil
+        end
+        if EventBus then
+            return EventBus.Once(eventName, handlerFn)
+        end
+        return nil
     end
 
     DCE.Off = function(eventName, handlerId)
-        EventBus.Off(eventName, handlerId)
+        if EventBus then
+            EventBus.Off(eventName, handlerId)
+        end
     end
 
     -- Scheduler
     DCE.Schedule = function(taskName, intervalMs, callback, options)
-        return Scheduler.Schedule(taskName, intervalMs, callback, options)
+        if Scheduler then
+            return Scheduler.Schedule(taskName, intervalMs, callback, options)
+        end
+        return false
     end
 
     DCE.ScheduleNow = function(taskName)
-        return Scheduler.ExecuteNow(taskName)
+        if Scheduler then
+            return Scheduler.ExecuteNow(taskName)
+        end
+        return false
     end
 
     -- Plugin Manager
     DCE.RegisterPlugin = function(manifest)
-        return PluginManager.Register(manifest)
+        if PluginManager then
+            return PluginManager.Register(manifest)
+        end
+        return false
     end
 
     -- Config Loader
     DCE.LoadConfig = function(path)
-        return ConfigLoader.Load(path)
+        if ConfigLoader then
+            return ConfigLoader.Load(path)
+        end
+        return nil
     end
 
     DCE.ValidateConfig = function(config, schema)
-        return ConfigLoader.Validate(config, schema)
+        if ConfigLoader then
+            return ConfigLoader.Validate(config, schema)
+        end
+        return false
     end
 
     -- Logger convenience
     DCE.Log = function(module, level, message, ...)
-        Logger.Log(module, level, message, ...)
+        if Logger then
+            Logger.Log(module, level, message, ...)
+        end
     end
+
+    -- Setup alert handler for performance events (now DCE.On is available)
+    if AlertHandler then AlertHandler.Setup() end
+
+    -- Initialize default object pools
+    if Pool then Pool.InitializeDefaultPools() end
 
     -- SDK Wrapper Functions (Plugin_SDK.md)
     -- These provide a thin wrapper over the Service Registry/Event Bus for plugin authors.
@@ -234,10 +336,10 @@ local function InitializeCore()
     -- Step 4: Register core services
     -- Defensive patterns: return nil OR actual value for service timing safety
     DCE.RegisterService("CoreRegistry", {
-        ListServices = function() return Registry.List() end,
-        ListPlugins = function() return PluginManager.List() end,
-        ListTasks = function() return Scheduler.ListTasks() end,
-        ListEvents = function() return EventBus.ListEvents() end,
+        ListServices = function() if Registry then return Registry.List() end return {} end,
+        ListPlugins = function() if PluginManager then return PluginManager.List() end return {} end,
+        ListTasks = function() if Scheduler then return Scheduler.ListTasks() end return {} end,
+        ListEvents = function() if EventBus then return EventBus.ListEvents() end return {} end,
         GetDCEVersion = function() return "1.0.0" end,
     })
 
@@ -249,8 +351,12 @@ local function InitializeCore()
         payload = { version = "1.0.0" },
     })
 
-    Logger.Info("core", "DCE v1.0.0 Core Initialized")
-    Logger.Info("core", "Registered services: %s", table.concat(Registry.List(), ", "))
+    if Logger then
+        Logger.Info("core", "DCE v1.0.0 Core Initialized")
+        if Registry then
+            Logger.Info("core", "Registered services: %s", table.concat(Registry.List(), ", "))
+        end
+    end
 end
 
 -- ============================================================================
@@ -265,22 +371,42 @@ local function ShutdownCore()
     local EventBus = DCEEventBus
     local Scheduler = DCEScheduler
     local PluginManager = DCEPluginManager
+    local Profiler = DCEProfiler
+    local Cache = DCECache
+    local Pool = DCEPool
+    local AlertHandler = DCEAlertHandler
 
-    Logger.Info("core", "=== DCE Core Shutting Down ===")
+    if Logger then
+        Logger.Info("core", "=== DCE Core Shutting Down ===")
+    end
 
     -- 1. Clear all scheduled tasks (this stops all running timers)
-    Scheduler.ClearAll()
+    if Scheduler then Scheduler.ClearAll() end
 
     -- 2. Clear all event handlers
-    EventBus.ClearAll()
+    if EventBus then EventBus.ClearAll() end
 
     -- 3. Unregister all services
-    Registry.Clear()
+    if Registry then Registry.Clear() end
 
     -- 4. Clear plugin registrations
-    PluginManager.Clear()
+    if PluginManager then PluginManager.Clear() end
 
-    Logger.Info("core", "DCE Core Shutdown Complete")
+    -- 5. Shutdown profiler
+    if Profiler then Profiler.Shutdown() end
+
+    -- 6. Shutdown cache (clear all caches)
+    if Cache then Cache.Shutdown() end
+
+    -- 7. Shutdown pool (clear all pools)
+    if Pool then Pool.Shutdown() end
+
+    -- 8. Shutdown alert handler
+    if AlertHandler then AlertHandler.Shutdown() end
+
+    if Logger then
+        Logger.Info("core", "DCE Core Shutdown Complete")
+    end
 end
 
 -- ============================================================================
@@ -303,6 +429,10 @@ if not initSuccess then
     -- If core fails to initialize, log the error and don't proceed
     print("^1[DCE Core] FATAL: Initialization failed: " .. tostring(initErr) .. "^0")
 else
+    -- Export DCE globally ONLY after all methods are set up
+    -- This prevents race conditions where DCE.On, DCE.Emit, etc. are nil
+    _G.DCE = DCE
+
     -- Register shutdown handler
     AddEventHandler("onResourceStop", function(resourceName)
         if resourceName == GetCurrentResourceName() then
@@ -314,7 +444,9 @@ else
     AddEventHandler("onResourceStart", function(resourceName)
         if resourceName == GetCurrentResourceName() then
             local Logger = DCELogger
-            Logger.Info("core", "Resource restarted: %s", resourceName)
+            if Logger then
+                Logger.Info("core", "Resource restarted: %s", resourceName)
+            end
         end
     end)
 end

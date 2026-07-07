@@ -58,15 +58,23 @@ Plugin = {
 | `DCE.Min` | string | Minimum DCE core version this plugin is known to work with |
 
 ### Optional Fields
-
-| Field | Type | Notes |
-|---|---|---|
-| `Author` | string | |
-| `Description` | string | Shown in admin tooling |
-| `DCE.Max` | string | Maximum known-compatible version; omit if unknown/unbounded |
-| `Homepage` / `Repository` | string | For marketplace listing purposes, later |
-
----
+ 
+ | Field | Type | Notes |
+ |---|---|---|
+ | `Author` | string | |
+ | `Description` | string | Shown in admin tooling |
+ | `DCE.Max` | string | Maximum known-compatible version; omit if unknown/unbounded |
+ | `Homepage` / `Repository` | string | For marketplace listing purposes, later |
+ 
+ ### Performance Metadata (Optional)
+ 
+ | Field | Type | Notes |
+ |---|---|---|
+ | `DCE.EstimatedCPU` | number (ms) | Estimated CPU time per tick the plugin will consume |
+ | `DCE.EstimatedMemory` | number (bytes) | Estimated memory usage |
+ | `DCE.TickRequirement` | string | `high`, `medium`, or `low` - expected update frequency |
+ 
+ ---
 
 ## Provides Categories
 

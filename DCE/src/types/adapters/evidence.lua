@@ -9,7 +9,10 @@
 --- Must be implemented by ERS, Sonoran CAD, PS-MDT, or custom adapters.
 ---@field Name string Adapter identifier
 ---@field Priority number Adapter priority (used for selection when multiple available)
----@field CreateEvidence fun(self:IEvidenceAdapter, data:EvidenceSummary):boolean Create an evidence item in external system
----@field TransferEvidence fun(self:IEvidenceAdapter, data:table):boolean Transfer evidence (chain of custody update)
----@field VerifyEvidence fun(self:IEvidenceAdapter, data:EvidenceSummary):boolean Mark evidence as verified
----@field LinkToCase fun(self:IEvidenceAdapter, evidenceId:string, caseId:string):boolean Link evidence to an investigation case
+---@field IsAvailable fun(self:IEvidenceAdapter):boolean Check if adapter can connect to external system
+---@field CreateEvidence fun(self:IEvidenceAdapter, data:EvidenceSummary):nil Create an evidence item in external system
+---@field TransferEvidence fun(self:IEvidenceAdapter, data:table):nil Transfer evidence (chain of custody update)
+---@field VerifyEvidence fun(self:IEvidenceAdapter, data:EvidenceSummary):nil Mark evidence as verified
+---@field LinkToCase fun(self:IEvidenceAdapter, evidenceId:string, caseId:string):nil Link evidence to an investigation case
+---@field GetDiagnostics fun(self:IEvidenceAdapter):table Get adapter health and status information
+---@field HealthCheck fun(self:IEvidenceAdapter):boolean Check if adapter connection is healthy

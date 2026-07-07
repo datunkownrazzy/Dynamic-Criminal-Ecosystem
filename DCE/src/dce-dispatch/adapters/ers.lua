@@ -124,4 +124,4 @@ function ERSAdapter:HealthCheck()
     return self.available
 end
 
-_G.DCEDispatchAdapter = ERSAdapter
+_G.DCEERSDispatchAdapter = ERSAdapter

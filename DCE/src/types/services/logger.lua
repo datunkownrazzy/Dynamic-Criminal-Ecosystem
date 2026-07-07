@@ -4,14 +4,14 @@
 
 --- @class ILogger
 --- Logger service for module-tagged logging with configurable levels.
----@field Init fun(self:ILogger, config?:table):nil Initialize the logger
----@field Log fun(self:ILogger, module:string, level:string, message:string, ...:any):nil Log with module/tag
----@field Debug fun(self:ILogger, module:string, message:string, ...:any):nil Debug level log
----@field Info fun(self:ILogger, module:string, message:string, ...:any):nil Info level log
----@field Warn fun(self:ILogger, module:string, message:string, ...:any):nil Warning level log
----@field Error fun(self:ILogger, module:string, message:string, ...:any):nil Error level log
----@field SetLevel fun(self:ILogger, level:string):string Set minimum log level
----@field Format fun(self:ILogger, module:string, level:string, message:string, ...:any):string Format a message
+---@field Init fun():nil Initialize the logger
+---@field Log fun(module:string, level:string, message:string, ...:any):nil Log with module/tag
+---@field Debug fun(module:string, message:string, ...:any):nil Debug level log
+---@field Info fun(module:string, message:string, ...:any):nil Info level log
+---@field Warn fun(module:string, message:string, ...:any):nil Warning level log
+---@field Error fun(module:string, message:string, ...:any):nil Error level log
+---@field SetLevel fun(level:string):nil Set minimum log level
+---@field Format fun(module:string, level:string, message:string, ...:any):string Format a message
 
 --- @class LogLevel
 --- Log level enum values.

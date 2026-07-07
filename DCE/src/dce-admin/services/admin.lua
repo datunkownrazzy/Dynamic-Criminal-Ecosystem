@@ -472,6 +472,101 @@ function AdminService.GetConfig()
     return getConfig()
 end
 
+--- Get comprehensive profiler metrics (per ADR-0015)
+---@return table
+function AdminService.GetProfilerMetrics()
+    local Profiler = DCEProfiler
+    if not Profiler then
+        return { error = "Profiler not available" }
+    end
+
+    local metrics = Profiler.GetAllMetrics()
+    local history = {}
+
+    -- Get recent history for graphs
+    for serviceId, _ in pairs(metrics) do
+        history[serviceId] = Profiler.GetHistory(serviceId, 60) -- Last 60 entries
+    end
+
+    return {
+        metrics = metrics,
+        history = history,
+        stats = Profiler.GetStats(),
+    }
+end
+
+--- Get CPU per service breakdown
+---@return table
+function AdminService.GetCPUPerService()
+    local Profiler = DCEProfiler
+    if not Profiler then return {} end
+
+    local metrics = Profiler.GetAllMetrics()
+    local result = {}
+
+    for serviceId, m in pairs(metrics) do
+        result[serviceId] = {
+            cpuMs = m.cpuMs or 0,
+            memoryBytes = m.memoryBytes or 0,
+            eventCount = m.eventCount or 0,
+            queueDepth = m.queueDepth or 0,
+            execFrequency = m.execFrequency or 0,
+            lastUpdate = m.lastUpdate or 0,
+        }
+    end
+
+    return result
+end
+
+--- Get cache statistics
+---@return table
+function AdminService.GetCacheStats()
+    local Cache = DCECache
+    if not Cache then return {} end
+
+    -- This would be extended to list all caches when Cache service has that method
+    return {
+        -- Placeholder - Cache service would need GetListStats method
+    }
+end
+
+--- Get pool statistics
+---@return table
+function AdminService.GetPoolStats()
+    local Pool = DCEPool
+    if not Pool then return {} end
+
+    -- Return stats for known pools
+    local pools = { "npc", "vehicle", "evidence", "incident", "dispatch_call" }
+    local result = {}
+
+    for _, poolName in ipairs(pools) do
+        -- Pool service would need GetStats method
+    end
+
+    return result
+end
+
+--- Set performance budget for a service
+---@param serviceId string
+---@param budgetMs number
+---@return boolean
+function AdminService.SetServiceBudget(serviceId, budgetMs)
+    local Profiler = DCEProfiler
+    if not Profiler then return false end
+
+    Profiler.SetBudget(serviceId, budgetMs)
+    return true
+end
+
+--- Reset profiler metrics
+function AdminService.ResetProfiler()
+    local Profiler = DCEProfiler
+    if Profiler then
+        Profiler.Reset()
+    end
+end
+
 --- Shutdown the admin service
 function AdminService.Shutdown()
     if DCE and DCE.Log then
@@ -479,6 +574,21 @@ function AdminService.Shutdown()
     end
     auditLog = {}
     debugHistory = {}
+
+    -- Shutdown profiler
+    if DCEProfiler then
+        DCEProfiler.Shutdown()
+    end
+
+    -- Shutdown cache
+    if DCECache then
+        DCECache.Shutdown()
+    end
+
+    -- Shutdown pool
+    if DCEPool then
+        DCEPool.Shutdown()
+    end
 end
 
 _G.DCEAdminService = AdminService

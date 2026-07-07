@@ -2,21 +2,44 @@
 -- This file contains ONLY type declarations for the EventBus service.
 -- No runtime logic, no business logic.
 
---- @class IEventBus
+--- @class DCEEventBus
 --- Event Bus: Pub/sub mechanism for all cross-module communication.
 --- All events follow the envelope format: { eventName, eventVersion, timestamp, source, correlationId?, payload }
----@field Init fun(self:IEventBus, logger:ILogger):nil Initialize the event bus
----@field Emit fun(self:IEventBus, eventName:string, payload:table):nil Emit an event
----@field On fun(self:IEventBus, eventName:string, handlerFn:function):number|nil Register an event handler
----@field Once fun(self:IEventBus, eventName:string, handlerFn:function):number|nil Register one-time handler
----@field ClearEvent fun(self:IEventBus, eventName:string):nil Clear all handlers for an event
----@field ClearAll fun(self:IEventBus):nil Clear all handlers
----@field ListEvents fun(self:IEventBus):string[] List all registered events
----@field HandlerCount fun(self:IEventBus, eventName:string):number Get handler count
+---@field Init fun(log:ILogger|nil):nil Initialize the event bus
+---@field Emit fun(eventName:string, payload:table):nil Emit an event
+---@field On fun(eventName:string, handlerFn:function):number|nil Register an event handler
+---@field Once fun(eventName:string, handlerFn:function):number|nil Register one-time handler
+---@field Off fun(eventName:string, handlerId:number):nil Unsubscribe from an event
+---@field OnPriority fun(eventName:string, handlerFn:function, priority:string):number|nil Register handler with priority
+---@field ClearAll fun():nil Clear all handlers
+---@field ClearEvent fun(eventName:string):nil Clear handlers for specific event
+---@field ListEvents fun():string[] List all event names
+---@field HandlerCount fun(eventName:string):number Get handler count for event
+---@field EmitBatch fun(eventList:table):nil Emit multiple events
+---@field EmitDebounced fun(eventName:string, payload:table, debounceMs:number):nil Emit with rate limiting
+---@field EmitCoalesced fun(eventName:string, payload:table, coalesceMs:number):nil Emit merging similar events
+---@field EmitDelayed fun(eventName:string, payload:table, delayMs:number):nil Emit with delayed execution
+---@field GetAsyncQueueDepth fun(eventName:string):number Get pending queue count
+---@field GetStats fun():table Get event bus statistics
+---@field GetMetrics fun():table Get detailed event bus metrics
+---@field ResetMetrics fun():nil Reset event bus metrics
+
+--- @class IEventBusMetrics
+--- Event bus metrics for instrumentation.
+---@field totalDispatches number Total events dispatched
+---@field totalErrors number Total handler errors
+---@field totalSkipped number Total events skipped (no subscribers or rate limited)
+---@field events table[] Per-event metrics with avg/max dispatch times
+
+--- @class IEventMetrics
+--- Per-event dispatch metrics.
+---@field name string Event name
+---@field avgDispatchMs number Average dispatch time in milliseconds
+---@field maxDispatchMs number Maximum dispatch time in milliseconds
+---@field totalDispatches number Total dispatches for this event
 
 --- @class IEventHandler
 --- Event handler registration.
 ---@field id number Handler identifier
 ---@field eventName string Event name
 ---@field callback function Handler function
----@field once boolean One-time handler flag

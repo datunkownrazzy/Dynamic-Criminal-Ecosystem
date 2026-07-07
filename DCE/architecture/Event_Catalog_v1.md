@@ -109,27 +109,35 @@ These two are lower-frequency-emission than they sound — per `ADR-0003`'s debo
 | ServiceUnregistered | `service:unregistered:<name>` | A service has been unregistered (resource stop) |
 
 ## Admin Domain
-
-| Plain name | Canonical event name | Emitted when |
-|---|---|---|
-| AdminDashboardOpened | `admin:dashboard:opened` | Admin opens the DCE admin dashboard |
-| AdminActionExecuted | `admin:action:executed` | An admin action is executed (audit trail) |
-| AdminDebugCommand | `admin:debug:command` | A debug command is received from admin |
-
-## SDK Domain
-
-| Plain name | Canonical event name | Emitted when |
-|---|---|---|
-| PluginRegistered | `sdk:plugin:registered` | A plugin has been successfully registered |
-| PluginRejected | `sdk:plugin:rejected` | A plugin registration was rejected (validation failed) |
-| OrganizationRegistered | `sdk:organization:registered` | A plugin registers a new organization |
-| AdapterRegistered | `sdk:adapter:registered` | A plugin registers a dispatch/evidence/MDT adapter |
-| BehaviorRegistered | `sdk:behavior:registered` | A plugin registers a new behavior/scenario content |
-| EscalationRegistered | `sdk:escalation:registered` | A plugin registers a new escalation chain |
-
----
-
-## What's Deliberately Not Yet Cataloged
+ 
+ | Plain name | Canonical event name | Emitted when |
+ |---|---|---|
+ | AdminDashboardOpened | `admin:dashboard:opened` | Admin opens the DCE admin dashboard |
+ | AdminActionExecuted | `admin:action:executed` | An admin action is executed (audit trail) |
+ | AdminDebugCommand | `admin:debug:command` | A debug command is received from admin |
+ 
+ ## Performance Domain (ADR-0015)
+ 
+ | Plain name | Canonical event name | Emitted when |
+ |---|---|---|
+ | BudgetExceeded | `performance:budget:exceeded` | A service exceeds its allocated CPU budget |
+ | PerformanceAlert | `admin:performance:alert` | Performance alert is generated for admin dashboard |
+ | DebugModeChanged | `admin:debug:mode:changed` | Debug mode is changed (production/development/profiler/etc.) |
+ 
+ ## SDK Domain
+ 
+ | Plain name | Canonical event name | Emitted when |
+ |---|---|---|
+ | PluginRegistered | `sdk:plugin:registered` | A plugin has been successfully registered |
+ | PluginRejected | `sdk:plugin:rejected` | A plugin registration was rejected (validation failed) |
+ | OrganizationRegistered | `sdk:organization:registered` | A plugin registers a new organization |
+ | AdapterRegistered | `sdk:adapter:registered` | A plugin registers a dispatch/evidence/MDT adapter |
+ | BehaviorRegistered | `sdk:behavior:registered` | A plugin registers a new behavior/scenario content |
+ | EscalationRegistered | `sdk:escalation:registered` | A plugin registers a new escalation chain |
+ 
+ ---
+ 
+ ## What's Deliberately Not Yet Cataloged
 
 Per `Goals.md`'s deferred list, events for World Chronicle, cross-server sync, and federal/political-pressure systems are not part of this v1.0 freeze — they'll get their own catalog addition when those systems are actually built, not reserved in advance.
 

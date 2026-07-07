@@ -47,17 +47,31 @@
     // NUI API - Sends requests to Lua
     // ============================================================================
 
-    DCE.NUI = {
-        post: async function(action, data) {
-            data = data || {};
+DCE.NUI = {
+    post: async function(action, data) {
+        data = data || {};
+        try {
             var resp = await fetch('https://' + GetParentResourceName() + '/' + action, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            return resp.json();
+            
+            if (!resp.ok) {
+                throw new Error('HTTP error: ' + resp.status + ' ' + resp.statusText);
+            }
+            
+            var result = await resp.json();
+            return result;
+        } catch (err) {
+            console.error('DCE.NUI.post error for ' + action + ':', err);
+            if (DCE.Notifications) {
+                DCE.Notifications.error('NUI request failed: ' + action);
+            }
+            return null;
         }
-    };
+    }
+};
 
     // ============================================================================
     // Notifications System
@@ -92,23 +106,77 @@
         info: function(msg) { DCE.Notifications.show(msg, 'info'); }
     };
 
-    // ============================================================================
-    // Desktop Environment
-    // ============================================================================
+// ============================================================================
+// UI State Manager (Centralized)
+// ============================================================================
 
-    DCE.Desktop = {
+DCE.UI = {
+    state: {
         isOpen: false,
+        hasFocus: false,
+        currentWorkspace: null,
+        currentWindow: null,
+        activeTab: null,
+        selectedOrganization: null,
+        selectedRegion: null,
+    },
 
-        show: function() {
-            document.body.classList.add('cc-open');
-            DCE.Desktop.isOpen = true;
-        },
-
-        hide: function() {
-            document.body.classList.remove('cc-open');
-            DCE.Desktop.isOpen = false;
+    // Set state and sync with DOM
+    setState: function(key, value) {
+        this.state[key] = value;
+        if (key === 'isOpen') {
+            if (value) {
+                document.body.classList.add('cc-open');
+            } else {
+                document.body.classList.remove('cc-open');
+            }
         }
-    };
+    },
+
+    // Get state value
+    getState: function(key) {
+        return this.state[key];
+    },
+
+    // Toggle open state
+    toggle: function() {
+        this.setState('isOpen', !this.state.isOpen);
+        this.setState('hasFocus', this.state.isOpen);
+        return this.state.isOpen;
+    },
+
+    open: function() {
+        this.setState('isOpen', true);
+        this.setState('hasFocus', true);
+        DCE.Notifications.info('Control Center opened');
+    },
+
+    close: function() {
+        this.setState('isOpen', false);
+        this.setState('hasFocus', false);
+        if (DCE.Windows) {
+            DCE.Windows.closeAll();
+        }
+    }
+};
+
+// ============================================================================
+// Desktop Environment
+// ============================================================================
+
+DCE.Desktop = {
+    isOpen: false,
+
+    show: function() {
+        DCE.UI.open();
+        DCE.Desktop.isOpen = DCE.UI.getState('isOpen');
+    },
+
+    hide: function() {
+        DCE.UI.close();
+        DCE.Desktop.isOpen = DCE.UI.getState('isOpen');
+    }
+};
 
     // ============================================================================
     // Event Bus Client

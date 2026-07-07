@@ -75,8 +75,8 @@ function EvidenceService.InitializeAdapter()
 
     if mode == "ers" then
         -- ERS adapter is optional - check at runtime
-        if _G.DCERSAdapter and _G.DCERSAdapter.New then
-            local adapter = _G.DCERSAdapter.New(integration)
+        if _G.DCEERSEvidenceAdapter and _G.DCEERSEvidenceAdapter.New then
+            local adapter = _G.DCEERSEvidenceAdapter.New(integration)
             if adapter and adapter.IsAvailable and adapter:IsAvailable() then
                 EvidenceService.SetAdapter(adapter)
                 return
@@ -87,6 +87,15 @@ function EvidenceService.InitializeAdapter()
             if DCE and DCE.Log then
                 DCE.Log("evidence", "warn", "ERS evidence adapter unavailable; using local standalone registry")
             end
+        end
+    end
+
+    -- Use native adapter as default fallback
+    if mode == "native" or mode == "ers" or mode == "custom" then
+        local nativeAdapter = _G.DCENativeEvidenceAdapter
+        if nativeAdapter and nativeAdapter.New then
+            EvidenceService.SetAdapter(nativeAdapter.New(integration))
+            return
         end
     end
 

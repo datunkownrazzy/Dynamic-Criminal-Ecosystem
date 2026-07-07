@@ -18,6 +18,8 @@ shared_scripts {
 
 server_scripts {
     'services/admin.lua',
+    'benchmarks/benchmark-suite.lua',
+    'debug/mode-manager.lua',
     'commands.lua',
     'init.lua',
 }

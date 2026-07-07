@@ -32,7 +32,8 @@ local function OnWorldStart()
         return
     end
 
-    _G.DCE = DCEAPI
+    -- _G.DCE is owned by dce-core; use the API locally
+    -- Do NOT overwrite _G.DCE to prevent race conditions
 
     if DCE and DCE.Log then
         DCE.Log("world", "info", "=== DCE World Engine Starting ===")

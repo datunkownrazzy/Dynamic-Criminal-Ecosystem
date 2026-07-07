@@ -9,7 +9,10 @@
 --- Must be implemented by ERS, Sonoran CAD, PS-Dispatch, or custom adapters.
 ---@field Name string Adapter identifier
 ---@field Priority number Adapter priority (used for selection when multiple available)
----@field CreateCall fun(self:IDispatchAdapter, data:DispatchCallSummary):boolean Create a new dispatch call
----@field UpdateCall fun(self:IDispatchAdapter, data:DispatchCallSummary):boolean Update an existing call
----@field ResolveCall fun(self:IDispatchAdapter, data:DispatchCallSummary):boolean Resolve a call
----@field CancelCall fun(self:IDispatchAdapter, data:DispatchCallSummary):boolean Cancel a call
+---@field IsAvailable fun(self:IDispatchAdapter):boolean Check if adapter can connect to external system
+---@field CreateCall fun(self:IDispatchAdapter, data:DispatchCallSummary):nil Create a new dispatch call
+---@field UpdateCall fun(self:IDispatchAdapter, data:DispatchCallSummary):nil Update an existing call
+---@field ResolveCall fun(self:IDispatchAdapter, data:DispatchCallSummary):nil Resolve a call
+---@field CancelCall fun(self:IDispatchAdapter, data:DispatchCallSummary):nil Cancel a call
+---@field GetDiagnostics fun(self:IDispatchAdapter):table Get adapter health and status information
+---@field HealthCheck fun(self:IDispatchAdapter):boolean Check if adapter connection is healthy

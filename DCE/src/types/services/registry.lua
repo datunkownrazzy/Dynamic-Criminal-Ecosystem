@@ -4,11 +4,12 @@
 
 --- @class IRegistry
 --- Service Registry: Resolves services by name without hardcoding dependencies.
----@field Init fun(self:IRegistry, logger:ILogger):nil Initialize the registry
----@field Register fun(self:IRegistry, name:string, serviceTable:table, options?:table):boolean Register a service
----@field Get fun(self:IRegistry, name:string):IService|nil Get a service by name
----@field Has fun(self:IRegistry, name:string):boolean Check if service exists
----@field GetOrThrow fun(self:IRegistry, name:string):IService Get service or throw error
----@field Unregister fun(self:IRegistry, name:string):boolean Unregister a service
----@field List fun(self:IRegistry):string[] List all registered services
----@field Clear fun(self:IRegistry):nil Clear all registrations
+---@field Init fun(logger:ILogger|nil):nil Initialize the registry
+---@field Register fun(name:string, serviceTable:table, options?:table):boolean Register a service
+---@field Get fun(name:string):IService|nil Get a service by name
+---@field Has fun(name:string):boolean Check if service exists
+---@field GetOrThrow fun(name:string):IService Get service or throw error
+---@field Unregister fun(name:string):boolean Unregister a service
+---@field List fun():string[] List all registered services
+---@field Clear fun():nil Clear all registrations
+---@field ListTasks fun():string[] List all scheduled tasks (from Scheduler)

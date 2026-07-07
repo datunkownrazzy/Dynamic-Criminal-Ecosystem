@@ -12,7 +12,12 @@ local function OnAdminStart()
     if not DCE or not DCE.RegisterService then
         -- Try to get DCE from core export
         if exports and exports['dce-core'] and exports['dce-core'].GetDCEAPI then
-            _G.DCE = exports['dce-core']:GetDCEAPI()
+            local DCEAPI = exports['dce-core']:GetDCEAPI()
+            if DCEAPI then
+                -- Use the DCE API locally without overwriting _G.DCE
+                -- _G.DCE is owned by dce-core to prevent race conditions
+                _G.DCE = DCEAPI
+            end
         end
     end
 
@@ -134,7 +139,10 @@ local function OnAdminStart()
     end
 
     -- Subscribe to admin action events for logging
+    -- The callback is a proper anonymous function that will be validated by EventBus.On
     if DCE and DCE.On then
+        -- AUDIT: dce-admin/init.lua:144 registering admin:action:executed
+        print("[AUDIT-SITE] dce-admin/init.lua:144 DCE.On event=admin:action:executed cb_type=" .. type(function(payload) end))
         DCE.On("admin:action:executed", function(payload)
             if DCE and DCE.Log then
                 local data = payload and (payload.payload or payload)

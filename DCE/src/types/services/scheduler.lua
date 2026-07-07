@@ -2,18 +2,17 @@
 -- This file contains ONLY type declarations for the Scheduler service.
 -- No runtime logic, no business logic.
 
---- @class IScheduler
+--- @class DCEScheduler
 --- Scheduler: Named tasks with configurable intervals. All simulation timing goes through this scheduler.
----@field Init fun(self:IScheduler, logger:ILogger):nil Initialize the scheduler
----@field Schedule fun(self:IScheduler, taskName:string, intervalMs:number, callback:function, options?:table):boolean Schedule a recurring task
----@field ExecuteNow fun(self:IScheduler, taskName:string):boolean Execute a task immediately
----@field Reschedule fun(self:IScheduler, taskName:string, newIntervalMs:number):boolean Change task interval
----@field Pause fun(self:IScheduler, taskName:string):nil Pause a task
----@field Resume fun(self:IScheduler, taskName:string):nil Resume a paused task
----@field Unschedule fun(self:IScheduler, taskName:string):nil Remove a task
----@field ClearAll fun(self:IScheduler):nil Clear all tasks
----@field GetTask fun(self:IScheduler, taskName:string):table|nil Get task details
----@field ListTasks fun(self:IScheduler):table[] List all tasks
+---@field Init fun(log:ILogger|nil):nil Initialize the scheduler
+---@field Schedule fun(taskName:string, intervalMs:number, callback:function, options?:table):boolean Schedule a recurring task
+---@field ExecuteNow fun(taskName:string):boolean Execute a task immediately
+---@field Reschedule fun(taskName:string, newIntervalMs:number):boolean Change task interval
+---@field Pause fun(taskName:string):nil Pause a task
+---@field Resume fun(taskName:string):nil Resume a paused task
+---@field Unschedule fun(taskName:string):nil Remove a task
+---@field ClearAll fun():nil Clear all tasks
+---@field ListTasks fun():table[] List all tasks
 
 --- @class ISchedulerTask
 --- Scheduled task structure.

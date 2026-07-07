@@ -29,7 +29,8 @@ local function OnEventsStart()
         print("^1[DCE Events] FATAL: Could not obtain DCE API from dce-core^0")
         return
     end
-    _G.DCE = DCEAPI
+    -- _G.DCE is owned by dce-core; use the API locally
+    -- Do NOT overwrite _G.DCE to prevent race conditions
 
     if DCE and DCE.Log then
         DCE.Log("events", "info", "=== DCE Scenario Engine Starting ===")

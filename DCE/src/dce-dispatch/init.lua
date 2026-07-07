@@ -43,8 +43,8 @@ local function GetConfiguredAdapter()
 
     if mode == "ers" then
         -- ERS adapter is optional - check at runtime
-        if _G.DCERSAdapter and _G.DCERSAdapter.New then
-            local adapter = _G.DCERSAdapter.New(integration)
+        if _G.DCEERSDispatchAdapter and _G.DCEERSDispatchAdapter.New then
+            local adapter = _G.DCEERSDispatchAdapter.New(integration)
             if adapter and adapter.IsAvailable and adapter:IsAvailable() then
                 return adapter
             end
@@ -57,7 +57,14 @@ local function GetConfiguredAdapter()
         end
     end
 
-    return _G.DCENativeAdapter or {}
+    if mode == "native" or mode == "ers" or mode == "custom" then
+        local nativeAdapter = _G.DCENativeDispatchAdapter
+        if nativeAdapter and nativeAdapter.New then
+            return nativeAdapter.New()
+        end
+    end
+
+    return {}
 end
 
 local function OnDispatchStart()
@@ -66,7 +73,8 @@ local function OnDispatchStart()
         print("^1[DCE Dispatch] FATAL: Could not obtain DCE API from dce-core^0")
         return
     end
-    _G.DCE = DCEAPI
+    -- _G.DCE is owned by dce-core; use the API locally
+    -- Do NOT overwrite _G.DCE to prevent race conditions
 
     if DCE and DCE.Log then
         DCE.Log("dispatch", "info", "=== DCE Dispatch Service Starting ===")
@@ -103,6 +111,8 @@ local function OnDispatchStart()
 
     -- Subscribe to dispatch call requests from the scenario engine
     if DCE and DCE.On then
+        -- AUDIT: dce-dispatch/init.lua:113 DCE.On event=dispatch:call:requested
+        print("[AUDIT-SITE] dce-dispatch/init.lua:113 DCE.On event=dispatch:call:requested cb_type=" .. type(function(payload) end))
         DCE.On("dispatch:call:requested", function(payload)
             local data = payload and (payload.payload or payload)
             if data and DCEDispatchService and DCEDispatchService.CreateCall then

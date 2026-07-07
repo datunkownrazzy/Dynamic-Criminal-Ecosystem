@@ -446,6 +446,8 @@ AddEventHandler('dce-admin:server:subscribe', function(eventName)
     
     -- Store subscription for this player
     if DCE and DCE.On then
+        -- AUDIT: dce-admin/commands.lua:449 DCE.On with dynamic event from client
+        print("[AUDIT-SITE] dce-admin/commands.lua:449 DCE.On event=" .. tostring(eventName) .. " cb_type=" .. type(function(payload) end))
         DCE.On(eventName, function(payload)
             -- Forward event to NUI
             TriggerClientEvent('dce-admin:client:eventbus:emit', src, {
@@ -454,6 +456,19 @@ AddEventHandler('dce-admin:server:subscribe', function(eventName)
             })
         end)
     end
+end)
+
+-- ============================================================================
+-- Keybind Handler
+-- ============================================================================
+
+RegisterNetEvent('dce-admin:server:keybindPressed')
+AddEventHandler('dce-admin:server:keybindPressed', function(keybindName)
+    local src = source
+    if not HasPermission(src) then return end
+    
+    -- Request open from client - client will handle toggle logic
+    TriggerClientEvent('dce-admin:client:openByKeybind', src)
 end)
 
 _G.DCEAdminCommands = AdminCommands

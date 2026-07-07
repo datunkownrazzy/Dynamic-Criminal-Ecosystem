@@ -165,4 +165,4 @@ function NativeAdapter.IsAvailable()
     return true
 end
 
-_G.DCENativeAdapter = NativeAdapter
+_G.DCENativeDispatchAdapter = NativeAdapter

@@ -20,6 +20,7 @@
 
 ---@class FiveMRuntime
 ---@field RegisterCommand fun(name:string, handler:fun(source:number, args:string[], rawCommand:string), restricted?:boolean):nil
+---@field RegisterKeyMapping fun(commandName:string, description:string, category:string, key:string):nil
 ---@field RegisterNUICallback fun(name:string, handler:fun(data:table, cb:fun(response:table)):nil)
 ---@field RegisterNetEvent fun(eventName:string):nil
 ---@field AddEventHandler fun(eventName:string, handler:fun(...:any)):nil
@@ -58,6 +59,9 @@ vector4 = nil
 
 ---@type fun(name:string, handler:fun(source:number, args:string[], rawCommand:string), restricted?:boolean):nil
 RegisterCommand = nil
+
+---@type fun(commandName:string, description:string, category:string, key:string):nil
+RegisterKeyMapping = nil
 
 ---@type fun(name:string, handler:fun(data:table, cb:fun(response:table)):nil)
 RegisterNUICallback = nil
@@ -109,6 +113,9 @@ GetCurrentResourceName = nil
 
 ---@type fun(resourceName:string, file:string):string|nil
 LoadResourceFile = nil
+
+---@type fun():number
+GetGameTimer = nil
 
 ---@type JSON
 json = nil

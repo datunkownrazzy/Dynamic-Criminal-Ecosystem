@@ -52,6 +52,21 @@ Config.Admin.AuditLog.MaxEntries = Config.Admin.AuditLog.MaxEntries or 1000
 Config.Admin.ConfigRuntime = Config.Admin.ConfigRuntime or {}
 Config.Admin.ConfigRuntime.Enabled = Config.Admin.ConfigRuntime.Enabled ~= false
 
+-- Keybind configuration
+Config.Admin.Keybind = Config.Admin.Keybind or {}
+Config.Admin.Keybind.Enabled = Config.Admin.Keybind.Enabled ~= false
+Config.Admin.Keybind.Key = Config.Admin.Keybind.Key or "KC_LMENU + K"
+Config.Admin.Keybind.Command = Config.Admin.Keybind.Command or "admin"
+
+-- Window manager configuration
+Config.Admin.Window = Config.Admin.Window or {}
+Config.Admin.Window.SizePresets = Config.Admin.Window.SizePresets or {
+    small = { width = "40%", height = "50%" },
+    medium = { width = "60%", height = "70%" },
+    large = { width = "90%", height = "90%" },
+}
+Config.Admin.Window.DefaultSize = Config.Admin.Window.DefaultSize or "medium"
+
 -- Set/update global Config
 _G.Config = Config
 return Config

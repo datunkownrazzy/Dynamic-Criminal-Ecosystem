@@ -1,0 +1,17 @@
+-- DCE Cache Service Type Declarations
+-- This file contains ONLY type declarations for the Cache service.
+-- No runtime logic, no business logic.
+
+--- @class DCECache
+--- Cache: Configurable caching with TTL, size limits, and invalidation.
+---@field Init fun(logger:ILogger|nil):nil
+---@field Create fun(cacheName:string, options:table):table|nil
+---@field Set fun(cacheName:string, key:string, value:any):boolean
+---@field Get fun(cacheName:string, key:string):any
+---@field Has fun(cacheName:string, key:string):boolean
+---@field Remove fun(cacheName:string, key:string):nil
+---@field InvalidatePattern fun(cacheName:string, pattern:string):nil
+---@field Clear fun(cacheName:string):nil
+---@field GetStats fun(cacheName:string):table
+---@field ExpireEntries fun(cacheName:string|nil):nil
+---@field GetConfig fun():table

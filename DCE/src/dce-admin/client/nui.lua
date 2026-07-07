@@ -48,15 +48,38 @@ RegisterNetEvent('dce-admin:client:closeDashboard', function()
 end)
 
 -- ============================================================================
--- ESC Key Handling
+-- EventBus subscription request
 -- ============================================================================
 
--- Handle ESC key - FiveM calls this automatically when NUI has focus
-RegisterNUICallback('keydown', function(data, cb)
-    if data.key == "Escape" then
-        releaseFocus()
+RegisterNUICallback('subscribe', function(data, cb)
+    -- Forward event name to server for EventBus registration
+    if data.eventName then
+        TriggerServerEvent('dce-admin:server:subscribe', data.eventName)
     end
     cb({})
+end)
+
+-- ============================================================================
+-- Keybind Handler (for opening Control Center)
+-- ============================================================================
+
+-- Listen for keybind activation from client (FiveM RegisterKeyMapping)
+RegisterNetEvent('dce-admin:client:openByKeybind', function()
+    if hasFocus then return end
+    
+    if DCE and DCE.Log then
+        DCE.Log("admin", "debug", "Control Center opened via keybind")
+    end
+    
+    hasFocus = true
+    if SetNuiFocus then
+        SetNuiFocus(true, true)
+    end
+    if SendNUIMessage then
+        SendNUIMessage({
+            action = "open"
+        })
+    end
 end)
 
 -- ============================================================================
@@ -84,18 +107,28 @@ RegisterNUICallback('windowClosed', function(data, cb)
     cb({})
 end)
 
--- EventBus subscription request
-RegisterNUICallback('subscribe', function(data, cb)
-    -- Forward event name to server for EventBus registration
-    if data.eventName then
-        TriggerServerEvent('dce-admin:server:subscribe', data.eventName)
+-- Keybind handler - receives activation from keybind check on server
+RegisterNUICallback('toggleControlCenter', function(data, cb)
+    if hasFocus then
+        -- Already open, close it
+        releaseFocus()
+    else
+        -- Not open, open it
+        hasFocus = true
+        if SetNuiFocus then
+            SetNuiFocus(true, true)
+        end
+        if SendNUIMessage then
+            SendNUIMessage({
+                action = "open"
+            })
+        end
     end
     cb({})
 end)
 
 -- ============================================================================
 -- Data Request Callbacks
--- ============================================================================
 
 RegisterNUICallback('getDashboardData', function(data, cb)
     local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
@@ -235,5 +268,46 @@ RegisterNetEvent('dce-admin:client:eventbus:emit', function(payload)
             eventName = payload.eventName,
             payload = payload.payload
         })
+    end
+end)
+
+-- ============================================================================
+-- Keybind Registration (FiveM client-side)
+-- ============================================================================
+
+-- Register keybind when resource starts (FiveM-specific)
+-- Note: RegisterKeyMapping is FiveM-specific and may not exist in all environments
+AddEventHandler("onClientResourceStart", function(resourceName)
+    if resourceName == GetCurrentResourceName() then
+        local keybindName = "dce_controlcenter"
+        local keybindDesc = "Toggle DCE Control Center"
+        
+        local Config = _G.Config or {}
+        local defaultKey = "KC_LMENU + K"
+        if Config.Admin and Config.Admin.Keybind and Config.Admin.Keybind.Key then
+            defaultKey = Config.Admin.Keybind.Key
+        end
+        
+        -- Register keybind command
+        local registerSuccess, registerErr = pcall(function()
+            RegisterCommand("+" .. keybindName, function()
+                TriggerServerEvent("dce-admin:server:keybindPressed", keybindName)
+            end, false)
+        end)
+        
+        if not registerSuccess and DCE and DCE.Log then
+            DCE.Log("admin", "warn", "Failed to register keybind command: %s", tostring(registerErr))
+        end
+        
+        -- Register keybind mapping (FiveM-specific)
+        local keymapSuccess, keymapErr = pcall(function()
+            if RegisterKeyMapping then
+                RegisterKeyMapping("+" .. keybindName, keybindDesc, "keyboard", defaultKey)
+            end
+        end)
+        
+        if not keymapSuccess and DCE and DCE.Log then
+            DCE.Log("admin", "warn", "RegisterKeyMapping not available or failed: %s", tostring(keymapErr))
+        end
     end
 end)

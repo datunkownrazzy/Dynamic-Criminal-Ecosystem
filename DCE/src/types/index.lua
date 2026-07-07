@@ -12,6 +12,9 @@ require "types.runtime.fivem"
 
 -- Framework Types
 require "types.framework.core"
+require "types.framework.core-services"
+require "types.framework.alert-handler"
+require "types.framework.profiler"
 require "types.framework.sdk"
 
 -- Service Types
@@ -20,6 +23,8 @@ require "types.services.logger"
 require "types.services.registry"
 require "types.services.scheduler"
 require "types.services.eventbus"
+require "types.services.cache"
+require "types.services.pool"
 require "types.services.plugin-manager"
 
 -- Domain Types (flat files in domains/)

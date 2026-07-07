@@ -23,5 +23,6 @@ server_scripts {
     'services/evidence.lua',
     'services/evidence-factory.lua',
     'adapters/ers.lua',
+    'adapters/native.lua',
     'init.lua',
 }
