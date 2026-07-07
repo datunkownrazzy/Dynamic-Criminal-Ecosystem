@@ -111,8 +111,6 @@ local function OnDispatchStart()
 
     -- Subscribe to dispatch call requests from the scenario engine
     if DCE and DCE.On then
-        -- AUDIT: dce-dispatch/init.lua:113 DCE.On event=dispatch:call:requested
-        print("[AUDIT-SITE] dce-dispatch/init.lua:113 DCE.On event=dispatch:call:requested cb_type=" .. type(function(payload) end))
         DCE.On("dispatch:call:requested", function(payload)
             local data = payload and (payload.payload or payload)
             if data and DCEDispatchService and DCEDispatchService.CreateCall then

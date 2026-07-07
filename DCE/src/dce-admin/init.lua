@@ -14,8 +14,11 @@ local function OnAdminStart()
         if exports and exports['dce-core'] and exports['dce-core'].GetDCEAPI then
             local DCEAPI = exports['dce-core']:GetDCEAPI()
             if DCEAPI then
-                -- Use the DCE API locally without overwriting _G.DCE
-                -- _G.DCE is owned by dce-core to prevent race conditions
+                -- NOTE: DCEAPI is a FiveM proxy table; function members are
+                -- proxy tables with __call, not real functions (see ADR-0020).
+                -- This is fine for DCE.Log, DCE.Emit, DCE.RegisterService which
+                -- only take string/table arguments. Do NOT call DCE.On() through
+                -- this proxy — use exports['dce-core']:DCE_Subscribe() instead.
                 _G.DCE = DCEAPI
             end
         end
@@ -138,19 +141,29 @@ local function OnAdminStart()
         DCE.Log("admin", "info", "Admin commands registered")
     end
 
-    -- Subscribe to admin action events for logging
-    -- The callback is a proper anonymous function that will be validated by EventBus.On
-    if DCE and DCE.On then
-        -- AUDIT: dce-admin/init.lua:144 registering admin:action:executed
-        print("[AUDIT-SITE] dce-admin/init.lua:144 DCE.On event=admin:action:executed cb_type=" .. type(function(payload) end))
-        DCE.On("admin:action:executed", function(payload)
-            if DCE and DCE.Log then
-                local data = payload and (payload.payload or payload)
-                if data then
-                    DCE.Log("admin", "debug", "Admin action: %s by %s on %s", data.action, data.adminId, tostring(data.target))
-                end
+    -- Subscribe to admin action events via FiveM event bridge
+    -- ADR-0020: DCE.On cannot be called cross-resource because FiveM marshals
+    -- function arguments into proxy tables. Instead, we:
+    -- 1. Register a FiveM event handler (stays a real function in our VM)
+    -- 2. Use the DCE_Subscribe export to bridge the DCE event to our FiveM event
+    AddEventHandler("dce-admin:on:action:executed", function(payload)
+        if DCE and DCE.Log then
+            local data = payload and (payload.payload or payload)
+            if data then
+                DCE.Log("admin", "debug", "Admin action: %s by %s on %s", data.action, data.adminId, tostring(data.target))
             end
-        end)
+        end
+    end)
+    
+    -- Bridge: subscribe the DCE event to our FiveM event handler
+    -- No function reference crosses the resource boundary
+    if exports and exports['dce-core'] and exports['dce-core'].DCE_Subscribe then
+        exports['dce-core']:DCE_Subscribe("admin:action:executed", "dce-admin:on:action:executed")
+        if DCE and DCE.Log then
+            DCE.Log("admin", "info", "Subscribed to admin:action:executed via event bridge")
+        end
+    else
+        print("^1[DCE Admin] WARNING: DCE_Subscribe export not available^0")
     end
 
     if DCE and DCE.Log then

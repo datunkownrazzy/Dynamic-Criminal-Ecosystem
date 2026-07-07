@@ -146,19 +146,6 @@ function EventBus.On(eventName, handlerFn)
         return nil
     end
 
-    print("------------------------------------")
-    print("REGISTER EVENT")
-    print("event:")
-    print(tostring(eventName))
-    print("handler type:")
-    print(type(handlerFn))
-    print("handler:")
-    print(tostring(handlerFn))
-    local trace = debug and debug.traceback and debug.traceback("", 2) or "no trace"
-    print("stack:")
-    print(trace)
-    print("------------------------------------")
-
     if not handlerFn or type(handlerFn) ~= "function" then
         log("error", "core", "EventBus.On: handlerFn must be a function for event '%s'", eventName)
         return nil

@@ -443,18 +443,21 @@ RegisterNetEvent('dce-admin:server:subscribe')
 AddEventHandler('dce-admin:server:subscribe', function(eventName)
     local src = source
     if not HasPermission(src) then return end
-    
-    -- Store subscription for this player
-    if DCE and DCE.On then
-        -- AUDIT: dce-admin/commands.lua:449 DCE.On with dynamic event from client
-        print("[AUDIT-SITE] dce-admin/commands.lua:449 DCE.On event=" .. tostring(eventName) .. " cb_type=" .. type(function(payload) end))
-        DCE.On(eventName, function(payload)
-            -- Forward event to NUI
-            TriggerClientEvent('dce-admin:client:eventbus:emit', src, {
-                eventName = eventName,
-                payload = payload
-            })
-        end)
+    if type(eventName) ~= "string" then return end
+
+    -- ADR-0020: DCE.On cannot be called cross-resource. Use the event bridge instead.
+    -- DCE_Subscribe auto-generates a unique FiveM event we can listen to locally.
+    if exports and exports['dce-core'] and exports['dce-core'].DCE_Subscribe then
+        local fivemEvent = exports['dce-core']:DCE_Subscribe(eventName)
+        if fivemEvent then
+            AddEventHandler(fivemEvent, function(payload)
+                -- Forward event to NUI
+                TriggerClientEvent('dce-admin:client:eventbus:emit', src, {
+                    eventName = eventName,
+                    payload = payload
+                })
+            end)
+        end
     end
 end)
 

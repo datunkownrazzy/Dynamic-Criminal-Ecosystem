@@ -104,39 +104,30 @@ local function InitializeCore()
          end
      end
 
-     DCE.On = function(eventName, handlerFn)
-          -- AUDIT INSTRUMENTATION: must be removed after root cause is found
-          print("[DCE-AUDIT] DCE.On called: event=" .. tostring(eventName) .. " type=" .. type(handlerFn) .. " val=" .. tostring(handlerFn))
-          local dceTrace = debug and debug.traceback and debug.traceback("", 2) or "no trace"
-          print("[DCE-AUDIT] stack:")
-          print(dceTrace)
-          print("[DCE-AUDIT] ---")
-          
-          -- Validation at DCE API boundary prevents invalid callbacks reaching EventBus.On
-          -- Per Architecture rules: "Defensive nil-check patterns are intentional for FiveM timing safety"
-          if not handlerFn or type(handlerFn) ~= "function" then
-              local Logger = DCELogger
-              local msg = ("EventBus.On: handlerFn must be a function for event '%s'"):format(
-                  type(eventName) == "string" and eventName or tostring(eventName)
-              )
-              if Logger and Logger.Log then
-                  Logger.Log("core", "error", msg)
-              else
-                  print(("[DCE] %s"):format(msg))
-              end
-              return nil
-          end
-          
-          if EventBus then
-              -- AUDIT INSTRUMENTATION: tracing call through to EventBus.On
-              print("[DCE-AUDIT] Calling EventBus.On: event=" .. tostring(eventName) .. " type=" .. type(handlerFn))
-              return EventBus.On(eventName, handlerFn)
-          end
-          
-          -- EventBus not initialized - likely race condition
-          print("[DCE-AUDIT] WARNING: EventBus is nil for event=" .. tostring(eventName))
-          return nil
-      end
+      DCE.On = function(eventName, handlerFn)
+           -- Validation at DCE API boundary prevents invalid callbacks reaching EventBus.On
+           -- Per Architecture rules: "Defensive nil-check patterns are intentional for FiveM timing safety"
+           if not handlerFn or type(handlerFn) ~= "function" then
+               local Logger = DCELogger
+               local msg = ("EventBus.On: handlerFn must be a function for event '%s'"):format(
+                   type(eventName) == "string" and eventName or tostring(eventName)
+               )
+               if Logger and Logger.Log then
+                   Logger.Log("core", "error", msg)
+               else
+                   print(("[DCE] %s"):format(msg))
+               end
+               return nil
+           end
+           
+           if EventBus then
+               return EventBus.On(eventName, handlerFn)
+           end
+           
+           -- EventBus not initialized - likely race condition
+           print("[DCE] WARNING: EventBus is nil for event=" .. tostring(eventName))
+           return nil
+       end
 
     DCE.Once = function(eventName, handlerFn)
         if not handlerFn or type(handlerFn) ~= "function" then
@@ -414,6 +405,62 @@ end
 -- ============================================================================
 -- FiveM resources run in isolated environments. DCE global is set per-resource,
 -- but we need to explicitly export the DCE API for other resources to use it.
+
+-- ============================================================================
+-- Export: Subscribe to a DCE event via FiveM event bridge
+-- ============================================================================
+-- When DCE.On is called from another resource, the callback function is
+-- marshalled into a proxy table by FiveM's export system (see ADR-0020).
+-- Instead, resources subscribe by providing a FiveM event name:
+--   exports['dce-core']:DCE_Subscribe("dce:event", "my:event")
+-- When the DCE event fires, dce-core triggers the FiveM event with payload.
+-- The handler in the subscribing resource stays a real function.
+-- ============================================================================
+
+---@type table<string, table<string, true>>  -- dceEvent -> { [fivemEvent] = true }
+local dceEventBridges = {}
+
+--- Subscribe a FiveM event to a DCE event.
+--- When the DCE event fires, the FiveM event is triggered with the payload.
+---@param dceEvent string The DCE event name to subscribe to
+---@param fivemEvent string|nil The FiveM event to trigger when the DCE event fires. If nil, a unique event name is auto-generated.
+---@return string|false The FiveM event name used for the bridge, or false on failure
+function DCE_Subscribe(dceEvent, fivemEvent)
+    if type(dceEvent) ~= "string" then
+        print("^1[DCE Core] DCE_Subscribe: dceEvent must be a string^0")
+        return false
+    end
+    
+    -- Auto-generate a unique FiveM event name if not provided
+    if not fivemEvent then
+        fivemEvent = "dce-bridge:" .. dceEvent .. ":" .. tostring(math.floor(os.clock() * 1000)) .. ":" .. tostring(math.random(100000, 999999))
+    elseif type(fivemEvent) ~= "string" then
+        print("^1[DCE Core] DCE_Subscribe: fivemEvent must be a string or nil^0")
+        return false
+    end
+    
+    -- Register a handler for the DCE event if not already done
+    if not dceEventBridges[dceEvent] then
+        dceEventBridges[dceEvent] = {}
+        
+        -- Subscribe to the DCE event (runs in dce-core's VM, no proxy issue)
+        if DCE and DCE.On then
+            DCE.On(dceEvent, function(payload)
+                -- Forward to all bridged FiveM events
+                local bridges = dceEventBridges[dceEvent]
+                if bridges then
+                    for fivemEventName in pairs(bridges) do
+                        TriggerEvent(fivemEventName, payload)
+                    end
+                end
+            end)
+        end
+    end
+    
+    -- Register this FiveM event as a bridge target
+    dceEventBridges[dceEvent][fivemEvent] = true
+    return fivemEvent
+end
 
 function GetDCEAPI()
     return DCE

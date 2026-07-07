@@ -68,8 +68,6 @@ local function OnEvidenceStart()
 
     -- Subscribe to scenario completion events to create evidence
     if DCE and DCE.On then
-        -- AUDIT: dce-evidence/init.lua:70 DCE.On event=scenario:completed
-        print("[AUDIT-SITE] dce-evidence/init.lua:70 DCE.On event=scenario:completed cb_type=" .. type(function(payload) end))
         DCE.On("scenario:completed", function(payload)
             local data = payload and (payload.payload or payload)
             if data and DCEEvidenceFactory and DCEEvidenceFactory.FromScenarioCompletion then

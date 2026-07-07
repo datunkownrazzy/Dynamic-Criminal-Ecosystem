@@ -97,8 +97,6 @@ end
 --- Setup event handler for performance alerts
 function AlertHandler.Setup()
     if DCE and DCE.On then
-        -- AUDIT: dce-core/core/alert-handler.lua:100 DCE.On event=performance:budget:exceeded
-        print("[AUDIT-SITE] dce-core/core/alert-handler.lua:100 DCE.On event=performance:budget:exceeded cb_type=" .. type(function(payload) end))
         DCE.On("performance:budget:exceeded", function(payload)
             AlertHandler.HandleBudgetExceeded(payload)
         end)

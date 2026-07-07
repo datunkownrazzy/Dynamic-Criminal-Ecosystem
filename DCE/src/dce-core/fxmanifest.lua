@@ -33,4 +33,5 @@ server_scripts {
 
 server_exports {
     'GetDCEAPI',
+    'DCE_Subscribe',
 }
