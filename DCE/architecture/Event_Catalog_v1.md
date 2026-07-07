@@ -120,6 +120,15 @@ The list below uses the canonical `domain:subject:verb` format used in code. Eve
 | `world:tick:started` | The Simulation Scheduler begins a new server tick | `{ tickNumber, tier }` |
 | `world:tick:completed` | All priority tiers finish for that tick | `{ tickNumber, totalDurationMs }` |
 
+## Location Domain
+
+| Event Name | Emitted When | Payload |
+|---|---|---|
+| `location:registered` | A location is registered with the Location Manager | `{ locationId, provider, type }` |
+| `location:resolved` | A location is resolved for use | `{ locationId, resolvedCoords, routingBucket? }` |
+| `location:provider:registered` | A location provider is registered | `{ providerName, services }` |
+| `location:organization:locations` | Locations are requested for an organization | `{ orgId, locations[] }` |
+
 ## AI Director Domain
 
 | Event Name | Emitted When | Payload |

@@ -101,6 +101,122 @@
                 key: key,
                 value: value
             });
+            if (data && data.success) {
+                // Notify listeners of config change
+                if (DCE.EventHandler) {
+                    DCE.EventHandler.handleEvent({
+                        eventName: 'config:updated',
+                        payload: { resource: resource, key: key, value: value }
+                    });
+                }
+            }
+            return data;
+        },
+
+        // Locations (World Editor)
+        getLocations: async function() {
+            var data = await DCE.NUI.post('getLocations', {});
+            DCE.API.cache.locations = data;
+            return data;
+        },
+
+        getLocation: async function(id) {
+            var data = await DCE.NUI.post('getLocation', { id: id });
+            return data;
+        },
+
+        createLocation: async function(locationData) {
+            var data = await DCE.NUI.post('createLocation', locationData);
+            if (data && data.success) {
+                // Notify listeners
+                if (DCE.EventHandler) {
+                    DCE.EventHandler.handleEvent({
+                        eventName: 'location:created',
+                        payload: data.location
+                    });
+                }
+            }
+            return data;
+        },
+
+        updateLocation: async function(id, locationData) {
+            var data = await DCE.NUI.post('updateLocation', { id: id, ...locationData });
+            if (data && data.success) {
+                if (DCE.EventHandler) {
+                    DCE.EventHandler.handleEvent({
+                        eventName: 'location:updated',
+                        payload: data.location
+                    });
+                }
+            }
+            return data;
+        },
+
+        deleteLocation: async function(id) {
+            var data = await DCE.NUI.post('deleteLocation', { id: id });
+            if (data && data.success && DCE.EventHandler) {
+                DCE.EventHandler.handleEvent({
+                    eventName: 'location:deleted',
+                    payload: { id: id }
+                });
+            }
+            return data;
+        },
+
+        // Territories (World Editor)
+        getTerritories: async function() {
+            var data = await DCE.NUI.post('getTerritories', {});
+            DCE.API.cache.territories = data;
+            return data;
+        },
+
+        getTerritory: async function(id) {
+            var data = await DCE.NUI.post('getTerritory', { id: id });
+            return data;
+        },
+
+        createTerritory: async function(territoryData) {
+            var data = await DCE.NUI.post('createTerritory', territoryData);
+            if (data && data.success && DCE.EventHandler) {
+                DCE.EventHandler.handleEvent({
+                    eventName: 'territory:created',
+                    payload: data.territory
+                });
+            }
+            return data;
+        },
+
+        updateTerritory: async function(id, territoryData) {
+            var data = await DCE.NUI.post('updateTerritory', { id: id, ...territoryData });
+            if (data && data.success && DCE.EventHandler) {
+                DCE.EventHandler.handleEvent({
+                    eventName: 'territory:updated',
+                    payload: data.territory
+                });
+            }
+            return data;
+        },
+
+        deleteTerritory: async function(id) {
+            var data = await DCE.NUI.post('deleteTerritory', { id: id });
+            if (data && data.success && DCE.EventHandler) {
+                DCE.EventHandler.handleEvent({
+                    eventName: 'territory:deleted',
+                    payload: { id: id }
+                });
+            }
+            return data;
+        },
+
+        // Runtime Configuration (hot-reload)
+        reloadConfig: async function(resource) {
+            var data = await DCE.NUI.post('reloadConfig', { resource: resource });
+            if (data && data.success && DCE.EventHandler) {
+                DCE.EventHandler.handleEvent({
+                    eventName: 'config:reloaded',
+                    payload: { resource: resource }
+                });
+            }
             return data;
         }
     };

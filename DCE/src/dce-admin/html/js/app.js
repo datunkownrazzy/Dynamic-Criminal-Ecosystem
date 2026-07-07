@@ -12,15 +12,13 @@
         // Window manager is initialized by window-manager.js
         // Modules are loaded on-demand via window creation
 
-        // Listen for ready event from Lua
-        DCE.MessageHandler.on('ready', function() {
-            DCE.Desktop.show();
-        });
-
         // Handle event updates via EventBus forwarding
         DCE.MessageHandler.on('eventbus:emit', function(data) {
             DCE.EventHandler.handleEvent(data);
         });
+
+        // Register module renderers
+        DCE.Modules = DCE.Modules || {};
     }
 
     // Initialize when DOM ready

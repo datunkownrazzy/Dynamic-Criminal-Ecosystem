@@ -19,11 +19,13 @@ shared_scripts {
 server_scripts {
     'models/region.lua',
     'models/world-state.lua',
+    'models/location.lua',
     'simulation/layer0.lua',
     'simulation/layer1.lua',
     'simulation/time.lua',
     'simulation/weather.lua',
     'data/regions.lua',
     'services/world.lua',
+    'services/location-manager.lua',
     'init.lua',
 }

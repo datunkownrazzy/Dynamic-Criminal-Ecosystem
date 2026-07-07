@@ -47,31 +47,31 @@
     // NUI API - Sends requests to Lua
     // ============================================================================
 
-DCE.NUI = {
-    post: async function(action, data) {
-        data = data || {};
-        try {
-            var resp = await fetch('https://' + GetParentResourceName() + '/' + action, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            
-            if (!resp.ok) {
-                throw new Error('HTTP error: ' + resp.status + ' ' + resp.statusText);
+    DCE.NUI = {
+        post: async function(action, data) {
+            data = data || {};
+            try {
+                var resp = await fetch('https://' + GetParentResourceName() + '/' + action, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                if (!resp.ok) {
+                    throw new Error('HTTP error: ' + resp.status + ' ' + resp.statusText);
+                }
+                
+                var result = await resp.json();
+                return result;
+            } catch (err) {
+                console.error('DCE.NUI.post error for ' + action + ':', err);
+                if (DCE.Notifications) {
+                    DCE.Notifications.error('NUI request failed: ' + action);
+                }
+                return null;
             }
-            
-            var result = await resp.json();
-            return result;
-        } catch (err) {
-            console.error('DCE.NUI.post error for ' + action + ':', err);
-            if (DCE.Notifications) {
-                DCE.Notifications.error('NUI request failed: ' + action);
-            }
-            return null;
         }
-    }
-};
+    };
 
     // ============================================================================
     // Notifications System
@@ -106,77 +106,77 @@ DCE.NUI = {
         info: function(msg) { DCE.Notifications.show(msg, 'info'); }
     };
 
-// ============================================================================
-// UI State Manager (Centralized)
-// ============================================================================
+    // ============================================================================
+    // UI State Manager (Centralized)
+    // ============================================================================
 
-DCE.UI = {
-    state: {
-        isOpen: false,
-        hasFocus: false,
-        currentWorkspace: null,
-        currentWindow: null,
-        activeTab: null,
-        selectedOrganization: null,
-        selectedRegion: null,
-    },
+    DCE.UI = {
+        state: {
+            isOpen: false,
+            hasFocus: false,
+            currentWorkspace: null,
+            currentWindow: null,
+            activeTab: null,
+            selectedOrganization: null,
+            selectedRegion: null,
+        },
 
-    // Set state and sync with DOM
-    setState: function(key, value) {
-        this.state[key] = value;
-        if (key === 'isOpen') {
-            if (value) {
-                document.body.classList.add('cc-open');
-            } else {
-                document.body.classList.remove('cc-open');
+        // Set state and sync with DOM
+        setState: function(key, value) {
+            this.state[key] = value;
+            if (key === 'isOpen') {
+                if (value) {
+                    document.body.classList.add('cc-open');
+                } else {
+                    document.body.classList.remove('cc-open');
+                }
+            }
+        },
+
+        // Get state value
+        getState: function(key) {
+            return this.state[key];
+        },
+
+        // Toggle open state
+        toggle: function() {
+            this.setState('isOpen', !this.state.isOpen);
+            this.setState('hasFocus', this.state.isOpen);
+            return this.state.isOpen;
+        },
+
+        open: function() {
+            this.setState('isOpen', true);
+            this.setState('hasFocus', true);
+            DCE.Notifications.info('Control Center opened');
+        },
+
+        close: function() {
+            this.setState('isOpen', false);
+            this.setState('hasFocus', false);
+            if (DCE.Windows) {
+                DCE.Windows.closeAll();
             }
         }
-    },
+    };
 
-    // Get state value
-    getState: function(key) {
-        return this.state[key];
-    },
+    // ============================================================================
+    // Desktop Environment
+    // ============================================================================
 
-    // Toggle open state
-    toggle: function() {
-        this.setState('isOpen', !this.state.isOpen);
-        this.setState('hasFocus', this.state.isOpen);
-        return this.state.isOpen;
-    },
+    DCE.Desktop = {
+        isOpen: false,
 
-    open: function() {
-        this.setState('isOpen', true);
-        this.setState('hasFocus', true);
-        DCE.Notifications.info('Control Center opened');
-    },
+        show: function() {
+            DCE.UI.open();
+            DCE.Desktop.isOpen = DCE.UI.getState('isOpen');
+        },
 
-    close: function() {
-        this.setState('isOpen', false);
-        this.setState('hasFocus', false);
-        if (DCE.Windows) {
-            DCE.Windows.closeAll();
+        hide: function() {
+            DCE.UI.close();
+            DCE.Desktop.isOpen = DCE.UI.getState('isOpen');
         }
-    }
-};
-
-// ============================================================================
-// Desktop Environment
-// ============================================================================
-
-DCE.Desktop = {
-    isOpen: false,
-
-    show: function() {
-        DCE.UI.open();
-        DCE.Desktop.isOpen = DCE.UI.getState('isOpen');
-    },
-
-    hide: function() {
-        DCE.UI.close();
-        DCE.Desktop.isOpen = DCE.UI.getState('isOpen');
-    }
-};
+    };
 
     // ============================================================================
     // Event Bus Client
@@ -202,6 +202,18 @@ DCE.Desktop = {
     };
 
     // ============================================================================
+    // Keyboard Event Handling
+    // ============================================================================
+
+    document.addEventListener('keydown', function(e) {
+        // ESC key closes Control Center
+        if (e.key === 'Escape' || e.key === 'Esc') {
+            DCE.NUI.post('keydown', { key: e.key });
+            e.preventDefault();
+        }
+    });
+
+    // ============================================================================
     // Initialization
     // ============================================================================
 
@@ -209,10 +221,10 @@ DCE.Desktop = {
         DCE.MessageHandler.init();
         DCE.Notifications.init();
 
-        // Wait for explicit open message - do NOT auto-initialize
+        // Handle open/close messages from Lua
+        // IMPORTANT: Do NOT auto-open on ready - Control Center must be explicitly opened
         DCE.MessageHandler.on('open', function() {
             DCE.Desktop.show();
-            DCE.Notifications.info('Control Center opened');
         });
 
         DCE.MessageHandler.on('close', function() {
@@ -222,10 +234,10 @@ DCE.Desktop = {
             }
         });
 
-        // Ready state - hidden by default
-        document.body.classList.add('cc-ready');
-        
-        // Notify Lua that NUI is ready
+        // Initialize modules namespace
+        DCE.Modules = DCE.Modules || {};
+
+        // Notify Lua that NUI is ready (but stay hidden)
         DCE.NUI.post('nuiReady', {});
     }
 

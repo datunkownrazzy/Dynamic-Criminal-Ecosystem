@@ -39,6 +39,8 @@
     -webkit-user-select: none;
 }
 
+/* Hidden by default - Control Center MUST be explicitly opened */
+/* This prevents gray overlay lock on player join */
 body {
     font-family: 'Segoe UI', 'SF Pro Display', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
     background: var(--cc-bg-primary);
@@ -47,19 +49,9 @@ body {
     overflow: hidden;
     font-size: 13px;
     line-height: 1.5;
-    /* Hidden by default - only shown when explicitly opened */
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.15s ease-out;
-}
-
-/* Visible state when Control Center is active */
-/* Hidden by default - Control Center must be explicitly opened */
-body.cc-ready {
-    opacity: 0;
-    pointer-events: none;
-    height: 100vh;
-    overflow: hidden;
 }
 
 /* Opened state - only applied when admin explicitly opens Control Center */
@@ -96,7 +88,6 @@ body.cc-open {
     flex-direction: column;
     min-width: 300px;
     min-height: 200px;
-    resize: both;
     overflow: hidden;
 }
 
@@ -106,6 +97,11 @@ body.cc-open {
 
 .window.minimized {
     display: none;
+}
+
+/* Window states */
+.window.hidden {
+    display: none !important;
 }
 
 .window-header {
@@ -166,7 +162,7 @@ body.cc-open {
     position: relative;
 }
 
-/* Resize Handle */
+/* Resize handles for all edges */
 .window-resize-handle {
     position: absolute;
     bottom: 0;
@@ -202,7 +198,7 @@ body.cc-open {
     border-top-color: var(--cc-accent);
 }
 
-/* Resize handles for all edges (CSS resize: both only does bottom-right) */
+/* Resize handles for all edges (JavaScript-controlled) */
 .window-resize-edge {
     position: absolute;
     background: transparent;
@@ -452,7 +448,8 @@ body.cc-open {
     margin-bottom: 4px;
 }
 
-.form-input {
+.form-input,
+.form-control {
     width: 100%;
     background: var(--cc-bg-primary);
     border: 1px solid var(--cc-border);
@@ -463,9 +460,24 @@ body.cc-open {
     font-size: 13px;
 }
 
-.form-input:focus {
+.form-input:focus,
+.form-control:focus {
     outline: none;
     border-color: var(--cc-accent);
+}
+
+/* Modal overlay for edit dialogs */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
 }
 
 /* ============================================================================

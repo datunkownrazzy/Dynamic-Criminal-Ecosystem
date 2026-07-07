@@ -446,7 +446,7 @@ function AdminService.GetServicesList()
         if serviceName then
             table.insert(services, {
                 name = serviceName,
-                tasks = 0,
+                tasks = CoreRegistry.ListTasks and CoreRegistry.ListTasks() and #CoreRegistry.ListTasks() or 0,
                 running = true, -- Services are assumed active if registered
             })
         end
@@ -458,12 +458,14 @@ end
 --- Get tasks list for UI
 ---@return table Array of task info objects
 function AdminService.GetTasksList()
-    local CoreRegistry = (DCE and DCE.GetService) and DCE.GetService("CoreRegistry")
-    if not CoreRegistry then
+    -- Query Scheduler directly for task information
+    -- Per architecture: Scheduler owns task data, not CoreRegistry
+    local Scheduler = (DCE and DCE.GetService) and DCE.GetService("Scheduler")
+    if not Scheduler then
         return {}
     end
     
-    return CoreRegistry.ListTasks and CoreRegistry.ListTasks() or {}
+    return Scheduler.ListTasks and Scheduler.ListTasks() or {}
 end
 
 --- Get config export (for NUI/commands access)
@@ -591,8 +593,179 @@ function AdminService.Shutdown()
     end
 end
 
+--- Get all locations
+---@return table Array of locations
+function AdminService.GetAllLocations()
+    local LocationManager = (DCE and DCE.GetService) and DCE.GetService("LocationManager")
+    if not LocationManager then
+        return {}
+    end
+
+    local locations = LocationManager.GetAllLocations and LocationManager.GetAllLocations() or {}
+    return locations
+end
+
+--- Get a single location by ID
+---@param id string Location ID
+---@return table|nil Location data
+function AdminService.GetLocation(id)
+    local LocationManager = (DCE and DCE.GetService) and DCE.GetService("LocationManager")
+    if not LocationManager then
+        return nil
+    end
+
+    return LocationManager.GetLocation and LocationManager.GetLocation(id) or nil
+end
+
+--- Create a new location
+---@param locationData table Location data
+---@return table Result
+function AdminService.CreateLocation(locationData)
+    local LocationManager = (DCE and DCE.GetService) and DCE.GetService("LocationManager")
+    if not LocationManager then
+        return { success = false, error = "LocationManager service not available" }
+    end
+
+    local success, err = LocationManager.CreateLocation and LocationManager.CreateLocation(locationData) or false, "CreateLocation method missing"
+    if success then
+        DCE.AdminService.LogAction(0, "create_location", { id = locationData.id, type = locationData.type })
+    end
+
+    return { success = success, error = err }
+end
+
+--- Update a location
+---@param id string Location ID
+---@param locationData table Updated location data
+---@return table Result
+function AdminService.UpdateLocation(id, locationData)
+    local LocationManager = (DCE and DCE.GetService) and DCE.GetService("LocationManager")
+    if not LocationManager then
+        return { success = false, error = "LocationManager service not available" }
+    end
+
+    local success, err = LocationManager.UpdateLocation and LocationManager.UpdateLocation(id, locationData) or false, "UpdateLocation method missing"
+    if success then
+        DCE.AdminService.LogAction(0, "update_location", { id = id })
+    end
+
+    return { success = success, error = err, location = locationData }
+end
+
+--- Delete a location
+---@param id string Location ID
+---@return table Result
+function AdminService.DeleteLocation(id)
+    local LocationManager = (DCE and DCE.GetService) and DCE.GetService("LocationManager")
+    if not LocationManager then
+        return { success = false, error = "LocationManager service not available" }
+    end
+
+    local success = LocationManager.DeleteLocation and LocationManager.DeleteLocation(id) or false
+    if success then
+        DCE.AdminService.LogAction(0, "delete_location", { id = id })
+    end
+
+    return { success = success }
+end
+
+--- Get all territories
+---@return table Array of territories
+function AdminService.GetAllTerritories()
+    local LocationManager = (DCE and DCE.GetService) and DCE.GetService("LocationManager")
+    if not LocationManager then
+        return {}
+    end
+
+    return LocationManager.GetAllTerritories and LocationManager.GetAllTerritories() or {}
+end
+
+--- Get a single territory by ID
+---@param id string Territory ID
+---@return table|nil Territory data
+function AdminService.GetTerritory(id)
+    local LocationManager = (DCE and DCE.GetService) and DCE.GetService("LocationManager")
+    if not LocationManager then
+        return nil
+    end
+
+    return LocationManager.GetTerritory and LocationManager.GetTerritory(id) or nil
+end
+
+--- Create a new territory
+---@param territoryData table Territory data
+---@return table Result
+function AdminService.CreateTerritory(territoryData)
+    local LocationManager = (DCE and DCE.GetService) and DCE.GetService("LocationManager")
+    if not LocationManager then
+        return { success = false, error = "LocationManager service not available" }
+    end
+
+    local success, err = LocationManager.CreateTerritory and LocationManager.CreateTerritory(territoryData) or false, "CreateTerritory method missing"
+    if success then
+        DCE.AdminService.LogAction(0, "create_territory", { id = territoryData.id })
+    end
+
+    return { success = success, error = err }
+end
+
+--- Update a territory
+---@param id string Territory ID
+---@param territoryData table Updated territory data
+---@return table Result
+function AdminService.UpdateTerritory(id, territoryData)
+    local LocationManager = (DCE and DCE.GetService) and DCE.GetService("LocationManager")
+    if not LocationManager then
+        return { success = false, error = "LocationManager service not available" }
+    end
+
+    local success, err = LocationManager.UpdateTerritory and LocationManager.UpdateTerritory(id, territoryData) or false, "UpdateTerritory method missing"
+    if success then
+        DCE.AdminService.LogAction(0, "update_territory", { id = id })
+    end
+
+    return { success = success, error = err, territory = territoryData }
+end
+
+--- Delete a territory
+---@param id string Territory ID
+---@return table Result
+function AdminService.DeleteTerritory(id)
+    local LocationManager = (DCE and DCE.GetService) and DCE.GetService("LocationManager")
+    if not LocationManager then
+        return { success = false, error = "LocationManager service not available" }
+    end
+
+    local success = LocationManager.DeleteTerritory and LocationManager.DeleteTerritory(id) or false
+    if success then
+        DCE.AdminService.LogAction(0, "delete_territory", { id = id })
+    end
+
+    return { success = success }
+end
+
+--- Get facilities for an organization
+---@param orgId string Organization ID
+---@return table Array of facilities
+function AdminService.GetOrganizationFacilities(orgId)
+    local Locations = AdminService.GetAllLocations()
+    local facilities = {}
+
+    for _, loc in ipairs(Locations) do
+        if loc.organizationId == orgId then
+            table.insert(facilities, {
+                id = loc.id,
+                type = loc.type,
+                location = loc.coords and (loc.coords.x .. ", " .. loc.coords.y .. ", " .. loc.coords.z) or "N/A",
+                active = loc.active,
+            })
+        end
+    end
+
+    return facilities
+end
+
 _G.DCEAdminService = AdminService
 
 -- ============================================================================
 -- Service Complete
--- ============================================================================

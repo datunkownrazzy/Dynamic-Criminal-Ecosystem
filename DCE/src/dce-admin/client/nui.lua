@@ -98,6 +98,14 @@ RegisterNUICallback('nuiReady', function(data, cb)
     cb({ status = "ready" })
 end)
 
+-- ESC key handler - closes Control Center when pressed
+RegisterNUICallback('keydown', function(data, cb)
+    if data.key == "Escape" or data.key == "Esc" then
+        releaseFocus()
+    end
+    cb({})
+end)
+
 -- Window close notification
 RegisterNUICallback('windowClosed', function(data, cb)
     -- Window was closed in UI, could log for audit
@@ -127,8 +135,29 @@ RegisterNUICallback('toggleControlCenter', function(data, cb)
     cb({})
 end)
 
+-- World Editor: Position capture request
+RegisterNUICallback('capturePosition', function(data, cb)
+    if DCE and DCE.Log then
+        DCE.Log("admin", "info", "Position capture requested from World Editor")
+    end
+    
+    -- Emit event for position capture (can be handled by other systems)
+    if DCE and DCE.Emit then
+        DCE.Emit("worldeditor:position:captureRequested", {
+            eventName = "worldeditor:position:captureRequested",
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "dce-admin",
+            payload = {}
+        })
+    end
+    
+    cb({ status = "requested" })
+end)
+
 -- ============================================================================
 -- Data Request Callbacks
+-- ============================================================================
 
 RegisterNUICallback('getDashboardData', function(data, cb)
     local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
@@ -253,6 +282,109 @@ RegisterNUICallback('updateConfig', function(data, cb)
         cb({ success = success, error = err })
     else
         cb({ success = false, error = "Admin service not available" })
+    end
+end)
+
+-- ============================================================================
+-- World Editor NUI Callbacks
+-- ============================================================================
+
+RegisterNUICallback('getLocations', function(data, cb)
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.GetAllLocations and AdminService.GetAllLocations() or { locations = {} })
+    else
+        cb({ locations = {} })
+    end
+end)
+
+RegisterNUICallback('getLocation', function(data, cb)
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.GetLocation and AdminService.GetLocation(data.id) or {})
+    else
+        cb({})
+    end
+end)
+
+RegisterNUICallback('createLocation', function(data, cb)
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.CreateLocation and AdminService.CreateLocation(data) or { success = false, error = "Method not available" })
+    else
+        cb({ success = false, error = "Admin service not available" })
+    end
+end)
+
+RegisterNUICallback('updateLocation', function(data, cb)
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.UpdateLocation and AdminService.UpdateLocation(data.id, data) or { success = false, error = "Method not available" })
+    else
+        cb({ success = false, error = "Admin service not available" })
+    end
+end)
+
+RegisterNUICallback('deleteLocation', function(data, cb)
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.DeleteLocation and AdminService.DeleteLocation(data.id) or { success = false, error = "Method not available" })
+    else
+        cb({ success = false, error = "Admin service not available" })
+    end
+end)
+
+RegisterNUICallback('getTerritories', function(data, cb)
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.GetAllTerritories and AdminService.GetAllTerritories() or { territories = {} })
+    else
+        cb({ territories = {} })
+    end
+end)
+
+RegisterNUICallback('getTerritory', function(data, cb)
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.GetTerritory and AdminService.GetTerritory(data.id) or { success = false, error = "Not found" })
+    else
+        cb({})
+    end
+end)
+
+RegisterNUICallback('createTerritory', function(data, cb)
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.CreateTerritory and AdminService.CreateTerritory(data) or { success = false, error = "Method not available" })
+    else
+        cb({ success = false, error = "Admin service not available" })
+    end
+end)
+
+RegisterNUICallback('updateTerritory', function(data, cb)
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.UpdateTerritory and AdminService.UpdateTerritory(data.id, data) or { success = false, error = "Method not available" })
+    else
+        cb({ success = false, error = "Admin service not available" })
+    end
+end)
+
+RegisterNUICallback('deleteTerritory', function(data, cb)
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.DeleteTerritory and AdminService.DeleteTerritory(data.id) or { success = false, error = "Method not available" })
+    else
+        cb({ success = false, error = "Admin service not available" })
+    end
+end)
+
+RegisterNUICallback('getOrganizationFacilities', function(data, cb)
+    local AdminService = (DCE and DCE.GetService) and DCE.GetService("Admin")
+    if AdminService then
+        cb(AdminService.GetOrganizationFacilities and AdminService.GetOrganizationFacilities(data.orgId) or { facilities = {} })
+    else
+        cb({ facilities = {} })
     end
 end)
 

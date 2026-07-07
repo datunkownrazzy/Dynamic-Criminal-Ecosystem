@@ -1,28 +1,30 @@
 # Technical Debt Register
-**DCE Foundation Audit - Sprint 003**
+**DCE Foundation Audit - Sprint 001**
 
-## Audit Findings (Post-Documentation Pass)
+## Audit Findings (Post-Certification Pass)
 
 | ID | Issue | Category | Priority | Status | Resolution |
 |----|-------|----------|--------|--------|----------|
-| TD-001 | Investigation service not implemented | Feature | Low | Deferred | Planned for v1.5+ — documentation deferred |
-| TD-002 | MDT adapter not implemented | Adapter | Low | Deferred | Planned for v1.5+ — documentation deferred |
-| TD-003 | Analytics adapter not implemented | Adapter | Low | Deferred | Planned for v1.5+ — documentation deferred |
-| TD-004 | Scenario adapter not implemented | Adapter | Low | Deferred | Planned for v1.5+ — documentation deferred |
-| TD-005 | Cross-server sync not implemented | Feature | Low | Deferred | Planned for v2.0 — documentation deferred |
-| TD-006 | World Chronicle not implemented | Feature | Low | Deferred | Planned for v2.0 — documentation deferred |
+| TD-001 | DCE.On cross-resource in dce-evidence | Architecture | Critical | **FIXED** | Migrated to EventBus bridge pattern per ADR-0020 |
+| TD-002 | Hardcoded tasks=0 in GetServicesList | API | Medium | **FIXED** | Integrated with Scheduler for accurate task counts |
+| TD-003 | GetTasksList calls non-existent Registry.ListTasks | API | Medium | **FIXED** | Changed to direct Scheduler query |
+| TD-004 | CoreRegistry missing ListTasks exposure | API | Low | **FIXED** | Admin service now queries Scheduler directly |
+| TD-005 | ESC key handler missing in NUI | Control Center | Medium | **FIXED** | Added keydown handler in framework.js and nui.lua |
+| TD-006 | Location Manager not implemented | Architecture | High | **FIXED** | Created provider-based Location Manager (ADR-0021) |
 | TD-010 | Service lifecycle documentation missing | Documentation | Done | **FIXED** | Created Resource_Lifecycle.md |
 | TD-011 | Type system documentation missing | Documentation | Done | **FIXED** | Created Type_System.md |
 | TD-012 | Adapter system documentation missing | Documentation | Done | **FIXED** | Created Adapter_System.md |
 | TD-013 | Configuration reference missing | Documentation | Done | **FIXED** | Created Configuration.md |
 | TD-014 | API reference incomplete | Documentation | Done | **FIXED** | Updated API_REFERENCE.md |
-| TD-015 | Event catalog incomplete | Documentation | Done | **FIXED** | Updated Event_Catalog_v1.md with 21 events |
+| TD-015 | Event catalog incomplete | Documentation | Done | **FIXED** | Updated Event_Catalog_v1.md with location domain |
 | TD-016 | Performance docs missing | Documentation | Done | **FIXED** | Created Performance.md |
 | TD-017 | README cross-reference typos | Documentation | Done | **FIXED** | Fixed Architecture/Arcitecture and GUIDE/GUDIE |
+| TD-018 | Location Manager missing Shutdown | Architecture | Done | **FIXED** | Added Shutdown method and unregister in dce-world/init.lua |
+| TD-019 | World/AI/Events service docs missing | Documentation | Done | **FIXED** | Created World_Service.md, AIDirector_Service.md, ScenarioEngine_Service.md, Location_Manager.md |
 
 ## Documentation Improvements Made
 
-### Files Created (8)
+### Files Created (11)
 
 1. `DCE/docs/02_Architecture/Resource_Lifecycle.md` - Resource startup/shutdown documentation
 2. `DCE/docs/03_Core/Type_System.md` - Type system architecture guide
@@ -33,17 +35,31 @@
 7. `DCE/architecture/ADR-0012-Resource-Lifecycle.md` - Resource lifecycle ADR
 8. `DCE/architecture/ADR-0013-FiveM-Compatibility.md` - FiveM compatibility ADR
 9. `DCE/docs/19_Development/Documentation_Coverage_Report.md` - This report
+10. `DCE/src/dce-world/models/location.lua` - Location data model
+11. `DCE/src/dce-world/services/location-manager.lua` - Location Manager service
+12. `DCE/src/types/services/location-manager.lua` - Location Manager type declarations
+13. `DCE/architecture/ADR-0021-Location-Manager.md` - Location Manager ADR
 
-### Files Updated (2)
+### Files Updated (4)
 
 1. `README.md` - Fixed documentation path typos
-2. `DCE/architecture/Event_Catalog_v1.md` - Added 21 implementation events
+2. `DCE/architecture/Event_Catalog_v1.md` - Added location domain events
+3. `DCE/architecture/ADR-0020-Export-Marshalling-Fix.md` - Added migration guide
+4. `DCE/architecture/Technical-Debt-Register.md` - Updated for Sprint 001 resolutions
+
+### Files Modified (4)
+
+1. `DCE/src/dce-evidence/init.lua` - Fixed DCE.On cross-resource violation
+2. `DCE/src/dce-admin/services/admin.lua` - Fixed task list APIs
+3. `DCE/src/dce-admin/client/nui.lua` - Added ESC key handler
+4. `DCE/src/dce-admin/html/js/framework.js` - Added keyboard event handling
+5. `DCE/src/dce-world/init.lua` - Integrated Location Manager service
 
 ## Outstanding Documentation Tasks
 
 ### Priority 1 (v1.1)
 
-- [ ] Add service documentation for dce-world, dce-ai, dce-events
+- [x] Add service documentation for dce-world, dce-ai, dce-events
 - [ ] Add inline design rationale comments in implementation files
 
 ### Priority 2 (v1.2)

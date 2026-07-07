@@ -1,0 +1,31 @@
+-- DCE Location Manager Type Declarations
+-- Provider-based location management service types
+
+---@class LocationInfo
+---@field id string
+---@field name string
+---@field provider string
+---@field type string
+---@field coordinates table
+---@field heading number
+---@field routingBucket number|nil
+---@field instanceId string|nil
+---@field metadata table|nil
+
+---@class LocationManagerPublic
+---@field Init fun(log:ILogger|nil):nil Initialize the location manager
+---@field GetLocation fun(self:LocationManagerPublic, locationId:string):LocationInfo|nil Get location by ID
+---@field GetOrganizationLocations fun(self:LocationManagerPublic, orgId:string):table Get locations owned by organization
+---@field ListLocations fun(self:LocationManagerPublic, locationType:string|nil):table List all locations, optionally filtered by type
+---@field ListProviders fun(self:LocationManagerPublic):table List registered provider names
+---@field RegisterProvider fun(self:LocationManagerPublic, providerName:string, providerModule:table):boolean Register a location provider
+---@field RegisterLocation fun(self:LocationManagerPublic, location:LocationInfo):boolean Register a location directly
+---@field ResolveLocation fun(self:LocationManagerPublic, locationId:string, playerSource:number|nil):table|nil Resolve coordinates and routing info
+---@field Clear fun(self:LocationManagerPublic):nil Clear all cached locations
+---@field Shutdown fun(self:LocationManagerPublic):nil Shutdown the location manager
+
+--- Location Provider interface
+---@class ILocationProvider
+---@field GetLocation fun(self:ILocationProvider, locationId:string):LocationInfo|nil Get location by ID
+---@field ListLocations fun(self:ILocationProvider, locationType:string|nil):table List locations
+---@field ResolveLocation fun(self:ILocationProvider, location:LocationInfo, playerSource:number|nil):table|nil Resolve full location info

@@ -46,6 +46,7 @@ local function OnWorldStart()
 
     -- Register the World service
     -- Defensive patterns: return nil OR actual value for service timing safety
+    -- Register World service
     if DCE and DCE.RegisterService then
         DCE.RegisterService("World", {
             GetRegionState = function(regionId) return DCEWorldService and DCEWorldService.GetRegionState(regionId) end,
@@ -55,6 +56,31 @@ local function OnWorldStart()
             GetTime = function() return DCEWorldService and DCEWorldService.GetTime() end,
             GetWeather = function() return DCEWorldService and DCEWorldService.GetWeather() end,
             GetAllRegionStates = function() return DCEWorldService and DCEWorldService.GetAllRegionStates() end,
+        })
+    end
+    
+    -- Register Location Manager service
+    -- Initialize and register the location manager
+    if DCELocationManager and DCELocationManager.Init then
+        DCELocationManager.Init(DCELogger)
+    end
+    
+    if DCE and DCE.RegisterService then
+        DCE.RegisterService("LocationManager", {
+            GetLocation = function(locationId) return DCELocationManager and DCELocationManager.GetLocation(locationId) end,
+            GetOrganizationLocations = function(orgId) return DCELocationManager and DCELocationManager.GetOrganizationLocations(orgId) end,
+            ListLocations = function(locationType) return DCELocationManager and DCELocationManager.ListLocations(locationType) end,
+            ListProviders = function() return DCELocationManager and DCELocationManager.ListProviders() end,
+            GetAllLocations = function() return DCELocationManager and DCELocationManager.GetAllLocations() end,
+            GetTerritory = function(id) return DCELocationManager and DCELocationManager.GetLocation(id) end,
+            GetAllTerritories = function() return DCELocationManager and DCELocationManager.GetAllTerritories() end,
+            CreateLocation = function(data) return DCELocationManager and DCELocationManager.CreateLocation(data) end,
+            UpdateLocation = function(id, data) return DCELocationManager and DCELocationManager.UpdateLocation(id, data) end,
+            DeleteLocation = function(id) return DCELocationManager and DCELocationManager.DeleteLocation(id) end,
+            CreateTerritory = function(data) return DCELocationManager and DCELocationManager.CreateTerritory(data) end,
+            UpdateTerritory = function(id, data) return DCELocationManager and DCELocationManager.UpdateTerritory(id, data) end,
+            DeleteTerritory = function(id) return DCELocationManager and DCELocationManager.DeleteTerritory(id) end,
+            RegisterLocation = function(location) return DCELocationManager and DCELocationManager.RegisterLocation(location) end,
         })
     end
 
@@ -108,8 +134,15 @@ local function OnWorldStop()
         DCE.Log("world", "info", "=== DCE World Engine Stopping ===")
     end
     
+    -- Unregister services
     if DCE and DCE.UnregisterService then
         DCE.UnregisterService("World")
+        DCE.UnregisterService("LocationManager")
+    end
+    
+    -- Shutdown services
+    if DCELocationManager and DCELocationManager.Shutdown then
+        DCELocationManager.Shutdown()
     end
     
     if DCEWorldService and DCEWorldService.Shutdown then

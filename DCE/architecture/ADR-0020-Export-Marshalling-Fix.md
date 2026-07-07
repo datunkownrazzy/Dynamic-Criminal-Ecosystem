@@ -20,3 +20,36 @@ No function references cross resource boundaries. Callbacks remain real function
 - `DCE.On()` is removed from the exported API (no longer available cross-resource)
 - Each non-core resource must subscribe via the event bridge
 - `_G.DCE = DCEAPI` can be removed from non-core resources (they use exports directly)
+
+## Migration Guide
+
+### Before (Broken)
+```lua
+-- In dce-evidence/init.lua or other non-core resources
+if DCE and DCE.On then
+    DCE.On("some:event", function(payload)
+        -- This callback becomes a proxy table when marshalled
+        -- DCE.EventBus will see type(handlerFn) == "table", not "function"
+    end)
+end
+```
+
+### After (Correct)
+```lua
+-- Step 1: Register local FiveM event handler (stays real function in this VM)
+AddEventHandler("dce-evidence:on:some:event", function(payload)
+    -- Handle event
+end)
+
+-- Step 2: Bridge DCE event to FiveM event via export
+if exports and exports['dce-core'] and exports['dce-core'].DCE_Subscribe then
+    local bridgeEvent = exports['dce-core']:DCE_Subscribe("some:event", "dce-evidence:on:some:event")
+end
+```
+
+## Implementation Log
+
+| Date | Resource | Event | Status |
+|------|----------|-------|--------|
+| 2024-07-07 | dce-evidence | scenario:completed | Fixed - migrated to bridge pattern |
+| 2024-07-07 | dce-admin | admin:action:executed | Already using bridge pattern |

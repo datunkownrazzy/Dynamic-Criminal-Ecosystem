@@ -66,17 +66,31 @@ local function OnEvidenceStart()
         })
     end
 
-    -- Subscribe to scenario completion events to create evidence
-    if DCE and DCE.On then
-        DCE.On("scenario:completed", function(payload)
-            local data = payload and (payload.payload or payload)
-            if data and DCEEvidenceFactory and DCEEvidenceFactory.FromScenarioCompletion then
-                local evidenceData = DCEEvidenceFactory.FromScenarioCompletion(data)
-                if evidenceData and DCEEvidenceService and DCEEvidenceService.CreateEvidence then
-                    DCEEvidenceService.CreateEvidence(evidenceData)
-                end
+    -- Subscribe to scenario completion events via FiveM event bridge
+    -- ADR-0020: DCE.On cannot be called cross-resource due to FiveM proxy marshalling.
+    -- Instead, we register a local FiveM event handler and bridge through DCE_Subscribe.
+    AddEventHandler("dce-evidence:on:scenario:completed", function(payload)
+        local data = payload and (payload.payload or payload)
+        if data and DCEEvidenceFactory and DCEEvidenceFactory.FromScenarioCompletion then
+            local evidenceData = DCEEvidenceFactory.FromScenarioCompletion(data)
+            if evidenceData and DCEEvidenceService and DCEEvidenceService.CreateEvidence then
+                DCEEvidenceService.CreateEvidence(evidenceData)
             end
-        end)
+        end
+    end)
+
+    -- Bridge: subscribe the DCE event to our FiveM event handler
+    -- No function reference crosses the resource boundary
+    -- DCE_Subscribe is an export, not a DCE method
+    if exports and exports['dce-core'] and exports['dce-core'].DCE_Subscribe then
+        local bridgeEvent = exports['dce-core']:DCE_Subscribe("scenario:completed", "dce-evidence:on:scenario:completed")
+        if bridgeEvent and DCE and DCE.Log then
+            DCE.Log("evidence", "info", "Subscribed to scenario:completed via event bridge")
+        end
+    else
+        if DCE and DCE.Log then
+            DCE.Log("evidence", "warn", "DCE_Subscribe export not available for scenario:completed")
+        end
     end
 
     if DCE and DCE.Log then

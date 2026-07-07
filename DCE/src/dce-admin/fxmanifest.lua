@@ -6,7 +6,7 @@ game 'gta5'
 
 author 'DCE Team'
 description 'Dynamic Criminal Ecosystem - Control Center (Admin UI)'
-version '1.0.2'
+version '1.0.3'
 
 dependencies {
     'dce-core',
@@ -52,6 +52,9 @@ file {
     'html/js/modules/plugins.js',
     'html/js/modules/adapters.js',
     'html/js/modules/settings.js',
+    'html/js/modules/locations.js',
+    'html/js/modules/territories.js',
+    'html/js/modules/world-editor.js',
 }
 
 ui_page 'html/index.html'

@@ -124,13 +124,80 @@ local function OnAdminStart()
                 end
                 return {}
             end,
-            GetTasksList = function()
-                if DCEAdminService and DCEAdminService.GetTasksList then
-                    return DCEAdminService.GetTasksList()
-                end
-                return {}
-            end,
-        })
+             GetTasksList = function()
+                 if DCEAdminService and DCEAdminService.GetTasksList then
+                     return DCEAdminService.GetTasksList()
+                 end
+                 return {}
+             end,
+             -- World Editor endpoints
+             GetAllLocations = function()
+                 if DCEAdminService and DCEAdminService.GetAllLocations then
+                     return DCEAdminService.GetAllLocations()
+                 end
+                 return {}
+             end,
+             GetLocation = function(id)
+                 if DCEAdminService and DCEAdminService.GetLocation then
+                     return DCEAdminService.GetLocation(id)
+                 end
+                 return nil
+             end,
+             CreateLocation = function(locationData)
+                 if DCEAdminService and DCEAdminService.CreateLocation then
+                     return DCEAdminService.CreateLocation(locationData)
+                 end
+                 return { success = false, error = "Admin service not available" }
+             end,
+             UpdateLocation = function(id, locationData)
+                 if DCEAdminService and DCEAdminService.UpdateLocation then
+                     return DCEAdminService.UpdateLocation(id, locationData)
+                 end
+                 return { success = false, error = "Admin service not available" }
+             end,
+             DeleteLocation = function(id)
+                 if DCEAdminService and DCEAdminService.DeleteLocation then
+                     return DCEAdminService.DeleteLocation(id)
+                 end
+                 return { success = false, error = "Admin service not available" }
+             end,
+             GetAllTerritories = function()
+                 if DCEAdminService and DCEAdminService.GetAllTerritories then
+                     return DCEAdminService.GetAllTerritories()
+                 end
+                 return {}
+             end,
+             GetTerritory = function(id)
+                 if DCEAdminService and DCEAdminService.GetTerritory then
+                     return DCEAdminService.GetTerritory(id)
+                 end
+                 return nil
+             end,
+             CreateTerritory = function(territoryData)
+                 if DCEAdminService and DCEAdminService.CreateTerritory then
+                     return DCEAdminService.CreateTerritory(territoryData)
+                 end
+                 return { success = false, error = "Admin service not available" }
+             end,
+             UpdateTerritory = function(id, territoryData)
+                 if DCEAdminService and DCEAdminService.UpdateTerritory then
+                     return DCEAdminService.UpdateTerritory(id, territoryData)
+                 end
+                 return { success = false, error = "Admin service not available" }
+             end,
+             DeleteTerritory = function(id)
+                 if DCEAdminService and DCEAdminService.DeleteTerritory then
+                     return DCEAdminService.DeleteTerritory(id)
+                 end
+                 return { success = false, error = "Admin service not available" }
+             end,
+             GetOrganizationFacilities = function(orgId)
+                 if DCEAdminService and DCEAdminService.GetOrganizationFacilities then
+                     return DCEAdminService.GetOrganizationFacilities(orgId)
+                 end
+                 return {}
+             end,
+         })
     end
 
     -- Initialize commands after service registration
