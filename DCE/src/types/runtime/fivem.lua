@@ -30,6 +30,7 @@
 ---@field TriggerClientEvent fun(eventName:string, target:number|string|string[], ...:any):nil
 ---@field SendNUIMessage fun(data:table):nil
 ---@field SetNuiFocus fun(...:boolean):nil
+---@field SetNuiFocusKeepInput fun(keepInput:boolean):nil
 ---@field GetPlayerPed fun(playerId:number):number
 ---@field PlayerPedId fun():number
 ---@field GetEntityCoords fun(entity:number):vector3
@@ -86,6 +87,9 @@ SendNUIMessage = nil
 
 ---@type fun(...:boolean):nil
 SetNuiFocus = nil
+
+---@type fun(keepInput:boolean):nil
+SetNuiFocusKeepInput = nil
 
 ---@type fun(playerId:number):number
 GetPlayerPed = nil

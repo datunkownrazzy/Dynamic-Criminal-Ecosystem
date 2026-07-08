@@ -201,45 +201,41 @@
         }
     };
 
-    // ============================================================================
-    // Keyboard Event Handling
-    // ============================================================================
+// ============================================================================
+// Keyboard Event Handling
+// ============================================================================
 
-    document.addEventListener('keydown', function(e) {
-        // ESC key closes Control Center
-        if (e.key === 'Escape' || e.key === 'Esc') {
-            DCE.NUI.post('keydown', { key: e.key });
-            e.preventDefault();
+// NOTE: We do NOT add keydown listeners on document because FiveM will auto-grant
+// NUI focus when it detects keyboard event listeners, causing the gray overlay on spawn.
+// The ESC key is handled via RegisterNUICallback('keydown') when focus IS active.
+
+// ============================================================================
+// Initialization
+// ============================================================================
+
+function onDOMContentLoaded() {
+    DCE.MessageHandler.init();
+    DCE.Notifications.init();
+
+    // Handle open/close messages from Lua
+    // IMPORTANT: Do NOT auto-open on ready - Control Center must be explicitly opened
+    DCE.MessageHandler.on('open', function() {
+        DCE.Desktop.show();
+    });
+
+    DCE.MessageHandler.on('close', function() {
+        DCE.Desktop.hide();
+        if (DCE.Windows) {
+            DCE.Windows.closeAll();
         }
     });
 
-    // ============================================================================
-    // Initialization
-    // ============================================================================
+    // Initialize modules namespace
+    DCE.Modules = DCE.Modules || {};
 
-    function onDOMContentLoaded() {
-        DCE.MessageHandler.init();
-        DCE.Notifications.init();
-
-        // Handle open/close messages from Lua
-        // IMPORTANT: Do NOT auto-open on ready - Control Center must be explicitly opened
-        DCE.MessageHandler.on('open', function() {
-            DCE.Desktop.show();
-        });
-
-        DCE.MessageHandler.on('close', function() {
-            DCE.Desktop.hide();
-            if (DCE.Windows) {
-                DCE.Windows.closeAll();
-            }
-        });
-
-        // Initialize modules namespace
-        DCE.Modules = DCE.Modules || {};
-
-        // Notify Lua that NUI is ready (but stay hidden)
-        DCE.NUI.post('nuiReady', {});
-    }
+    // Notify Lua that NUI is ready (but stay hidden)
+    DCE.NUI.post('nuiReady', {});
+}
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', onDOMContentLoaded);

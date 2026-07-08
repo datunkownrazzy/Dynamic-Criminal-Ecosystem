@@ -11,10 +11,36 @@ local hasFocus = false
 local playerUIState = {}
 
 -- Safely release focus and cursor
+-- The second parameter to SetNuiFocus (hasCursor) enables cursor when true
+-- IMPORTANT: SetNuiFocus(false, false) MUST be called to remove the gray overlay
+-- SetNuiFocusKeepInput only affects input passthrough behavior while focus is active
 local function releaseFocus()
     hasFocus = false
+    -- Always release focus first - this removes the gray overlay
     if SetNuiFocus then
         SetNuiFocus(false, false)
+    end
+    -- SetNuiFocusKeepInput(false) is not required but can be called for explicit cleanup
+    if SetNuiFocusKeepInput then
+        SetNuiFocusKeepInput(false)
+    end
+    if SendNUIMessage then
+        SendNUIMessage({
+            action = "close"
+        })
+    end
+end
+
+-- Ensure clean state on resource start (defensive - may not be needed but safe)
+local function ensureCleanState()
+    hasFocus = false
+    -- Always release focus first - this removes the gray overlay
+    if SetNuiFocus then
+        SetNuiFocus(false, false)
+    end
+    -- Explicitly disable input passthrough for clean state
+    if SetNuiFocusKeepInput then
+        SetNuiFocusKeepInput(false)
     end
     if SendNUIMessage then
         SendNUIMessage({
@@ -93,8 +119,16 @@ RegisterNUICallback('close', function(data, cb)
 end)
 
 -- NUI ready notification
+-- FiveM may auto-grant NUI focus when ui_page loads, causing gray overlay on spawn
+-- This callback ensures focus is released immediately when NUI is ready
 RegisterNUICallback('nuiReady', function(data, cb)
-    -- UI loaded, acknowledge
+    -- Release any orphaned focus (FiveM auto-focus defense)
+    hasFocus = false
+    if SetNuiFocus then
+        SetNuiFocus(false, false)
+    end
+    
+    -- Acknowledge NUI ready
     cb({ status = "ready" })
 end)
 
@@ -407,19 +441,25 @@ end)
 -- NUI Lifecycle: Focus Safety
 -- ============================================================================
 
+-- IMPORTANT: Release focus IMMEDIATELY at script load time, before any keybind
+-- registration can trigger FiveM's auto-focus behavior.
+-- This must be called BEFORE AddEventHandler for onClientResourceStart so it runs
+-- immediately when the script loads.
+ensureCleanState()
+
 -- FiveM Focus Behavior Documentation:
--- When a resource with ui_page loads, FiveM may automatically grant NUI focus
--- without an explicit message. This causes a gray overlay on spawn.
--- The fix: Always release focus on onClientResourceStart to ensure clean state.
+-- When a resource with ui_page loads, FiveM may auto-grant NUI focus to enable
+-- keybind capture, causing the gray overlay on spawn.
+-- The fix: Release focus at script load time, and also in onClientResourceStart.
 --
 -- Lifecycle:
---   Resource Start → NUI loads → (optional auto-focus) → onClientResourceStart fires
---   We release focus here → UI stays hidden until /dce admin or keybind pressed
---
--- Note: We send "close" action to JS even if UI not open, as it's idempotent
+--   Resource Start → NUI loads → FiveM auto-focus (gray overlay)
+--   Client script loads → ensureCleanState() releases focus immediately
+--   onClientResourceStart → Also releases focus as backup
+--   Keybind registration → No gray overlay because focus already released
 AddEventHandler("onClientResourceStart", function(resourceName)
     if resourceName == GetCurrentResourceName() then
-        -- Step 1: Release any orphaned focus (FiveM auto-focus defense)
+        -- Release focus as backup (ensureCleanState already ran, but defensive)
         hasFocus = false
         if SetNuiFocus then
             SetNuiFocus(false, false)
@@ -430,12 +470,12 @@ AddEventHandler("onClientResourceStart", function(resourceName)
             })
         end
         
-        -- Step 2: Register keybind (only after focus is released)
+        -- Register keybind (safe now because focus is already released)
         local keybindName = "dce_controlcenter"
         local keybindDesc = "Toggle DCE Control Center"
         
         local Config = _G.Config or {}
-        local defaultKey = "KC_LMENU + K"
+        local defaultKey = "KC_LMETA + K"
         if Config.Admin and Config.Admin.Keybind and Config.Admin.Keybind.Key then
             defaultKey = Config.Admin.Keybind.Key
         end
@@ -460,6 +500,41 @@ AddEventHandler("onClientResourceStart", function(resourceName)
         
         if not keymapSuccess and DCE and DCE.Log then
             DCE.Log("admin", "warn", "RegisterKeyMapping not available or failed: %s", tostring(keymapErr))
+        end
+    end
+end)
+
+-- Player spawn defense: Also ensure focus is released when player spawns
+-- This catches edge cases where the focus might be granted during gameplay
+AddEventHandler("playerSpawned", function()
+    if hasFocus then
+        hasFocus = false
+        if SetNuiFocus then
+            SetNuiFocus(false, false)
+        end
+        if SendNUIMessage then
+            SendNUIMessage({
+                action = "close"
+            })
+        end
+    end
+end)
+
+-- Resource stop cleanup - ensure client-side cleanup
+AddEventHandler("onClientResourceStop", function(resourceName)
+    if resourceName == GetCurrentResourceName() then
+        -- Always release focus on resource stop
+        hasFocus = false
+        if SetNuiFocus then
+            SetNuiFocus(false, false)
+        end
+        if SetNuiFocusKeepInput then
+            SetNuiFocusKeepInput(false)
+        end
+        if SendNUIMessage then
+            SendNUIMessage({
+                action = "close"
+            })
         end
     end
 end)

@@ -26,6 +26,8 @@
             "server_exports",
             "source",
             "GetGameTimer",
+            "SetNuiFocus",
+            "SetNuiFocusKeepInput",
             "DCEAlertHandler",
             "DCEProfiler",
             "DCECache",
