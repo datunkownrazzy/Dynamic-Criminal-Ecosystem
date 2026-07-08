@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DCE Control Center v2</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/themes/dark.css" id="theme-link">
+</head>
+<body>
+    <!-- Hidden until opened - controlled by lifecycle.js -->
+    <!-- No gray overlay by default -->
+
+    <!-- Desktop Container -->
+    <div id="desktop" class="desktop">
+        <!-- Dock/Toolbar -->
+        <div id="dock" class="dock">
+            <div class="dock-content">
+                <button class="dock-btn" data-plugin="world-manager" title="World Manager">
+                    🌍
+                </button>
+                <button class="dock-btn" data-plugin="organization-manager" title="Organizations">
+                    🏢
+                </button>
+                <button class="dock-btn" data-plugin="dispatch-manager" title="Dispatch">
+                    🚓
+                </button>
+                <button class="dock-btn" data-plugin="evidence-manager" title="Evidence">
+                    🔍
+                </button>
+                <button class="dock-btn" data-plugin="ai-manager" title="AI">
+                    🤖
+                </button>
+                <button class="dock-btn" data-plugin="analytics" title="Analytics">
+                    📊
+                </button>
+                <div class="dock-separator"></div>
+                <button class="dock-btn" data-plugin="dev-tools" title="Developer Tools">
+                    🛠️
+                </button>
+                <button class="dock-btn" data-plugin="server-monitor" title="Server Monitor">
+                    📈
+                </button>
+            </div>
+            <div class="dock-resize-handle"></div>
+        </div>
+
+        <!-- Window Container -->
+        <div id="window-container" class="window-container"></div>
+
+        <!-- Status Bar -->
+        <div id="status-bar" class="status-bar">
+            <div class="status-section left">
+                <span class="status-indicator ready" id="status-indicator"></span>
+                <span id="status-text">Ready</span>
+            </div>
+            <div class="status-section center">
+                <span id="breadcrumb"></span>
+            </div>
+            <div class="status-section right">
+                <span id="status-timestamp"></span>
+                <span class="status-version">DCE v2.0.0</span>
+            </div>
+        </div>
+
+        <!-- Notifications Overlay -->
+        <div id="notifications" class="notifications"></div>
+
+        <!-- Modal Overlay (for dialogs) -->
+        <div id="modal-overlay" class="modal-overlay hidden"></div>
+    </div>
+
+    <!-- Window Template -->
+    <template id="template-window">
+        <div class="window" data-window-id="">
+            <div class="window-header">
+                <div class="window-title">
+                    <span class="window-icon"></span>
+                    <span class="window-title-text"></span>
+                </div>
+                <div class="window-controls">
+                    <button class="window-btn pin" title="Pin"></button>
+                    <button class="window-btn minimize" title="Minimize"></button>
+                    <button class="window-btn maximize" title="Maximize"></button>
+                    <button class="window-btn close" title="Close"></button>
+                </div>
+            </div>
+            <div class="window-content">
+                <!-- Tab bar if needed -->
+                <div class="tab-bar"></div>
+                <!-- Content injected by plugins -->
+                <div class="content-body"></div>
+            </div>
+            <div class="resize-handles">
+                <div class="resize-handle top"></div>
+                <div class="resize-handle bottom"></div>
+                <div class="resize-handle left"></div>
+                <div class="resize-handle right"></div>
+                <div class="resize-handle top-left"></div>
+                <div class="resize-handle top-right"></div>
+                <div class="resize-handle bottom-left"></div>
+                <div class="resize-handle bottom-right"></div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Core Scripts -->
+    <script src="js/core/lifecycle.js"></script>
+    <script src="js/core/viewmodel.js"></script>
+    <script src="js/core/inspector.js"></script>
+    <script src="js/core/command-palette.js"></script>
+    <script src="js/core/notifications.js"></script>
+    <script src="js/core/activity-log.js"></script>
+    <script src="js/core/breadcrumb.js"></script>
+
+    <!-- UI Components -->
+    <script src="js/ui/window-manager.js"></script>
+    <script src="js/ui/dock.js"></script>
+    <script src="js/ui/panel.js"></script>
+    <script src="js/ui/tab.js"></script>
+    <script src="js/ui/context-menu.js"></script>
+    <script src="js/ui/search.js"></script>
+
+    <!-- Plugins -->
+    <script src="js/plugins/world-manager/world-manager.js"></script>
+    <script src="js/plugins/organization-manager/organization-manager.js"></script>
+    <script src="js/plugins/dispatch-manager/dispatch-manager.js"></script>
+    <script src="js/plugins/evidence-manager/evidence-manager.js"></script>
+    <script src="js/plugins/ai-manager/ai-manager.js"></script>
+    <script src="js/plugins/analytics/analytics.js"></script>
+    <script src="js/plugins/server-monitor/server-monitor.js"></script>
+    <script src="js/plugins/dev-tools/dev-tools.js"></script>
+
+    <!-- App Entry -->
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -40,6 +40,7 @@ local function InitializeCore()
     local Cache = DCECache
     local Pool = DCEPool
     local AlertHandler = DCEAlertHandler
+    local Diagnostics = DCEDiagnostics
 
 -- Step 1: Initialize Logger
     if Logger then
@@ -59,8 +60,14 @@ local function InitializeCore()
     if AlertHandler then AlertHandler.Init(Logger) end
     if ConfigLoader then ConfigLoader.Init(Logger) end
     if PluginManager then PluginManager.Init(Logger) end
+    if Diagnostics then Diagnostics.Init(Logger) end
+    
+    -- Mark startup start for diagnostics
+    if Diagnostics and Diagnostics.MarkStartupStart then
+        Diagnostics.MarkStartupStart()
+    end
 
-    -- Step 3: Register DCE global API (must be before AlertHandler.Setup)
+-- Step 3: Register DCE global API (must be before AlertHandler.Setup)
     -- Service Registry
     DCE.RegisterService = function(name, serviceTable, options)
         if Registry then
@@ -97,37 +104,41 @@ local function InitializeCore()
         return false
     end
 
-     -- Event Bus (must be available before AlertHandler.Setup)
-     DCE.Emit = function(eventName, payload)
-         if EventBus then
-             EventBus.Emit(eventName, payload)
-         end
-     end
+    -- Event Bus (must be available before AlertHandler.Setup)
+    DCE.Emit = function(eventName, payload)
+        if EventBus then
+            -- Diagnostic trace
+            if Diagnostics and Diagnostics.OnEventEmit then
+                Diagnostics.OnEventEmit(eventName, "dce-core")
+            end
+            return EventBus.Emit(eventName, payload)
+        end
+    end
 
-      DCE.On = function(eventName, handlerFn)
-           -- Validation at DCE API boundary prevents invalid callbacks reaching EventBus.On
-           -- Per Architecture rules: "Defensive nil-check patterns are intentional for FiveM timing safety"
-           if not handlerFn or type(handlerFn) ~= "function" then
-               local Logger = DCELogger
-               local msg = ("EventBus.On: handlerFn must be a function for event '%s'"):format(
-                   type(eventName) == "string" and eventName or tostring(eventName)
-               )
-               if Logger and Logger.Log then
-                   Logger.Log("core", "error", msg)
-               else
-                   print(("[DCE] %s"):format(msg))
-               end
-               return nil
-           end
-           
-           if EventBus then
-               return EventBus.On(eventName, handlerFn)
-           end
-           
-           -- EventBus not initialized - likely race condition
-           print("[DCE] WARNING: EventBus is nil for event=" .. tostring(eventName))
-           return nil
-       end
+    DCE.On = function(eventName, handlerFn)
+        -- Validation at DCE API boundary prevents invalid callbacks reaching EventBus.On
+        -- Per Architecture rules: "Defensive nil-check patterns are intentional for FiveM timing safety"
+        if not handlerFn or type(handlerFn) ~= "function" then
+            local Logger = DCELogger
+            local msg = ("EventBus.On: handlerFn must be a function for event '%s'"):format(
+                type(eventName) == "string" and eventName or tostring(eventName)
+            )
+            if Logger and Logger.Log then
+                Logger.Log("core", "error", msg)
+            else
+                print(("[DCE] %s"):format(msg))
+            end
+            return nil
+        end
+        
+        if EventBus then
+            return EventBus.On(eventName, handlerFn)
+        end
+        
+        -- EventBus not initialized - likely race condition
+        print("[DCE] WARNING: EventBus is nil for event=" .. tostring(eventName))
+        return nil
+    end
 
     DCE.Once = function(eventName, handlerFn)
         if not handlerFn or type(handlerFn) ~= "function" then
@@ -150,7 +161,7 @@ local function InitializeCore()
 
     DCE.Off = function(eventName, handlerId)
         if EventBus then
-            EventBus.Off(eventName, handlerId)
+            return EventBus.Off(eventName, handlerId)
         end
     end
 
@@ -348,6 +359,11 @@ local function InitializeCore()
             Logger.Info("core", "Registered services: %s", table.concat(Registry.List(), ", "))
         end
     end
+    
+    -- Print startup summary at the end
+    if Diagnostics and Diagnostics.MarkStartupComplete then
+        Diagnostics.MarkStartupComplete()
+    end
 end
 
 -- ============================================================================
@@ -366,9 +382,15 @@ local function ShutdownCore()
     local Cache = DCECache
     local Pool = DCEPool
     local AlertHandler = DCEAlertHandler
+    local Diagnostics = DCEDiagnostics
 
     if Logger then
         Logger.Info("core", "=== DCE Core Shutting Down ===")
+    end
+    
+    -- Diagnostic shutdown trace
+    if Diagnostics and Diagnostics.OnShutdown then
+        Diagnostics.OnShutdown()
     end
 
     -- 1. Clear all scheduled tasks (this stops all running timers)

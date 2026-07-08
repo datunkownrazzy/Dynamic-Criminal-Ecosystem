@@ -75,6 +75,11 @@ Config.Pool = {
     DefaultGrowIncrement = 10,
 }
 
+-- Debug configuration (NUI Lifecycle diagnostic mode)
+-- When enabled, produces comprehensive execution traces for troubleshooting
+Config.Debug = Config.Debug or {}
+Config.Debug.NUILifecycle = false  -- Set to true to enable NUI lifecycle diagnostic mode
+
 -- Admin performance monitoring
 Config.Admin = Config.Admin or {}
 Config.Admin.Performance = {

@@ -25,6 +25,7 @@ server_scripts {
     'core/alert-handler.lua',
     'core/config.lua',
     'core/plugin-manager.lua',
+    'core/diagnostics.lua',
     'init.lua',
 }
 

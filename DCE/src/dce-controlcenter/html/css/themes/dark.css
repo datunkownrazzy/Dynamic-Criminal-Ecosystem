@@ -1,0 +1,12 @@
+/* DCE Control Center v2 - Dark Theme */
+/* Default theme */
+
+:root {
+    --cc-theme-name: 'dark';
+}
+
+/* Body uses dark theme variables by default */
+body {
+    background: var(--cc-bg-primary);
+    color: var(--cc-text-primary);
+}
