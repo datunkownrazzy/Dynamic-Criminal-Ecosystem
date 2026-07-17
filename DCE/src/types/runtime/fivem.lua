@@ -35,6 +35,9 @@
 ---@field PlayerPedId fun():number
 ---@field GetEntityCoords fun(entity:number):vector3
 ---@field GetEntityHeading fun(entity:number):number
+---@field SetEntityCoords fun(entity:number, x:number, y:number, z:number, x2?:boolean, y2?:boolean, z2?:boolean, teleport?:boolean):nil
+---@field SetEntityHeading fun(entity:number, heading:number):nil
+---@field SetPlayerRoutingBucket fun(playerId:number, bucketId:number, p3:boolean):nil
 ---@field GetPlayers fun():number[]
 ---@field IsPlayerAceAllowed fun(playerId:number, ace:string):boolean
 ---@field GetResourceState fun(resourceName:string):"missing"|"started"|"starting"|"stopped"
@@ -103,6 +106,15 @@ GetEntityCoords = nil
 ---@type fun(entity:number):number
 GetEntityHeading = nil
 
+---@type fun(entity:number, x:number, y:number, z:number, x2?:boolean, y2?:boolean, z2?:boolean, teleport?:boolean):nil
+SetEntityCoords = nil
+
+---@type fun(entity:number, heading:number):nil
+SetEntityHeading = nil
+
+---@type fun(playerId:number, bucketId:number, p3:boolean):nil
+SetPlayerRoutingBucket = nil
+
 ---@type fun():number[]
 GetPlayers = nil
 
@@ -120,6 +132,23 @@ LoadResourceFile = nil
 
 ---@type fun():number
 GetGameTimer = nil
+
+-- World/time natives
+---@type fun():number
+GetClockHours = nil
+
+---@type fun():number
+GetClockMinutes = nil
+
+---@type fun(hours:number, minutes:number, seconds:number):nil
+NetworkOverrideClockTime = nil
+
+-- Weather natives
+---@type fun():nil
+ClearOverrideWeather = nil
+
+---@type fun(weatherType:string):nil
+SetWeatherTypePersist = nil
 
 ---@type JSON
 json = nil

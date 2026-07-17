@@ -1,5 +1,5 @@
 {
-    "runtime": {
+"runtime": {
         "version": "Lua 5.4"
     },
     "workspace": {
@@ -69,14 +69,30 @@
             "DCEOrganizationService",
             "DCEEvidenceService",
             "DCEEvidenceFactory",
-            "DCEAdminService"
+            "DCEAdminService",
+            "Source",
+            "PlayerId",
+            "GetPlayerServerId",
+            "TriggerServerEvent",
+            "TriggerClientEvent",
+            "GetCurrentResourceName",
+            "SendNUIMessage",
+            "RegisterNUICallback",
+            "RegisterNetEvent",
+            "GetClockHours",
+            "GetClockMinutes",
+            "NetworkOverrideClockTime",
+            "ClearOverrideWeather",
+            "SetWeatherTypePersist",
+            "GetPlayerServerId",
+            "PlayerId"
         ],
         "unusedLocal": false,
         "unusedFunction": false
     },
     "intelliSense": {
         "searching": {
-            "path": [["function", "./DCE/src/types/index.lua"]]
+            "path": [["function", "DCE/src/types/index.lua"]]
         }
     }
 }

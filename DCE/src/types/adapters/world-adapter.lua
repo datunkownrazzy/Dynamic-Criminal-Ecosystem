@@ -1,0 +1,23 @@
+-- DCE World Adapter Type Declarations
+-- This file contains ONLY type declarations for the WorldAdapter service.
+-- The WorldAdapter is the service that provides location CRUD operations for the Control Center.
+-- It is provided by dce-world and consumed by Control Center editors.
+-- No runtime logic, no business logic.
+
+--- @class TerritoryInfo
+--- Territory data structure.
+---@field id string Unique territory identifier
+---@field name string|nil Human-readable name
+---@field bounds table Boundary definition
+---@field locationIds string[] Associated location IDs
+
+--- @class IWorldAdapter
+--- World Adapter Interface for the Control Center.
+--- Provides location CRUD operations that delegate to location providers.
+--- Uses dot notation for method calls (not method notation).
+---@field CreateLocation fun(location:table):boolean, string|nil Create a location
+---@field GetLocation fun(locationId:string):LocationInfo|nil Get location by ID (returns LocationInfo from location-manager.lua)
+---@field UpdateLocation fun(locationId:string, location:table):boolean, string|nil Update a location
+---@field DeleteLocation fun(locationId:string):boolean Delete a location
+---@field ListLocations fun():table List all locations
+---@field ListTerritories fun():table List all territories

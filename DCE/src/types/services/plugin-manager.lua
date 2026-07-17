@@ -4,12 +4,11 @@
 
 --- @class IPluginManager
 --- Plugin Manager: Registers and manages DCE plugins.
----@field Init fun(self:IPluginManager, logger:ILogger):nil Initialize the plugin manager
----@field Register fun(self:IPluginManager, manifest:table):boolean Register a plugin
----@field Get fun(self:IPluginManager, pluginName:string):table|nil Get plugin manifest
----@field List fun(self:IPluginManager):table[] List all plugins
----@field Clear fun(self:IPluginManager):nil Clear all registrations
----@field Has fun(self:IPluginManager, pluginName:string):boolean Check if plugin exists
+---@field Init fun():boolean Initialize the plugin manager
+---@field Register fun(pluginId:string, manifest:table):boolean Register a plugin by ID and manifest
+---@field Unregister fun(pluginId:string):boolean Unregister a plugin
+---@field GetManifest fun(pluginId:string):table|nil Get plugin manifest
+---@field ListPlugins fun(category:string|nil):table[] List plugins by optional category
 
 --- @class PluginManifest
 --- Plugin manifest structure.
@@ -27,3 +26,5 @@
 ---@field name string Plugin name
 ---@field manifest PluginManifest Plugin manifest
 ---@field registeredAt number Registration timestamp
+
+---@alias DCEPluginManager IPluginManager

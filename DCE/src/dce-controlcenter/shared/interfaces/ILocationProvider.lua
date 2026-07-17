@@ -25,7 +25,7 @@ end
 
 --- Create a location
 ---@param location table Location data
----@return table|nil result, string|nil error
+---@return table|nil result, string|nil err
 function ILocationProvider.Create(location)
     error("ILocationProvider:Create must be implemented by provider")
 end
@@ -40,14 +40,14 @@ end
 --- Update a location
 ---@param locationId string
 ---@param location table Updated location data
----@return table|nil result, string|nil error
+---@return table|nil result, string|nil err
 function ILocationProvider.Update(locationId, location)
     error("ILocationProvider:Update must be implemented by provider")
 end
 
 --- Validate location data
 ---@param location table
----@return boolean valid, table errors
+---@return boolean valid, table|nil errors
 function ILocationProvider.Validate(location)
     error("ILocationProvider:Validate must be implemented by provider")
 end
@@ -96,7 +96,7 @@ function ILocationProvider.Import(exported)
 end
 
 --- Test provider connectivity/configuration
----@return boolean healthy, string|nil error
+---@return boolean healthy, string|nil err
 function ILocationProvider.Test()
     return true
 end
@@ -111,6 +111,17 @@ end
 ---@return table
 function ILocationProvider.GetSupportedTypes()
     return {}
+end
+
+--- Resolve location for player
+---@param location table
+---@param playerSource number
+---@return table resolution
+function ILocationProvider.ResolveLocation(location, playerSource)
+    return {
+        coords = location.coords,
+        heading = location.heading,
+    }
 end
 
 return ILocationProvider

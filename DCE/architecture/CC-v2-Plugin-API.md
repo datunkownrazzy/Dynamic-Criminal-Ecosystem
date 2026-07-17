@@ -36,7 +36,7 @@ In your plugin's server code:
 
 ```lua
 -- server/plugin.lua
-local DCE = _G.DCE
+local DCE = exports['dce-core']:GetDCEAPI()
 
 -- Get the PluginRegistry service
 local PluginRegistry = DCE and DCE.GetService and DCE.GetService("PluginRegistry")

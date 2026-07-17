@@ -43,3 +43,6 @@
 ---@field id number Handler identifier
 ---@field eventName string Event name
 ---@field callback function Handler function
+
+---@type DCEEventBus|nil
+DCEEventBus = nil

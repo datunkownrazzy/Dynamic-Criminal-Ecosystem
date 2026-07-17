@@ -1,22 +1,35 @@
 /**
  * DCE Control Center v2 - Window Manager
  * Manages draggable, resizable windows with state persistence
+ * All timers are tracked through DCE.Application for proper cleanup
  */
 
 (function() {
     'use strict';
-
+    
     window.DCE = window.DCE || {};
     
     // Window state storage (in-memory)
     const windows = new Map();
     let zIndex = 100;
-
+    
     // DCE Window Manager
     const DCEWindowManager = {
+        // Initialize window manager (called on application boot)
+        create: function() {
+            console.log('[DCE WindowManager] Initialized');
+            return true;
+        },
+        
         // Create a new window
         createWindow: function(pluginId, options) {
             options = options || {};
+            
+            // Check if we have a valid desktop
+            if (!DCE.Application || DCE.Application.state !== 'ready' && DCE.Application.state !== 'active') {
+                console.warn('[DCE WindowManager] Application not in ready/active state, cannot open window');
+                return null;
+            }
             
             const container = document.getElementById('window-container');
             if (!container) return null;
@@ -24,8 +37,8 @@
             // Load saved state or use defaults
             const savedState = DCEWindowManager.loadWindowState(pluginId);
             
-            const width = savedState.width || options.width || 600;
-            const height = savedState.height || options.height || 400;
+            const width = savedState.width || options.width || DCE.Config.Windows.MinWidth;
+            const height = savedState.height || options.height || DCE.Config.Windows.MinHeight;
             const x = savedState.x || options.x || 100;
             const y = savedState.y || options.y || 100;
             
@@ -66,8 +79,9 @@
             });
             
             // Load plugin content
-            if (DCE.Plugins && DCE.Plugins[pluginId]) {
-                DCE.Plugins[pluginId].render(windowEl.querySelector('.content-body'));
+            const contentBody = windowEl.querySelector('.content-body');
+            if (DCE.Plugins && DCE.Plugins[pluginId] && DCE.Plugins[pluginId].render) {
+                DCE.Plugins[pluginId].render(contentBody);
             }
             
             return windowEl;
@@ -128,8 +142,8 @@
                 DCEWindowManager.saveWindowState(windowId, {
                     x: parseInt(windowEl.style.left) || 100,
                     y: parseInt(windowEl.style.top) || 100,
-                    width: parseInt(windowEl.style.width) || 600,
-                    height: parseInt(windowEl.style.height) || 400
+                    width: parseInt(windowEl.style.width) || DCE.Config.Windows.MinWidth,
+                    height: parseInt(windowEl.style.height) || DCE.Config.Windows.MinHeight
                 });
                 document.removeEventListener('mousemove', move);
                 document.removeEventListener('mouseup', stop);
@@ -143,8 +157,8 @@
         startResize: function(windowEl, windowId, e) {
             const startX = e.clientX;
             const startY = e.clientY;
-            const startWidth = parseInt(windowEl.style.width) || 600;
-            const startHeight = parseInt(windowEl.style.height) || 400;
+            const startWidth = parseInt(windowEl.style.width) || DCE.Config.Windows.MinWidth;
+            const startHeight = parseInt(windowEl.style.height) || DCE.Config.Windows.MinHeight;
             
             function resize(e) {
                 const minWidth = DCE.Config && DCE.Config.Windows && DCE.Config.Windows.MinWidth || 300;
@@ -160,8 +174,8 @@
                 DCEWindowManager.saveWindowState(windowId, {
                     x: parseInt(windowEl.style.left) || 100,
                     y: parseInt(windowEl.style.top) || 100,
-                    width: parseInt(windowEl.style.width) || 600,
-                    height: parseInt(windowEl.style.height) || 400
+                    width: parseInt(windowEl.style.width) || DCE.Config.Windows.MinWidth,
+                    height: parseInt(windowEl.style.height) || DCE.Config.Windows.MinHeight
                 });
                 document.removeEventListener('mousemove', resize);
                 document.removeEventListener('mouseup', stop);
@@ -204,18 +218,27 @@
             const state = windows.get(windowId);
             if (!state) return;
             
+            // Call plugin cleanup hook before removing
+            if (DCE.Plugins && DCE.Plugins[windowId] && DCE.Plugins[windowId].onClose) {
+                DCE.Plugins[windowId].onClose();
+            }
+            
             state.element.remove();
             windows.delete(windowId);
             
-            // If no windows left, close desktop
+            // If no windows left, notify server
             if (windows.size === 0) {
-                DCE.NUI.post('dce-cc:window:allClosed');
+                DCE.NUI.post('dce-cc:window:allClosed', { allClosed: true }).catch(function() {});
             }
         },
         
         // Close all windows
         closeAll: function() {
             windows.forEach(function(state, id) {
+                // Call plugin cleanup hook before removing
+                if (DCE.Plugins && DCE.Plugins[id] && DCE.Plugins[id].onClose) {
+                    DCE.Plugins[id].onClose();
+                }
                 state.element.remove();
             });
             windows.clear();
@@ -241,6 +264,43 @@
                 console.error('Failed to load window state:', e);
             }
             return null;
+        },
+        
+        // Cleanup all resources
+        cleanup: function() {
+            DCEWindowManager.closeAll();
+            
+            // Clear localStorage for window states
+            try {
+                Object.keys(localStorage).forEach(function(key) {
+                    if (key.startsWith('dce-window-')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+            } catch (e) {
+                console.error('Failed to clear window state storage:', e);
+            }
+        },
+        
+        // Open window for a plugin
+        openWindow: function(pluginId) {
+            if (!DCE.Application || DCE.Application.state !== 'active') {
+                console.warn('[DCE WindowManager] Cannot open window - CC not active');
+                return null;
+            }
+            
+            // Get plugin manifest from DCE.Plugins
+            const plugin = DCE.Plugins && DCE.Plugins[pluginId];
+            
+            if (!plugin) {
+                console.error('[DCE WindowManager] Plugin not found:', pluginId);
+                return null;
+            }
+            
+            return DCEWindowManager.createWindow(pluginId, {
+                title: plugin.displayName || plugin.name || pluginId,
+                icon: plugin.icon || '🔧'
+            });
         }
     };
     
@@ -249,5 +309,7 @@
     
     // Also attach to DCE namespace
     DCE.Windows = DCEWindowManager;
-
+    
+    console.log('[DCE WindowManager] Loaded');
+    
 })();

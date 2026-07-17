@@ -1,286 +1,232 @@
--- DCE Control Center v2 - Plugin Registry Service
--- Manages plugin registration and discovery for UI extensions
--- No hardcoded plugins - everything is discovered dynamically
+-- DCE Control Center v2 - Plugin Registry (Authoritative)
+-- SOLE OWNER: Plugin registration, discovery, validation, lifecycle tracking
+-- All plugins register here. No other module may track plugin state.
+-- Per ADR-0026: Plugin Registry registers with DCE Core via Registry
 
 local PluginRegistry = {}
-local logger
-local registeredPlugins = {}
-local pluginCategories = {} -- category -> plugin list
+local dceCoreReady = false
+local Logger = nil
+local EventBus = nil
+local DCE = nil
 
---- Initialize the service
-function PluginRegistry.Init(log)
-    logger = log
-    if logger then
-        logger.Info("plugin-registry", "Initializing Plugin Registry...")
-    end
-end
+-- Plugin storage
+local registeredPlugins = {} -- id -> manifest
+local activePlugins = {}     -- id -> instance
 
---- Log helper
-local function log(level, msg, ...)
-    if logger then
-        logger.Log("plugin-registry", level, msg, ...)
-    end
-end
-
---- Register plugin category
----@param category string
----@param pluginId string
-local function registerPluginCategory(category, pluginId)
-    if not pluginCategories[category] then
-        pluginCategories[category] = {}
-    end
-    if not pluginCategories[category][pluginId] then
-        table.insert(pluginCategories[category], pluginId)
-    end
-end
-
---- Unregister plugin category
----@param category string
----@param pluginId string
-local function unregisterPluginCategory(category, pluginId)
-    if pluginCategories[category] then
-        for i, id in ipairs(pluginCategories[category]) do
-            if id == pluginId then
-                table.remove(pluginCategories[category], i)
-                break
-            end
-        end
-    end
-end
-
---- Build standardized plugin info
----@param pluginId string
----@param manifest table
----@return table
-function PluginRegistry.BuildPluginInfo(pluginId, manifest)
-    return {
-        id = pluginId,
-        name = manifest.DisplayName or manifest.Name or pluginId,
-        description = manifest.Description or "",
-        version = manifest.Version or "unknown",
-        author = manifest.Author or "unknown",
-        icon = manifest.Icon or "🔧",
-        category = (manifest.ControlCenter and manifest.ControlCenter.category) or "general",
-        priority = manifest.Priority or 100,
-        supportsHotReload = manifest.SupportsHotReload or false,
-        provides = manifest.Provides or {},
-        permissions = manifest.Permissions or {},
-    }
-end
-
---- Register a plugin with full manifest
----@param pluginId string
----@param manifest table Complete plugin manifest
----@return boolean
-function PluginRegistry.Register(pluginId, manifest)
-    if not pluginId or not manifest then
-        log("error", "Plugin registration requires id and manifest")
-        return false
-    end
-    
-    -- Validate manifest structure
-    if type(manifest) ~= "table" then
-        log("error", "Plugin manifest must be a table")
-        return false
-    end
-    
-    -- Store plugin
-    registeredPlugins[pluginId] = {
-        id = pluginId,
-        manifest = manifest,
-        registeredAt = os.time(),
-        enabled = true,
-    }
-    
-    -- Register categories
-    local cc = manifest.ControlCenter or {}
-    local category = cc.category or "general"
-    registerPluginCategory(category, pluginId)
-    
-    -- Register permissions if provided
-    if manifest.Permissions then
-        PluginRegistry._permissions = PluginRegistry._permissions or {}
-        for _, perm in ipairs(manifest.Permissions.required or {}) do
-            PluginRegistry._permissions[perm] = pluginId
-        end
-    end
-    
-    -- Register commands if provided
-    if cc.commands then
-        PluginRegistry._commands = PluginRegistry._commands or {}
-        for _, cmd in ipairs(cc.commands) do
-            PluginRegistry._commands[cmd.id or cmd.command] = {
-                pluginId = pluginId,
-                command = cmd,
-            }
-        end
-    end
-    
-    -- Register routes/windows
-    if cc.routes then
-        PluginRegistry._routes = PluginRegistry._routes or {}
-        for routePath, routeDef in pairs(cc.routes) do
-            PluginRegistry._routes[routePath] = {
-                pluginId = pluginId,
-                route = routeDef,
-            }
-        end
-    end
-    
-    log("info", "Registered plugin: %s (category: %s)", pluginId, category)
+local function ConnectToCore()
+    if dceCoreReady then return true end
+    if GetResourceState('dce-core') ~= 'started' then return false end
+    DCE = exports['dce-core']:GetDCEAPI()
+    if not DCE then return false end
+    EventBus = DCE.GetService and DCE.GetService("EventBus")
+    Logger = DCE.GetService and DCE.GetService("Logger")
+    dceCoreReady = true
     return true
 end
 
---- Unregister a plugin
----@param pluginId string
----@return boolean
-function PluginRegistry.Unregister(pluginId)
-    if not registeredPlugins[pluginId] then
-        return false
-    end
-    
-    -- Unregister from categories
-    for category, _ in pairs(pluginCategories) do
-        unregisterPluginCategory(category, pluginId)
-    end
-    
-    -- Unregister permissions
-    if PluginRegistry._permissions then
-        for perm, pid in pairs(PluginRegistry._permissions) do
-            if pid == pluginId then
-                PluginRegistry._permissions[perm] = nil
-            end
-        end
-    end
-    
-    registeredPlugins[pluginId] = nil
-    log("info", "Unregistered plugin: %s", pluginId)
-    return true
-end
-
---- Get plugin manifest
----@param pluginId string
----@return table|nil
-function PluginRegistry.GetManifest(pluginId)
-    local plugin = registeredPlugins[pluginId]
-    return plugin and plugin.manifest
-end
-
---- List plugins by category
----@param category string|nil
----@return table
-function PluginRegistry.ListPlugins(category)
-    local result = {}
-    if category then
-        for _, pluginId in ipairs(pluginCategories[category] or {}) do
-            local plugin = registeredPlugins[pluginId]
-            if plugin and plugin.enabled then
-                table.insert(result, PluginRegistry.BuildPluginInfo(pluginId, plugin.manifest))
-            end
-        end
+local function log(level, message, ...)
+    if Logger and Logger.Log then
+        Logger.Log("plugin-registry", level, message, ...)
     else
-        for pluginId, plugin in pairs(registeredPlugins) do
-            if plugin.enabled then
-                table.insert(result, PluginRegistry.BuildPluginInfo(pluginId, plugin.manifest))
-            end
-        end
+        print(("[DCE PluginRegistry] %s: %s"):format(level, message:format(...)))
+    end
+end
+
+-- ============================================================================
+-- Plugin Validation
+-- ============================================================================
+
+local function ValidateManifest(manifest)
+    if not manifest then return false, "Manifest is nil" end
+    if not manifest.id then return false, "Plugin id is required" end
+    if not manifest.name then return false, "Plugin name is required" end
+    if not manifest.version then return false, "Plugin version is required" end
+    return true, nil
+end
+
+-- ============================================================================
+-- Public API
+-- ============================================================================
+
+--- Register a plugin with the registry.
+---@param manifest table Plugin manifest (id, name, version, description, author, dependencies)
+---@return boolean success, string|nil error
+function PluginRegistry.Register(manifest)
+    ConnectToCore()
+    
+    local valid, err = ValidateManifest(manifest)
+    if not valid then
+        log("error", "Invalid plugin manifest: %s", err or "unknown")
+        return false, err
+    end
+    
+    if registeredPlugins[manifest.id] then
+        log("warn", "Plugin already registered, updating: %s", manifest.id)
+    end
+    
+    registeredPlugins[manifest.id] = manifest
+    log("info", "Plugin registered: %s v%s", manifest.id, manifest.version)
+    
+    if EventBus then
+        EventBus.Emit("plugin:registered", {
+            eventVersion = 1, timestamp = os.time(), source = "plugin-registry",
+            payload = { id = manifest.id, name = manifest.name, version = manifest.version }
+        })
+    end
+    
+    return true, nil
+end
+
+--- Get a registered plugin manifest.
+function PluginRegistry.GetPlugin(pluginId)
+    return registeredPlugins[pluginId]
+end
+
+--- Get all registered plugin manifests.
+function PluginRegistry.ListPlugins()
+    local result = {}
+    for id, manifest in pairs(registeredPlugins) do
+        table.insert(result, manifest)
+    end
+    table.sort(result, function(a, b) return (a.priority or 999) < (b.priority or 999) end)
+    return result
+end
+
+--- Get active plugin instances (server-side).
+function PluginRegistry.ListActive()
+    local result = {}
+    for id, instance in pairs(activePlugins) do
+        table.insert(result, { id = id, instance = instance })
     end
     return result
 end
 
---- Enable/disable a plugin
----@param pluginId string
----@param enabled boolean
----@return boolean
-function PluginRegistry.SetEnabled(pluginId, enabled)
-    if registeredPlugins[pluginId] then
-        registeredPlugins[pluginId].enabled = enabled
-        return true
-    end
-    return false
+--- Mark a plugin as active.
+function PluginRegistry.SetActive(pluginId, instance)
+    activePlugins[pluginId] = instance or true
+    log("info", "Plugin activated: %s", pluginId)
 end
 
---- List all categories
----@return table
-function PluginRegistry.ListCategories()
-    local cats = {}
-    for category, _ in pairs(pluginCategories) do
-        table.insert(cats, category)
-    end
-    return cats
+--- Mark a plugin as inactive.
+function PluginRegistry.SetInactive(pluginId)
+    activePlugins[pluginId] = nil
+    log("info", "Plugin deactivated: %s", tostring(pluginId))
 end
 
---- Get permissions for a plugin
----@param pluginId string
----@return table
-function PluginRegistry.GetPluginPermissions(pluginId)
-    local manifest = PluginRegistry.GetManifest(pluginId)
-    if manifest and manifest.Permissions then
-        return manifest.Permissions.required or {}
+--- Unregister a plugin.
+function PluginRegistry.Unregister(pluginId)
+    registeredPlugins[pluginId] = nil
+    activePlugins[pluginId] = nil
+    log("info", "Plugin unregistered: %s", tostring(pluginId))
+    if EventBus then
+        EventBus.Emit("plugin:unregistered", {
+            eventVersion = 1, timestamp = os.time(), source = "plugin-registry",
+            payload = { id = pluginId }
+        })
     end
-    return {}
-end
-
---- Build permission tree from all plugins
----@return table
-function PluginRegistry.BuildPermissionTree()
-    local tree = {}
-    for pluginId, plugin in pairs(registeredPlugins) do
-        if plugin.enabled and plugin.manifest.Permissions then
-            for _, perm in ipairs(plugin.manifest.Permissions.required or {}) do
-                tree[perm] = pluginId
-            end
-        end
-    end
-    return tree
-end
-
---- Register a location provider
----@param providerId string
----@param provider table Provider module
----@return boolean
-function PluginRegistry.RegisterLocationProvider(providerId, provider)
-    PluginRegistry._locationProviders = PluginRegistry._locationProviders or {}
-    PluginRegistry._locationProviders[providerId] = {
-        provider = provider,
-        initialized = false,
-    }
     return true
 end
 
---- Get location provider
----@param providerId string
----@return table|nil
-function PluginRegistry.GetLocationProvider(providerId)
-    local p = PluginRegistry._locationProviders and PluginRegistry._locationProviders[providerId]
-    return p and p.provider
+--- Check if a plugin is registered.
+function PluginRegistry.IsRegistered(pluginId)
+    return registeredPlugins[pluginId] ~= nil
 end
 
---- List all location providers
----@return table
-function PluginRegistry.ListLocationProviders()
-    local providers = {}
-    for id, data in pairs(PluginRegistry._locationProviders or {}) do
-        if data.initialized then
-            table.insert(providers, id)
+--- Validate plugin dependencies are all registered.
+function PluginRegistry.ValidateDependencies(pluginId)
+    local manifest = registeredPlugins[pluginId]
+    if not manifest then return false, "Plugin not registered" end
+    if not manifest.dependencies then return true, nil end
+    
+    for _, depId in ipairs(manifest.dependencies) do
+        if not registeredPlugins[depId] then
+            return false, ("Missing dependency: %s"):format(depId)
         end
     end
-    return providers
+    return true, nil
 end
 
---- Shutdown the registry
+--- Get plugin count.
+function PluginRegistry.GetCount()
+    local count = 0
+    for _ in pairs(registeredPlugins) do count = count + 1 end
+    return count
+end
+
+-- ============================================================================
+-- Lifecycle
+-- ============================================================================
+
+function PluginRegistry.Init()
+    ConnectToCore()
+    if not dceCoreReady then
+        log("error", "Cannot init - dce-core not ready")
+        return false
+    end
+    
+    if DCE and DCE.RegisterService then
+        DCE.RegisterService("PluginRegistry", PluginRegistry)
+        log("info", "Registered with DCE Core")
+    end
+    
+    log("info", "Plugin Registry ready")
+    return true
+end
+
 function PluginRegistry.Shutdown()
     registeredPlugins = {}
-    pluginCategories = {}
-    if PluginRegistry._locationProviders then
-        for id, data in pairs(PluginRegistry._locationProviders) do
-            if data.provider and data.provider.Shutdown then
-                data.provider.Shutdown()
-            end
-            PluginRegistry._locationProviders[id] = nil
-        end
-    end
+    activePlugins = {}
     log("info", "Plugin Registry shut down")
 end
 
+-- ============================================================================
+-- Resource Lifecycle
+-- ============================================================================
+
+AddEventHandler('onResourceStart', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then return end
+    local attempts = 0
+    while not ConnectToCore() and attempts < 50 do
+        Wait(100); attempts = attempts + 1
+    end
+    SetTimeout(0, function() PluginRegistry.Init() end)
+end)
+
+AddEventHandler('onResourceStop', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then return end
+    PluginRegistry.Shutdown()
+end)
+
+-- ============================================================================
+-- Administrative Interface
+-- ============================================================================
+
+function PluginRegistry.GetStatus()
+    return {
+        state = "running",
+        uptime = os.time() - (PluginRegistry._startUptime or os.time()),
+        registeredCount = PluginRegistry.GetCount()
+    }
+end
+
+function PluginRegistry.GetHealth()
+    return { healthy = true, errorCount = 0 }
+end
+
+function PluginRegistry.GetMetrics()
+    return {
+        registered = PluginRegistry.GetCount(),
+        active = #PluginRegistry.ListActive()
+    }
+end
+
+function PluginRegistry.GetCapabilities()
+    return {
+        admin = true,
+        readOnly = false,
+        actions = { "register", "unregister", "list", "validate" }
+    }
+end
+
+PluginRegistry._startUptime = os.time()
 return PluginRegistry

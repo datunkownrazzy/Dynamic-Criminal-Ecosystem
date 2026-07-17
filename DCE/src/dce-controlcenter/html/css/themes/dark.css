@@ -1,12 +1,21 @@
 /* DCE Control Center v2 - Dark Theme */
-/* Default theme */
+/* Default theme - background ONLY applied when CC is active */
 
 :root {
     --cc-theme-name: 'dark';
 }
 
-/* Body uses dark theme variables by default */
+/* Dormant body is transparent - no background until activated */
 body {
-    background: var(--cc-bg-primary);
     color: var(--cc-text-primary);
+}
+
+/* Background applied ONLY when CC is active */
+body.cc-active {
+    background: var(--cc-bg-primary);
+}
+
+/* Background applied for legacy open state */
+body.cc-open {
+    background: var(--cc-bg-primary);
 }

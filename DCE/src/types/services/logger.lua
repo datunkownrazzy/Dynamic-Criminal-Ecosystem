@@ -21,3 +21,6 @@ LogLevel = {
     Warn = "warn",
     Error = "error"
 }
+
+---@alias DCELogger ILogger
+--- Type alias for the Logger service instance (DCELogger global variable)

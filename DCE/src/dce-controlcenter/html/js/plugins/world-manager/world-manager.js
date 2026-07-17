@@ -1,289 +1,220 @@
 /**
  * DCE Control Center v2 - World Manager Plugin
- * Complete World & Location Manager UI
+ * Manages world locations, territories, and map overlays
+ * 
+ * Implements full plugin lifecycle: Initialize, Start, Stop, Destroy
+ * Provides location management and territory visualization
  */
 
 (function() {
     'use strict';
-
+    
     window.DCE = window.DCE || {};
     DCE.Plugins = DCE.Plugins || {};
-
+    
+    // Internal state
+    var locations = [];
+    var territories = [];
+    var searchQuery = '';
+    var pluginState = 'unloaded';
+    var eventUnsubscribers = [];
+    
+    /**
+     * Fetch locations from server via EventBus
+     */
+    function fetchLocations() {
+        return DCE.NUI.post('world-locations:get', {})
+            .then(function(response) {
+                if (response && response.locations) {
+                    locations = response.locations;
+                    renderLocations();
+                }
+            })
+            .catch(function(err) {
+                console.error('[WorldManager] Failed to fetch locations:', err);
+            });
+    }
+    
+    /**
+     * Fetch territories from server via EventBus
+     */
+    function fetchTerritories() {
+        return DCE.NUI.post('world-territories:get', {})
+            .then(function(response) {
+                if (response && response.territories) {
+                    territories = response.territories;
+                    renderTerritories();
+                }
+            })
+            .catch(function(err) {
+                console.error('[WorldManager] Failed to fetch territories:', err);
+            });
+    }
+    
+    /**
+     * Render locations list
+     */
+    function renderLocations() {
+        var container = document.getElementById('locations-list');
+        if (!container) return;
+        
+        var filtered = locations.filter(function(loc) {
+            return !searchQuery || 
+                   loc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                   loc.type.toLowerCase().includes(searchQuery.toLowerCase());
+        });
+        
+        container.innerHTML = filtered.map(function(loc) {
+            return '<div class="location-item" data-id="' + loc.id + '">' +
+                '<div class="location-name">' + loc.name + '</div>' +
+                '<div class="location-coords">(' + loc.x.toFixed(2) + ', ' + loc.y.toFixed(2) + ', ' + loc.z.toFixed(2) + ')</div>' +
+                '<div class="location-type">' + loc.type + '</div>' +
+            '</div>';
+        }).join('');
+    }
+    
+    /**
+     * Render territories list
+     */
+    function renderTerritories() {
+        var container = document.getElementById('territories-list');
+        if (!container) return;
+        
+        container.innerHTML = territories.map(function(territory) {
+            return '<div class="territory-item" data-id="' + territory.id + '" style="border-left: 4px solid ' + territory.color + '">' +
+                '<div class="territory-name">' + territory.name + '</div>' +
+                '<div class="territory-owner">Owner: ' + (territory.owner || 'Unclaimed') + '</div>' +
+                '<div class="territory-heat">Heat: ' + territory.heat + '</div>' +
+            '</div>';
+        }).join('');
+    }
+    
+    // Plugin subscription to EventBus for live updates
+    function subscribeToEvents() {
+        // Subscribe to location updates
+        var unsubLoc = DCE.Bus && DCE.Bus.on && DCE.Bus.on('world:location:created', function(data) {
+            locations.push(data.location);
+            renderLocations();
+        });
+        if (unsubLoc) eventUnsubscribers.push(unsubLoc);
+        
+        // Subscribe to territory updates
+        var unsubTer = DCE.Bus && DCE.Bus.on && DCE.Bus.on('world:territory:updated', function(data) {
+            var idx = territories.findIndex(function(t) { return t.id === data.territory.id; });
+            if (idx >= 0) {
+                territories[idx] = data.territory;
+            } else {
+                territories.push(data.territory);
+            }
+            renderTerritories();
+        });
+        if (unsubTer) eventUnsubscribers.push(unsubTer);
+    }
+    
+    // Unsubscribe from all events
+    function unsubscribeFromEvents() {
+        eventUnsubscribers.forEach(function(unsub) {
+            if (typeof unsub === 'function') unsub();
+        });
+        eventUnsubscribers = [];
+    }
+    
     DCE.Plugins['world-manager'] = {
-        windows: {},
-
-        render: function(container) {
-            container.innerHTML = `
-                <div class="card">
-                    <div class="card-header">World Manager</div>
-                    <div style="margin-bottom: 12px;">
-                        <div class="tab-bar">
-                            <button class="tab active" data-tab="locations">Locations</button>
-                            <button class="tab" data-tab="territories">Territories</button>
-                            <button class="tab" data-tab="providers">Providers</button>
-                        </div>
-                        <div style="display: flex; gap: 8px; margin-top: 8px;">
-                            <button class="btn" id="btn-create-location">Create Location</button>
-                            <button class="btn secondary" id="btn-refresh">Refresh</button>
-                        </div>
-                    </div>
-                    <div class="content-body" id="world-content">
-                        <div class="loading">Loading...</div>
-                    </div>
-                </div>
-            `;
-
-            this.bindEvents(container);
-            this.loadLocations();
+        // Plugin metadata
+        id: 'world-manager',
+        displayName: 'World Manager',
+        name: 'World Manager',
+        icon: '🌍',
+        version: '1.0.0',
+        dependencies: [],
+        
+        // Lifecycle: Initialize (called on boot)
+        Initialize: function() {
+            console.log('[WorldManager] Initialize');
+            pluginState = 'initialized';
+            DCE.NUI.post('dce-cc:plugin:initialized', { pluginId: 'world-manager' }).catch(function() {});
         },
-
-        bindEvents: function(container) {
-            const self = this;
+        
+        // Lifecycle: Start (called on activation)
+        Start: function() {
+            console.log('[WorldManager] Start');
+            pluginState = 'started';
+            subscribeToEvents();
+            fetchLocations();
+            fetchTerritories();
+            DCE.NUI.post('dce-cc:plugin:started', { pluginId: 'world-manager' }).catch(function() {});
+        },
+        
+        // Lifecycle: Stop (called on shutdown)
+        Stop: function() {
+            console.log('[WorldManager] Stop');
+            pluginState = 'stopped';
+        },
+        
+        // Lifecycle: Destroy (called on cleanup)
+        Destroy: function() {
+            console.log('[WorldManager] Destroy');
+            unsubscribeFromEvents();
+            pluginState = 'destroyed';
+        },
+        
+        // Render plugin UI
+        render: function(container) {
+            container.innerHTML = 
+                '<div class="plugin-container">' +
+                    '<div class="tab-bar">' +
+                        '<button class="tab active" data-tab="locations">Locations</button>' +
+                        '<button class="tab" data-tab="territories">Territories</button>' +
+                    '</div>' +
+                    '<div class="search-box">' +
+                        '<input type="text" class="form-control" placeholder="Search locations..." id="location-search">' +
+                    '</div>' +
+                    '<div class="tab-content" id="locations-tab">' +
+                        '<div class="locations-list" id="locations-list">' +
+                            '<div class="loading">Loading locations...</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="tab-content hidden" id="territories-tab">' +
+                        '<div class="territories-list" id="territories-list">' +
+                            '<div class="loading">Loading territories...</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
             
-            // Tab switching
-            const tabs = container.querySelectorAll('.tab');
+            // Setup tab switching
+            var tabs = container.querySelectorAll('.tab');
             tabs.forEach(function(tab) {
                 tab.addEventListener('click', function() {
-                    container.querySelectorAll('.tab').forEach(function(t) {
-                        t.classList.remove('active');
-                    });
-                    tab.classList.add('active');
+                    tabs.forEach(function(t) { t.classList.remove('active'); });
+                    this.classList.add('active');
                     
-                    const tabName = tab.getAttribute('data-tab');
-                    self.switchTab(tabName);
+                    var tabName = this.dataset.tab;
+                    container.querySelectorAll('.tab-content').forEach(function(content) {
+                        content.classList.add('hidden');
+                    });
+                    container.querySelector('#' + tabName + '-tab').classList.remove('hidden');
                 });
             });
-
-            // Create location button
-            const createBtn = container.querySelector('#btn-create-location');
-            if (createBtn) {
-                createBtn.addEventListener('click', function() {
-                    self.showCreateModal();
-                });
-            }
-
-            const refreshBtn = container.querySelector('#btn-refresh');
-            if (refreshBtn) {
-                refreshBtn.addEventListener('click', function() {
-                    self.loadLocations();
-                });
-            }
-        },
-
-        switchTab: function(tabName) {
-            const content = document.getElementById('world-content');
-            if (!content) return;
-
-            switch (tabName) {
-                case 'locations':
-                    this.loadLocations();
-                    break;
-                case 'territories':
-                    this.loadTerritories();
-                    break;
-                case 'providers':
-                    this.loadProviders();
-                    break;
-            }
-        },
-
-        loadLocations: async function() {
-            const content = document.getElementById('world-content');
-            if (!content) return;
-
-            try {
-                const response = await DCE.NUI.post('dcc-location:list');
-                const locations = response.locations || [];
-
-                if (locations.length === 0) {
-                    content.innerHTML = '<div class="loading">No locations configured</div>';
-                    return;
-                }
-
-                let html = '<table class="data-table"><thead><tr>' +
-                    '<th>ID</th><th>Name</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
-
-                locations.forEach(function(loc) {
-                    html += '<tr>' +
-                        '<td>' + (loc.id || 'N/A') + '</td>' +
-                        '<td>' + (loc.name || loc.id || 'N/A') + '</td>' +
-                        '<td>' + (loc.type || 'N/A') + '</td>' +
-                        '<td><span class="status-indicator ' + (loc.active ? '' : 'error') + '"></span> ' + 
-                            (loc.active ? 'Active' : 'Inactive') + '</td>' +
-                        '<td>' +
-                            '<button class="btn secondary btn-edit" data-id="' + loc.id + '">Edit</button> ' +
-                            '<button class="btn danger btn-delete" data-id="' + loc.id + '">Delete</button>' +
-                        '</td>' +
-                    '</tr>';
-                });
-
-                html += '</tbody></table>';
-                content.innerHTML = html;
-
-                // Bind edit/delete buttons
-                this.bindLocationButtons();
-
-            } catch (err) {
-                content.innerHTML = '<div class="loading error">Failed to load locations</div>';
-            }
-        },
-
-        bindLocationButtons: function() {
-            const self = this;
             
-            document.querySelectorAll('.btn-edit').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    const id = this.getAttribute('data-id');
-                    self.editLocation(id);
+            // Setup search
+            var searchInput = container.querySelector('#location-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', function(e) {
+                    searchQuery = e.target.value;
+                    renderLocations();
                 });
-            });
-
-            document.querySelectorAll('.btn-delete').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    const id = this.getAttribute('data-id');
-                    self.deleteLocation(id);
-                });
-            });
-        },
-
-        loadTerritories: async function() {
-            const content = document.getElementById('world-content');
-            if (!content) return;
-
-            try {
-                const response = await DCE.NUI.post('dcc-territory:list');
-                const territories = response.territories || [];
-
-                if (territories.length === 0) {
-                    content.innerHTML = '<div class="loading">No territories configured</div>';
-                    return;
-                }
-
-                let html = '<table class="data-table"><thead><tr>' +
-                    '<th>ID</th><th>Name</th><th>Center</th><th>Owner</th><th>Actions</th></tr></thead><tbody>';
-
-                territories.forEach(function(terr) {
-                    html += '<tr>' +
-                        '<td>' + (terr.id || 'N/A') + '</td>' +
-                        '<td>' + (terr.name || terr.id || 'N/A') + '</td>' +
-                        '<td>' + (terr.center ? 
-                            (terr.center.x + ', ' + terr.center.y + ', ' + terr.center.z) : 'N/A') + '</td>' +
-                        '<td>' + (terr.ownerId || 'None') + '</td>' +
-                        '<td>' +
-                            '<button class="btn secondary btn-edit" data-id="' + terr.id + '">Edit</button> ' +
-                            '<button class="btn danger btn-delete" data-id="' + terr.id + '">Delete</button>' +
-                        '</td>' +
-                    '</tr>';
-                });
-
-                html += '</tbody></table>';
-                content.innerHTML = html;
-
-            } catch (err) {
-                content.innerHTML = '<div class="loading error">Failed to load territories</div>';
             }
+            
+            // Fetch initial data
+            fetchLocations();
+            fetchTerritories();
         },
-
-        loadProviders: function() {
-            const content = document.getElementById('world-content');
-            if (!content) return;
-
-            content.innerHTML = `
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <div class="stat-value">Native</div>
-                        <div class="stat-label">GTA Interiors</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">MLO</div>
-                        <div class="stat-label">Walk-in Interiors</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">Instanced</div>
-                        <div class="stat-label">Bucket Interiors</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">Hybrid</div>
-                        <div class="stat-label">Chained Transitions</div>
-                    </div>
-                </div>
-            `;
-        },
-
-        showCreateModal: function() {
-            const modal = document.createElement('div');
-            modal.className = 'modal-overlay';
-            modal.innerHTML = `
-                <div class="card" style="width: 500px;">
-                    <div class="card-header">Create Location</div>
-                    <div class="form-group">
-                        <label class="form-label">Location ID</label>
-                        <input class="form-control" id="loc-id" placeholder="unique_location_id">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Name</label>
-                        <input class="form-control" id="loc-name" placeholder="Display Name">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Type</label>
-                        <select class="form-control" id="loc-type">
-                            <option value="vanilla">Vanilla (Native GTA)</option>
-                            <option value="walkin-mlo">Walk-in MLO</option>
-                            <option value="instanced">Instanced Interior</option>
-                            <option value="business">Business</option>
-                            <option value="safehouse">Safehouse</option>
-                            <option value="druglab">Drug Lab</option>
-                            <option value="warehouse">Warehouse</option>
-                        </select>
-                    </div>
-                    <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                        <button class="btn secondary" id="btn-cancel">Cancel</button>
-                        <button class="btn" id="btn-save">Save</button>
-                    </div>
-                </div>
-            `;
-
-            document.body.appendChild(modal);
-
-            modal.querySelector('#btn-cancel').addEventListener('click', function() {
-                modal.remove();
-            });
-
-            modal.querySelector('#btn-save').addEventListener('click', async () => {
-                const locationData = {
-                    id: modal.querySelector('#loc-id').value,
-                    name: modal.querySelector('#loc-name').value,
-                    type: modal.querySelector('#loc-type').value
-                };
-
-                if (locationData.id && locationData.name) {
-                    const result = await DCE.NUI.post('dcc-location:create', locationData);
-                    if (result && result.success) {
-                        DCE.Notifications.success('Location created');
-                        this.loadLocations();
-                    } else {
-                        DCE.Notifications.error(result && result.error || 'Failed to create');
-                    }
-                    modal.remove();
-                }
-            });
-        },
-
-        deleteLocation: async function(id) {
-            if (confirm('Delete location ' + id + '?')) {
-                const result = await DCE.NUI.post('dcc-location:delete', { id: id });
-                if (result && result.success) {
-                    DCE.Notifications.success('Location deleted');
-                    this.loadLocations();
-                } else {
-                    DCE.Notifications.error('Failed to delete location');
-                }
-            }
-        },
-
-        editLocation: function(id) {
-            DCE.Notifications.info('Edit location: ' + id);
+        
+        onClose: function() {
+            console.log('[WorldManager] Window closed');
         }
     };
-
+    
+    console.log('[WorldManager] Plugin loaded');
+    
 })();

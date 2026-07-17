@@ -13,3 +13,6 @@
 ---@field List fun():string[] List all registered services
 ---@field Clear fun():nil Clear all registrations
 ---@field ListTasks fun():string[] List all scheduled tasks (from Scheduler)
+
+---@alias DCERegistry IRegistry
+--- Type alias for the Registry service instance (DCERegistry global variable)

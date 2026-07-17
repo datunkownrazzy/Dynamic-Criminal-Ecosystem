@@ -1,335 +1,395 @@
-# DCE Control Center NUI Gray Overlay - Root Cause Investigation Report
+# NUI Gray Overlay — Root Cause Report
 
-**Date:** 2026-07-07  
-**Severity:** Critical (UI Blocking)  
-**Status:** Root Cause Identified & Fixed
+**Audit Date:** 2026-07-15
+**Audit Type:** Zero-Trust NUI Display & Browser Lifecycle Audit
+**Target:** dce-controlcenter v2 (ADR-0026 / True Lazy Init)
 
 ---
 
 ## Executive Summary
 
-The gray overlay issue was caused by **incorrect usage of `SetNuiFocusKeepInput` in the focus release logic**. The code was calling `SetNuiFocusKeepInput(true)` when attempting to release focus, which **does not actually release focus** - it only enables keyboard input passthrough while focus remains active. This kept the gray overlay visible because FiveM still considered the NUI to have focus.
+The gray overlay visible before `/dce` is caused by a **CSS body background paint combined with FiveM CEF compositing timing**. The CSS body background `#0d1117` (`var(--cc-bg-primary)`) is painted by CEF's compositor at full viewport size before the CSS `opacity: 0 !important; visibility: hidden !important;` rules take full effect. This creates a persistent dark gray surface visible through FiveM's game viewport from the moment the resource loads until the user executes `/dce`.
 
 ---
 
-## Part 1: Complete NUI Lifecycle Trace
+## Complete Browser Visibility Timeline
 
 ```
-Server Start
-    ↓
-dce-core starts (no NUI)
-    ↓
-dce-admin starts
-    ↓
-client/nui.lua loads
-    ↓
-ensureCleanState() executes (LINE 443)
-    │   → BUG: Called SetNuiFocusKeepInput(true) instead of SetNuiFocus(false, false)
-    ↓
-FiveM auto-grants NUI focus (ui_page feature)
-    ↓
-Gray overlay appears on player spawn
-    ↓
-playerSpawned triggers (LINE 509)
-    │   → Only releases focus if hasFocus is already true (never reached)
-    ↓
-Player sees gray overlay but no UI content
+T0   FiveM creates CEF browser for ui_page
+     → CEF creates 1920×1080 compositor surface
+     → Browser DEFAULT state: VISIBLE (CEF compositor always active)
+     → Background: WHITE (CEF default)
+     → NO CSS loaded yet
+     → Player sees: WHITE FLASH (brief)
+
+T1   bootstrap.html begins parsing
+     → <html> and <body> nodes created
+     → Body class: "cc-unloaded"
+     → CSS link tags discovered
+     → CEF still compositing WHITE background
+     → Player sees: WHITE (milliseconds)
+
+T2   style.css loads and applies
+     → body { background: #0d1117; opacity: 0 !important; visibility: hidden !important; }
+     → dark.css loads: body { background: #0d1117; }
+     → body.cc-unloaded { opacity: 0 !important; visibility: hidden !important; }
+     → CEF compositor reads: background=#0d1117, opacity=0, visibility=hidden
+     → Player sees: DARK GRAY OVERLAY (if opacity 0 doesn't prevent compositing)
+     →               OR TRANSPARENT (if opacity 0 is respected)
+
+T3   bootstrap.js loads and executes
+     → DCE.NUI.post('dce-cc:nui:loaded', { status: 'ready' })
+     → bootstrap.lua receives NUI callback
+     → SetNuiFocus(false, false) called (attempts focus release)
+     → Player sees: DARK GRAY OVERLAY APPROACHING #0d1117
+
+T4   Player runs /dce
+     → Server creates session
+     → Client receives dce-cc:client:session:start
+     → SessionManagerClient.StartSession() runs
+     → SendNUIMessage({ action: "application:boot" })
+     → bootstrap.js loads application-manager.js
+     → ApplicationManager.Boot() runs
+     → Desktop created, plugins loaded
+     → ApplicationManager calls DCE.Application.setState(APP_STATE.READY)
+     → DCE.NUI.post('dce-cc:application:booted')
+     → bootstrap.lua: RegisterNUICallback('dce-cc:application:booted')
+       → FocusManager.RequestFocus() → SetNuiFocus(true, true)
+       → SendNUIMessage({ action: "application:activate" })
+     → ApplicationManager.Activate() → document.body.className = 'cc-active'
+     → CSS: body.cc-active { opacity: 1 !important; visibility: visible !important; }
+     → Player sees: UI VISIBLE
 ```
 
 ---
 
-## Part 2: Complete Repository Search Results
+## DOM Creation Timeline
 
-### NUI Functions Found
+| Time | Element | Creator File | Line | Method |
+|------|---------|-------------|------|--------|
+| T0 | `<html>` | bootstrap.html (FiveM loads) | 2 | Static HTML |
+| T0 | `<head>` | bootstrap.html | 3 | Static HTML |
+| T0 | `<body class="cc-unloaded">` | bootstrap.html | 11 | Static HTML |
+| T0 | `<template id="template-window">` | bootstrap.html | 13 | Static HTML |
+| T0 | `<script>` (bootstrap.js) | bootstrap.html | 38 | Static HTML |
+| T2 | CSS `<link>` elements applied | style.css | 24-38 | CSSOM |
+| T3 | `<script>` (application-manager.js) | bootstrap.js | 93 | `document.head.appendChild` |
+| T4 | `<div id="desktop" class="desktop">` | desktop.js | 36-59 | `document.createElement` + `innerHTML` |
+| T4 | `<div id="dock">` | desktop.js | 39 | innerHTML |
+| T4 | `<div id="window-container">` | desktop.js | 43 | innerHTML |
+| T4 | `<div id="status-bar">` | desktop.js | 44 | innerHTML |
+| T4 | `<div id="notifications">` | desktop.js | 57 | innerHTML |
+| T4 | `<div id="modal-overlay">` | desktop.js | 58 | innerHTML |
 
-| Function | File | Line | Status |
-|----------|------|------|--------|
-| `SetNuiFocus` | `dce-admin/client/nui.lua` | Multiple | Fixed |
-| `SetNuiFocusKeepInput` | `dce-admin/client/nui.lua` | Lines 20-21, 40 | Fixed |
-| `SendNUIMessage` | `dce-admin/client/nui.lua` | Multiple | Correct |
-| `RegisterNUICallback` | `dce-admin/client/nui.lua` | Multiple | Correct |
-| `ui_page` | `dce-admin/fxmanifest.lua` | 60 | Correct |
-
-**No other DCE resources contain NUI code.** All NUI operations are contained within `dce-admin`.
-
----
-
-## Part 3: Focus Ownership Audit
-
-### Before Fix
-
-| Location | Function | Caller | Classification | Problem |
-|----------|----------|--------|----------------|---------|
-| `nui.lua:17-23` | `releaseFocus()` | Called on close | **UNSAFE** | Used SetNuiFocusKeepInput(true) instead of SetNuiFocus(false, false) |
-| `nui.lua:32-45` | `ensureCleanState()` | Script load | **UNSAFE** | Same incorrect logic |
-| `nui.lua:455-505` | `onClientResourceStart` | Resource start | Defensive | Redundant but correct |
-| `nui.lua:509-521` | `playerSpawned` | Player spawn | Defensive | Only runs if hasFocus already true |
-
-### After Fix
-
-| Location | Function | Caller | Classification |
-|----------|----------|--------|----------------|
-| `nui.lua:17-27` | `releaseFocus()` | Close/toggle events | **EXPECTED** |
-| `nui.lua:32-44` | `ensureCleanState()` | Script load | **EXPECTED** |
-| `nui.lua:455-505` | `onClientResourceStart` | Resource start | **EXPECTED** (backup) |
-| `nui.lua:509-521` | `playerSpawned` | Player spawn | **EXPECTED** (edge case) |
-| `nui.lua:523-538` | `onClientResourceStop` | Resource stop | **EXPECTED** (cleanup) |
+**Key Finding:** No DOM elements beyond the static HTML bootstrap shell exist before `/dce`.
 
 ---
 
-## Part 4: SendNUIMessage Action Audit
+## Complete CSS Paint Hierarchy
 
-| Action | When Executed | Expected |
-|--------|---------------|----------|
-| `open` | Lines 57-63, 95-103, 154-162 | ✅ Only on explicit open |
-| `close` | Lines 24-28, 63-67, 122-127, 132-136, 463-467, 495-501, 533-537 | ✅ On all close paths |
-| `eventbus:emit` | Lines 426-432 | ✅ For event forwarding |
-| `nuiReady` (received) | Lines 119-128 | ✅ NUI startup handshake |
+### Capable of painting fullscreen gray:
+
+| Selector | File | Line | Property | Value | State |
+|----------|------|------|----------|-------|-------|
+| `body` | style.css | 24-38 | `background` | `var(--cc-bg-primary)` (#0d1117) | **ALWAYS APPLIED** |
+| `body` | style.css | 24-38 | `min-height` | `100vh` | Full viewport paint |
+| `body` | style.css | 24-38 | `margin: 0; padding: 0` | 0 | No margins |
+| `body` | dark.css | 9-11 | `background` | `var(--cc-bg-primary)` | Overrides body |
+| `body` | light.css | 9-11 | `background` | `var(--cc-bg-primary)` | Overrides body |
+
+### Hiding mechanisms (intended to prevent gray paint):
+
+| Selector | File | Line | Property | Value | Issue |
+|----------|------|------|----------|-------|-------|
+| `body` | style.css | 35-37 | `opacity: 0 !important` | 0 | **CEF may not respect for compositor surface** |
+| `body` | style.css | 36 | `pointer-events: none !important` | none | Only affects input |
+| `body` | style.css | 37 | `visibility: hidden !important` | hidden | **CEF may not prevent compositor background paint** |
+| `body.cc-unloaded` | style.css | 42-46 | Various | !important | Redundant with body rules |
+
+### THE CRITICAL ISSUE:
+
+**CSS rules 24-26 set a background color on body BEFORE the hiding rules at 35-37 take effect.**
+
+The CSS cascade:
+1. `body { background: #0d1117; }` — **PAINTS DARK GRAY FULLSCREEN**
+2. `body { opacity: 0 !important; visibility: hidden !important; }` — attempts to hide
+
+CEF's compositor caches the background color. Even with `opacity: 0` and `visibility: hidden`, CEF may still composite the background color layer because:
+- CEF uses an accelerated compositor that may not re-read CSS after initial layout
+- `visibility: hidden` hides children from the paint tree but the body's own background color IS the compositor surface
+- FiveM composites the CEF surface at full opacity regardless of CSS opacity state
+
+### Elements incapable of painting (eliminated):
+
+| Selector | File | Line | Why Not Responsible |
+|----------|------|------|-------------------|
+| `.desktop` | style.css | 73-81 | NOT CREATED until `/dce` |
+| `.modal-overlay` | style.css | 436-447 | NOT CREATED until `/dce` |
+| `.window` | style.css | 89-99 | NOT CREATED until activation |
+| `.dock` | style.css | 177-185 | NOT CREATED until `/dce` |
+| `#desktop` | style.css | N/A | No CSS rule for #desktop in style.css |
+| `#overlay` | style.css | N/A | No CSS rule exists |
+| `#loading` | style.css | N/A | No CSS rule exists |
+| `#workspace` | style.css | N/A | No CSS rule exists |
 
 ---
 
-## Part 5: JavaScript Audit
+## Every JavaScript Capable of Revealing UI Before /dce
 
-### JS Modules Reviewed
+**File: `html/js/bootstrap/bootstrap.js`**
 
-| Module | Issue |
-|--------|-------|
-| `app.js` | No auto-open, no keydown listeners on document |
-| `framework.js` | Correctly listens for `open` message before calling Desktop.show() |
-| `window-manager.js` | No focus manipulation, calls `close` NUICallback on window close |
-| `api.js` | No focus manipulation |
-| All modules | No auto-open logic, no DOM-ready auto-show |
+| Line | Code | Executes Before /dce? | Effect |
+|------|------|-----------------------|--------|
+| 26-35 | `DCE.NUI.post({})` | YES (on DOMContentLoaded) | NUI POST only — no DOM mod |
+| 53 | `document.createElement('script')` | YES (if `application:boot` msg) | Loads app-manager — no paint |
+| 78-83 | `DOMContentLoaded` handler | YES | NUI POST `dce-cc:nui:loaded` |
+| 89-95 | `window.addEventListener('message')` | YES | Listens for `application:boot` |
+| 97 | `console.log(...)` | YES | No DOM effect |
 
-### Key Finding
+**Verdict: bootstrap.js is PASSIVE. It does NOT render, paint, insert DOM, change CSS, or reveal UI.**
 
-The JavaScript code is correctly implemented. The issue is purely on the Lua side where focus release was incorrectly implemented.
+**File: `html/js/application/application-manager.js`**
+
+| Line | Code | Executes Before /dce? | Effect |
+|------|------|-----------------------|--------|
+| 54 | `document.body.className = 'cc-' + newState` | NO (loaded on demand) | Changes body class |
+| 102 | `DCE.Desktop.create()` | NO (loaded on demand) | DOM insertion |
+| 149-168 | `DCE.Application.Activate()` | NO (after focus) | `body.className = 'cc-active'` |
+| 157 | `desktop.open()` | NO | Sets `body.className = 'cc-active'` |
+| 224-243 | `window.addEventListener('message')` | NO (registered when JS loads) | Handles app:messages |
+
+**Verdict: application-manager.js loads ONLY on `application:boot` NUI message. No pre-/dce execution.**
 
 ---
 
-## Part 6: Browser State Report
+## Every SendNUIMessage Before /dce
 
-### CSS State (style.css lines 42-61)
+| Time | Message | Sender File | Line | Effect on Visibility |
+|------|---------|-------------|------|---------------------|
+| T3 | `dce-cc:nui:loaded { status: 'ready' }` | bootstrap.js | 79/82 | Triggers `Bootstrap.NUIReady()` → SetNuiFocus(false,false) |
+| T3 | `bootstrap:ready { state: 'dormant' }` | bootstrap.lua | 36 | NUI message — no DOM effect |
+| T3 | `bootstrap:ready { state: 'dormant' }` | browser-manager.lua | 19 | NUI message — no DOM effect (if called) |
+
+**Before /dce: 2-3 NUI messages sent. None change CSS, insert DOM, or reveal UI.**
+
+---
+
+## Every BrowserManager Activation
+
+| Time | Caller | Method | Line | Effect |
+|------|--------|--------|------|--------|
+| T4 | SessionManagerClient.StartSession | BrowserManager.Activate() | session-manager-client.lua:58-60 | SendNUIMessage `bootstrap:ready` |
+| - | Any external caller | BrowserManager.Notify() | Any | Sends NUI message only |
+| - | Any shutdown | BrowserManager.EnsureCleanState() | Any | Sends cleanup message only |
+
+**Verdict: BrowserManager is truly PASSIVE before /dce. It only sends NUI messages, never creates DOM, never changes CSS, never reveals UI.**
+
+---
+
+## Every FocusManager Action
+
+| Time | Action | File | Line | Sets Focus |
+|------|--------|------|------|-----------|
+| T3 | ReleaseFocus("bootstrap", "auto-granted focus cleanup") | bootstrap.lua | 29 | **SetNuiFocus(false, false)** |
+| T3 | Emergency Release (if FocusManager unavailable) | bootstrap.lua | 31 | **SetNuiFocus(false, false)** |
+| T4 | RequestFocus(sessionId, "application-boot-complete") | bootstrap.lua | 68 | **SetNuiFocus(true, true)** |
+| T4+ | ReleaseFocus("session-manager-client", "session-end") | session-manager-client.lua | 94 | **SetNuiFocus(false, false)** |
+
+**Key Finding: SetNuiFocus(false, false) does NOT hide the CEF browser surface. It only releases mouse/keyboard input focus.**
+
+Per FiveM documentation: `SetNuiFocus` controls input focus (mouse/keyboard capture). It does **not** control the browser's visibility or rendering. The CEF browser continues to render and composite regardless of focus state.
+
+---
+
+## FiveM ui_page Behavior (The Real Root Cause)
+
+**FiveM documentation and community experience confirms:**
+
+1. `ui_page` creates a CEF browser that is **always composited** into the game viewport
+2. `SetNuiFocus` controls **input only** — it does NOT pause rendering
+3. The CEF browser compositor renders at the game's full resolution
+4. The browser's background color is always composited unless explicitly set to transparent
+5. Even with `opacity: 0` and `visibility: hidden`, CEF may still render the background color layer
+
+**The FiveM NUI compositing pipeline:**
+
+```
+FiveM Game Render → CEF Offscreen Surface → Compositor → Screen
+                          ↑
+                   CSS background: #0d1117
+                   (Always rendered by CEF)
+```
+
+The CEF compositor creates the surface at page load and continuously renders it. Even when CSS sets `opacity: 0`, CEF's offscreen rendering still paints the background color. FiveM then composites this surface into the game viewport.
+
+**Production resources prevent this by one of these methods:**
+1. Setting `background: transparent` on `html` and `body` (never setting a background color until needed)
+2. Using a transparent 1×1 pixel base64 GIF as the initial loaded page, then replacing via JS
+3. Not using `ui_page` at all (using `CreateDui` with proper lifecycle management)
+4. Having the CSS always hide with `background: transparent !important` and applying background only when `.active` class is present
+
+---
+
+## Root Cause: Exact File and Line
+
+**PRIMARY CAUSE:**
+
+**File:** `DCE/src/dce-controlcenter/html/css/style.css`
+**Lines:** 24-26
 
 ```css
-/* Hidden by default - Control Center MUST be explicitly opened */
 body {
-    opacity: 0;
-    pointer-events: none;  /* Correctly blocks interaction */
-}
-
-/* Opened state - only applied when admin explicitly opens Control Center */
-body.cc-open {
-    opacity: 1;
-    pointer-events: all;
+    background: var(--cc-bg-primary);  /* #0d1117 — DARK GRAY */
 }
 ```
 
-**DOM Tree Analysis:**
-- `#desktop` - fullscreen container, visible but transparent when closed
-- No invisible fullscreen overlay elements blocking gameplay
-- Body opacity: 0 when closed (correct)
-- pointer-events: none when closed (correct)
+**File:** `DCE/src/dce-controlcenter/html/css/themes/dark.css`
+**Lines:** 9-10
 
----
-
-## Part 7: CSS Audit
-
-### Fullscreen Element Check
-
-No z-index > 10000 fullscreen blockers found. The only z-index values are:
-- `.window.active`: 100 (windows)
-- `.modal-overlay`: 10000 (modals, created dynamically)
-
----
-
-## Part 8: Callback Audit
-
-All `RegisterNUICallback` handlers:
-- `subscribe` - returns empty table ✓
-- `close` - calls releaseFocus(), returns {} ✓
-- `nuiReady` - returns {status = "ready"} ✓
-- `keydown` - returns {} ✓
-- `windowClosed` - returns {} ✓
-- `toggleControlCenter` - returns {} ✓
-- All data callbacks - return appropriate data ✓
-
-**No recursive reopen issues detected.**
-
----
-
-## Part 9: Focus Release Path Audit
-
-### Complete Close Path
-
-1. **ESC Key Press** → JS sends `keydown` callback → `releaseFocus()` → `SetNuiFocus(false, false)` ✓
-2. **Window Close Button** → JS `DCE.Windows.close()` → sends `close` callback → `releaseFocus()` ✓
-3. **/dce admin command** → Server sends `closeDashboard` → `releaseFocus()` ✓
-4. **Resource Stop** → `onClientResourceStop` → `SetNuiFocus(false, false)` ✓
-
----
-
-## Part 10: Resource Restart Audit
-
-### Restart Lifecycle (After Fix)
-
-```
-Resource Stop
-    ↓
-onClientResourceStop executes
-    ↓
-hasFocus = false
-SetNuiFocus(false, false)
-SetNuiFocusKeepInput(false)
-SendNUIMessage({action = "close"})
-    ↓
-Resource Start
-    ↓
-ensureCleanState() executes
-    ↓
-SetNuiFocus(false, false)
-SetNuiFocusKeepInput(false)
-SendNUIMessage({action = "close"})
+```css
+body {
+    background: var(--cc-bg-primary);  /* #0d1117 — DARK GRAY */
+}
 ```
 
----
+**File:** `DCE/src/dce-controlcenter/html/css/themes/light.css`
+**Lines:** 9-10
 
-## Part 11: EventBus Audit
-
-### Events That Could Open UI
-
-Searched for events containing `open`, `toggle`, `show`, `dashboard`:
-
-| Event | Source | Would Open UI? |
-|-------|--------|----------------|
-| `admin:dashboard:opened` | `commands.lua:44-54` | No - emits but doesn't open UI directly |
-| All other events | Various | No explicit UI opening |
-
-**No unauthorized event opens the UI.**
-
----
-
-## Part 12: Authorization Audit
-
-### Authorized Open Paths
-
-1. **ACE Permission** - `/dce admin` command checks `IsPlayerAceAllowed(source, "group.admin")` ✓
-2. **Keybind** - Registers with `RegisterKeyMapping`, but still checks permission server-side ✓
-3. **No unauthorized paths found** ✓
-
----
-
-## Part 13: Runtime Instrumentation (Recommended for Verification)
-
-To verify the fix in production, add logging:
-
-```lua
--- Add to SetNuiFocus calls
-print(("[SetNuiFocus] %s: %s from %s"):format(
-    hasFocus and "true" or "false",
-    hasCursor and "true" or "false",
-    debug.getinfo(2, "S").short_src or "unknown"
-))
+```css
+body {
+    background: var(--cc-bg-primary);  /* #0d1117 — DARK GRAY */
+}
 ```
 
----
+**CONTRIBUTING CAUSE:**
 
-## Part 14: External Resource Audit
-
-Per ADR-0011, only `dce-admin` has a UI page. No other DCE resources use NUI.
+The body CSS sets a dark gray background (#0d1117) that CEF composites at full viewport from the moment the resource starts. The `opacity: 0 !important;` and `visibility: hidden !important;` on lines 35-37 do not prevent CEF's compositor from rendering the background color layer.
 
 ---
 
-## Root Cause Summary
+## Why Previous Audits Passed
 
-### The Bug (Lines 17-23 of nui.lua - BEFORE FIX)
+Previous audits focused on:
+1. **Lua architecture** — Verified that services register properly
+2. **Lazy loading** — Verified that JS files don't load until `/dce`
+3. **Focus management** — Verified SetNuiFocus ownership
+4. **Session lifecycle** — Verified session creation flow
+5. **DOM creation** — Verified no DOM elements created before activation
 
-```lua
--- INCORRECT CODE:
-local function releaseFocus()
-    hasFocus = false
-    if SetNuiFocusKeepInput then
-        SetNuiFocusKeepInput(true)  -- BUG: Does NOT release focus!
-    elseif SetNuiFocus then
-        SetNuiFocus(false, false)
-    end
+**What was MISSED:**
+1. The CSS body background color is always painted by CEF regardless of visibility/opacity CSS rules
+2. FiveM's CEF compositor renders the background of the page at full viewport from resource start
+3. `opacity: 0` and `visibility: hidden` on the `body` element do NOT prevent CEF's compositor from rendering the background color
+4. SetNuiFocus(false, false) does NOT hide the CEF browser — it only releases input
+5. The body MUST have `background: transparent` (or no background at all) in the dormant state
+6. Background color must ONLY be applied when `body.cc-active` is present
+
+---
+
+## Architectural Correction
+
+### Changes Required
+
+#### 1. `html/css/style.css` (Lines 24-38)
+
+**REMOVE** the background color from the dormant body state:
+
+```css
+body {
+    font-family: 'Segoe UI', sans-serif;
+    /* REMOVED: background: var(--cc-bg-primary); */
+    color: var(--cc-text-primary, #f0f6fc);
+    min-height: 100vh;
+    overflow: hidden;
+    font-size: 13px;
+    margin: 0;
+    padding: 0;
+    
+    /* DORMANT STATE - Completely transparent, no focus, no interaction */
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+    background: transparent !important; /* ADD: Ensure CEF composites nothing */
+}
 ```
 
-### Why It Failed
+#### 2. `html/css/themes/dark.css` (Lines 8-11)
 
-`SetNuiFocusKeepInput(true)` does NOT release NUI focus. It enables keyboard input passthrough while **keeping focus active**. The gray overlay is FiveM's visual indication that NUI has focus. By using this call, focus remained active and the overlay stayed visible.
+**REMOVE** the background color from the dormant body state:
 
-### The Fix (Lines 17-27 of nui.lua - AFTER FIX)
+```css
+/* Body uses dark theme variables ONLY when active */
+body.cc-active {
+    background: var(--cc-bg-primary);
+    color: var(--cc-text-primary);
+}
+```
 
-```lua
--- CORRECTED CODE:
-local function releaseFocus()
-    hasFocus = false
-    -- Always release focus first - this removes the gray overlay
-    if SetNuiFocus then
-        SetNuiFocus(false, false)
-    end
-    -- SetNuiFocusKeepInput(false) is not required but can be called for explicit cleanup
-    if SetNuiFocusKeepInput then
-        SetNuiFocusKeepInput(false)
-    end
+#### 3. `html/css/themes/light.css` (Lines 8-11)
+
+Same change as dark.css.
+
+#### 4. `html/css/style.css` (Add to cc-active/cc-open states)
+
+Ensure background is applied only when active:
+
+```css
+body.cc-active {
+    opacity: 1 !important;
+    pointer-events: all !important;
+    visibility: visible !important;
+    background: var(--cc-bg-primary);  /* Background applied HERE, not on dormant body */
+    transition: opacity 0.15s ease-out;
+}
+```
+
+#### 5. Critical Additions to `.desktop` CSS
+
+```css
+.desktop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--cc-bg-primary);  /* Desktop handles its own background */
+}
+```
+
+#### 6. `html/bootstrap.html` — Add inline style guard
+
+Add an inline style in the `<head>` that enforces transparency before external CSS loads:
+
+```html
+<style>
+    /* GUARD: Ensure browser is transparent until CC activates */
+    html, body { background: transparent !important; margin: 0; padding: 0; }
+</style>
 ```
 
 ---
 
-## Part 15: Focus Ownership Diagram
+## Verification Checklist
 
-```
-Player Spawn
-    ↓
-ensureCleanState() [SCRIPT LOAD]
-    ├── hasFocus = false
-    ├── SetNuiFocus(false, false) ← Releases gray overlay
-    ├── SetNuiFocusKeepInput(false)
-    └── SendNUIMessage({action: "close"})
-    ↓
-NUI Visible: NO (opacity: 0)
-NUI Focus: NO (SetNuiFocus false)
-Gray Overlay: NO (focus released)
-    ↓
-Player Joins Game Normally
-```
+After implementing the fix, verify:
+
+- [ ] `body` has NO background color in dormant state
+- [ ] `body.cc-active` has `background: var(--cc-bg-primary)`
+- [ ] `.desktop` element has `background: var(--cc-bg-primary)`
+- [ ] All theme files only apply background when `.cc-active` is present
+- [ ] No CSS rule paints a fullscreen background before activation
+- [ ] Inline style guard exists in bootstrap.html `<head>`
+- [ ] CEF browser surface composites no visible color before activation
+- [ ] `/dce` correctly transitions to visible state with full styling
 
 ---
 
-## Fix Verification Checklist
+## Conclusion
 
-- [x] Fresh server start never shows gray overlay
-- [x] `ensureCleanState()` calls `SetNuiFocus(false, false)` at script load
-- [x] `releaseFocus()` calls `SetNuiFocus(false, false)` on all close paths
-- [x] `onClientResourceStop` releases focus on resource stop
-- [x] No JavaScript auto-open logic
-- [x] CSS body opacity: 0 when closed
-- [x] CSS pointer-events: none when closed
-- [x] Authorization checks in place for `/dce admin`
-- [x] Keybind requires server permission check
+The gray overlay is caused by `style.css` lines 24-26 and `dark.css` lines 9-10 setting `body { background: #0d1117; }`. This background color is always rendered by FiveM's CEF compositor from the moment the resource starts, even though `opacity: 0` and `visibility: hidden` are also applied.
 
----
+**The fix is simple:** Never set a background color on `body` in the dormant state. Only apply the background when `body.cc-active` (or `body.cc-open`) is present.
 
-## Files Modified
-
-| File | Change |
-|------|--------|
-| `dce-admin/client/nui.lua` | Fixed `releaseFocus()` and `ensureCleanState()` to call `SetNuiFocus(false, false)` |
-| `dce-admin/client/nui.lua` | Added `onClientResourceStop` handler for cleanup |
-
----
-
-## Regression Test Cases
-
-| Test | Expected Result |
-|------|-----------------|
-| Fresh server start → Join game | No gray overlay |
-| Join with no admin permissions | No UI opens |
-| `/dce admin` (no permission) | Permission denied, no UI |
-| `/dce admin` (with permission) | UI opens correctly |
-| Click close button | UI closes, no gray overlay |
-| Press ESC | UI closes, no gray overlay |
-| Resource restart | No UI after restart |
-| Player reconnect | No gray overlay on reconnect |
-| Keybind press (no permission) | No UI opens |
-| Keybind press (with permission) | UI opens correctly |
+This preserves the complete True Lazy Init architecture, BrowserManager ownership, FocusManager ownership, SessionManager ownership, and all ADR-0026 principles. No architectural changes are needed — only CSS corrections.

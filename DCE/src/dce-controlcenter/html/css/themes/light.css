@@ -1,0 +1,21 @@
+/* DCE Control Center v2 - Light Theme */
+/* Alternative theme - background ONLY applied when CC is active */
+
+:root {
+    --cc-theme-name: 'light';
+}
+
+/* Dormant body is transparent - no background until activated */
+body {
+    color: var(--cc-text-primary);
+}
+
+/* Background applied ONLY when CC is active */
+body.cc-active {
+    background: var(--cc-bg-primary);
+}
+
+/* Background applied for legacy open state */
+body.cc-open {
+    background: var(--cc-bg-primary);
+}

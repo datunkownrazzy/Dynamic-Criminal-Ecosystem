@@ -1,12 +1,16 @@
 /**
- * DCE Control Center v2 - NUI Lifecycle Manager
+ * DCE Control Center v2 - Lifecycle (JavaScript)
  * 
- * CRITICAL: This module manages the entire NUI lifecycle.
- * - UI is hidden by default (opacity: 0, pointer-events: none)
- * - UI becomes visible only when explicitly opened via message
- * - Every open has exactly one matching close
- * - Every focus acquisition has exactly one release
- * - No auto-open, no auto-focus, no gray overlay
+ * Provides DCE.Lifecycle namespace for state management and resource tracking.
+ * Application lifecycle (Boot/Activate/Shutdown) is handled by application-manager.js
+ * 
+ * States match the Lua side:
+ * - unloaded: Initial state after browser loads
+ * - ready: Application initialized, waiting for session
+ * - active: UI visible, focus granted
+ * 
+ * CRITICAL: Focus is managed ONLY by Lua FocusManager.
+ * JS never calls SetNuiFocus directly.
  */
 
 (function() {
@@ -15,212 +19,156 @@
     // DCE Namespace
     window.DCE = window.DCE || {};
 
-    // Lifecycle states
-    const STATE_CLOSED = 'closed';
-    const STATE_OPENING = 'opening';
-    const STATE_OPEN = 'open';
-    const STATE_CLOSING = 'closing';
+    // Lifecycle states (sync with Lua)
+    const STATES = {
+        UNLOADED: 'unloaded',
+        READY: 'ready',
+        ACTIVE: 'active'
+    };
 
     // Internal state
-    let lifecycleState = STATE_CLOSED;
-    let pendingFocusRelease = false;
-
-    // ===========================================================================
-    // Diagnostics
-    // ===========================================================================
-
-    const DCE_CALENDAR = {
-        diagLog: function(message) {
-            if (!window.Config || !window.Config.CC || !window.Config.CC.NUI || !window.Config.CC.NUI.DebugMode) {
-                return;
-            }
-            console.log('[DCE Lifecycle] ' + new Date().toISOString() + ' - ' + message);
-        }
-    };
-
-    // ===========================================================================
-    // NUI Message Handler
-    // ===========================================================================
-
-    DCE.NUI = {
-        post: async function(action, data) {
-            data = data || {};
-            try {
-                const resp = await fetch('https://' + GetParentResourceName() + '/' + action, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
-                if (!resp.ok) {
-                    throw new Error('HTTP error: ' + resp.status);
-                }
-                
-                return await resp.json();
-            } catch (err) {
-                console.error('NUI post error:', err);
-                DCE.Notifications && DCE.Notifications.error('Connection error: ' + action);
-                return null;
-            }
-        }
-    };
-
-    // ===========================================================================
-    // Desktop Lifecycle
-    // ===========================================================================
-
-    DCE.Desktop = {
+    DCE.Lifecycle = {
+        state: STATES.UNLOADED,
         isOpen: false,
-        state: lifecycleState,
-
-        setState: function(newState) {
-            lifecycleState = newState;
-            DCE.Desktop.state = newState;
-            
-            // Update body classes
-            document.body.classList.remove('cc-closed', 'cc-opening', 'cc-open', 'cc-closing');
-            document.body.classList.add('cc-' + newState);
-            
-            DCE_CALENDAR.diagLog('State changed to: ' + newState);
-        },
-
-        open: function() {
-            if (lifecycleState === STATE_OPEN) {
-                DCE_CALENDAR.diagLog('Already open');
-                return;
-            }
-            
-            DCE_CALENDAR.diagLog('Opening desktop');
-            DCE.Desktop.setState(STATE_OPENING);
-            
-            // Notify Lua that NUI is ready for focus
-            DCE.NUI.post('dce-cc:nui:ready');
-            
-            // Small delay to ensure DOM updates before showing
-            requestAnimationFrame(() => {
-                DCE.Desktop.setState(STATE_OPEN);
-                DCE.Desktop.isOpen = true;
-                DCE.Notifications && DCE.Notifications.info('Control Center v2 opened');
-            });
-        },
-
-        close: function() {
-            if (lifecycleState === STATE_CLOSED) {
-                DCE_CALENDAR.diagLog('Already closed');
-                return;
-            }
-            
-            DCE_CALENDAR.diagLog('Closing desktop');
-            DCE.Desktop.setState(STATE_CLOSING);
-            
-            // Close all windows first
-            if (DCE.Windows) {
-                DCE.Windows.closeAll();
-            }
-            
-            // Notify Lua that we've released focus
-            DCE.NUI.post('dce-cc:nui:focusReleased');
-            
-            // Small delay before hiding
-            requestAnimationFrame(() => {
-                DCE.Desktop.setState(STATE_CLOSED);
-                DCE.Desktop.isOpen = false;
-            });
-        },
-
-        toggle: function() {
-            if (lifecycleState === STATE_OPEN) {
-                DCE.Desktop.close();
-            } else {
-                DCE.Desktop.open();
-            }
-        }
+        
+        // Track all runtime resources for cleanup
+        _timers: new Set(),
+        _eventListeners: new Map(),
+        _animationFrames: new Set(),
+        _observers: new Set()
     };
 
     // ===========================================================================
-    // Window Manager Interface
+    // State Management
     // ===========================================================================
 
-    DCE.Windows = DCE.Windows || {
-        open: function(pluginId, options) {
-            if (!DCE.Desktop.isOpen) {
-                DCE.Desktop.open();
-            }
-            
-            // Delegate to actual window manager
-            if (window.DCEWindowManager) {
-                DCEWindowManager.createWindow(pluginId, options);
-            }
-        },
-
-        closeAll: function() {
-            const container = document.getElementById('window-container');
-            if (container) {
-                container.innerHTML = '';
-            }
+    DCE.Lifecycle.setState = function(newState) {
+        if (!STATES[newState]) {
+            console.error('[DCE Lifecycle] Invalid state:', newState);
+            return false;
         }
+
+        var oldState = DCE.Lifecycle.state;
+        DCE.Lifecycle.state = newState;
+        DCE.Lifecycle.isOpen = (newState === STATES.ACTIVE);
+
+        // Update body classes for CSS
+        document.body.className = 'cc-' + newState;
+
+        console.log('[DCE Lifecycle] State:', oldState, '→', newState);
+        return true;
+    };
+
+    DCE.Lifecycle.getState = function() {
+        return DCE.Lifecycle.state;
+    };
+
+    DCE.Lifecycle.isReady = function() {
+        return DCE.Lifecycle.state === STATES.READY;
+    };
+
+    DCE.Lifecycle.isOpenState = function() {
+        return DCE.Lifecycle.state === STATES.ACTIVE;
     };
 
     // ===========================================================================
-    // Message Handler
+    // Resource Tracking
+    // ===========================================================================
+
+    DCE.Lifecycle.trackTimer = function(timerId) {
+        DCE.Lifecycle._timers.add(timerId);
+    };
+
+    DCE.Lifecycle.untrackTimer = function(timerId) {
+        DCE.Lifecycle._timers.delete(timerId);
+    };
+
+    DCE.Lifecycle.setInterval = function(callback, interval) {
+        var timerId = setInterval(callback, interval);
+        DCE.Lifecycle.trackTimer(timerId);
+        return timerId;
+    };
+
+    DCE.Lifecycle.setTimeout = function(callback, delay) {
+        var timerId = setTimeout(callback, delay);
+        DCE.Lifecycle.trackTimer(timerId);
+        return timerId;
+    };
+
+    DCE.Lifecycle.trackEventListener = function(element, event, handler) {
+        var key = (typeof element) + ':' + event;
+        var handlers = DCE.Lifecycle._eventListeners.get(key) || [];
+        handlers.push({ element: element, event: event, handler: handler });
+        DCE.Lifecycle._eventListeners.set(key, handlers);
+    };
+
+    DCE.Lifecycle.requestAnimationFrame = function(callback) {
+        var frameId = requestAnimationFrame(function() {
+            DCE.Lifecycle._animationFrames.delete(frameId);
+            callback();
+        });
+        DCE.Lifecycle._animationFrames.add(frameId);
+        return frameId;
+    };
+
+    // ===========================================================================
+    // Message Handler for session lifecycle
     // ===========================================================================
 
     window.addEventListener('message', function(event) {
-        const data = event.data;
+        var data = event.data;
         if (!data || !data.action) return;
 
-        DCE_CALENDAR.diagLog('Received message: ' + data.action);
+        console.log('[DCE Lifecycle] Message:', data.action);
 
-        switch (data.action) {
-            case 'lifecycle:open':
-                DCE.Desktop.open();
-                break;
-                
-            case 'lifecycle:close':
-                DCE.Desktop.close();
-                break;
-                
-            case 'lifecycle:reset':
-                DCE.Desktop.setState(STATE_CLOSED);
-                DCE.Windows.closeAll();
-                break;
-                
-            case 'lifecycle:cleanup':
-                DCE.Desktop.setState(STATE_CLOSED);
-                DCE.Windows.closeAll();
-                break;
+        // Handle lifecycle messages from Lua ApplicationManager
+        if (data.action === 'lifecycle:cleanup' || data.action === 'lifecycle:reset') {
+            DCE.Lifecycle.cleanup();
+            DCE.Lifecycle.setState(STATES.READY);
         }
     });
 
     // ===========================================================================
-    // ESC Key Handler
+    // Cleanup
     // ===========================================================================
 
-    // IMPORTANT: We do NOT add keydown listeners here because FiveM
-    // auto-grants focus when it detects keyboard listeners.
-    // ESC is handled via NUICallback when focus IS active.
+    DCE.Lifecycle.cleanup = function() {
+        console.log('[DCE Lifecycle] Cleaning up all resources...');
 
-    // ===========================================================================
-    // Initialization
-    // ===========================================================================
-
-    function init() {
-        DCE_CALENDAR.diagLog('Initializing lifecycle manager');
-        
-        // Ensure closed state on load
-        DCE.Desktop.setState(STATE_CLOSED);
-        
-        // Notify Lua that NUI is loaded (but stay hidden)
-        DCE.NUI.post('dce-cc:nui:loaded').then(function(response) {
-            DCE_CALENDAR.diagLog('NUI loaded state: ' + response.state);
+        // Clear all timers
+        DCE.Lifecycle._timers.forEach(function(timerId) {
+            clearInterval(timerId);
+            clearTimeout(timerId);
         });
-    }
+        DCE.Lifecycle._timers.clear();
 
-    // DOM ready check
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+        // Cancel all animation frames
+        DCE.Lifecycle._animationFrames.forEach(function(frameId) {
+            cancelAnimationFrame(frameId);
+        });
+        DCE.Lifecycle._animationFrames.clear();
+
+        // Disconnect all observers
+        DCE.Lifecycle._observers.forEach(function(observer) {
+            if (observer.disconnect) {
+                observer.disconnect();
+            }
+        });
+        DCE.Lifecycle._observers.clear();
+
+        // Remove all event listeners
+        DCE.Lifecycle._eventListeners.forEach(function(handlers) {
+            handlers.forEach(function(h) {
+                if (h && h.element && h.event && h.handler) {
+                    h.element.removeEventListener(h.event, h.handler);
+                }
+            });
+        });
+        DCE.Lifecycle._eventListeners.clear();
+
+        console.log('[DCE Lifecycle] Cleanup complete');
+    };
+
+    console.log('[DCE Lifecycle] Module loaded (v2.0.0)');
 
 })();

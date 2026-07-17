@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DCE Control Center v2</title>
+    <!-- CRITICAL GUARD: Ensure browser is transparent until CC activates -->
+    <!-- Must be FIRST style applied - before any external CSS -->
+    <style>html,body{background:transparent!important;margin:0;padding:0;}</style>
+    <!-- ONLY CSS loaded at startup - nothing visible until /dce -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/themes/dark.css">
+</head>
+<body class="cc-unloaded">
+    <!-- Bootstrap Template - Hidden until /dce -->
+    <template id="template-window">
+        <div class="window" data-window-id="">
+            <div class="window-header">
+                <div class="window-title">
+                    <span class="window-icon">🔧</span>
+                    <span class="window-title-text">Window</span>
+                </div>
+                <div class="window-controls">
+                    <button class="window-btn minimize" title="Minimize">—</button>
+                    <button class="window-btn maximize" title="Maximize">□</button>
+                    <button class="window-btn close" title="Close">×</button>
+                </div>
+            </div>
+            <div class="window-content">
+                <div class="tab-bar"></div>
+                <div class="content-body"></div>
+                <div class="resize-handle top"></div>
+                <div class="resize-handle bottom"></div>
+                <div class="resize-handle left"></div>
+                <div class="resize-handle right"></div>
+            </div>
+        </div>
+    </template>
+
+    <!-- ONLY Bootstrap JS at startup - everything else is lazy loaded -->
+    <script src="js/bootstrap/bootstrap.js"></script>
+</body>
+</html>
