@@ -29,12 +29,12 @@ end
 RegisterCommand('dce', function(source, args)
     if source == 0 then return end
     TriggerServerEvent('dce-cc:server:open', source)
-end, true)
+end, false)
 
 RegisterCommand('dceclose', function(source, args)
     if source == 0 then return end
     TriggerServerEvent('dce-cc:server:close', source)
-end, true)
+end, false)
 
 RegisterKeyMapping('dce', 'Open DCE Control Center', 'keyboard', 'F6')
 
