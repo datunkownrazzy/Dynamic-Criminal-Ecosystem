@@ -22,6 +22,12 @@
 ---@field ScheduleNow fun(taskName:string):boolean
 --- Logger convenience
 ---@field Log fun(module:string, level:string, message:string, ...:any):nil
+--- Version convenience (Sprint 1.7)
+---@field GetVersion fun():string
+--- Ready state query (Sprint 1.10.2)
+---@field IsReady fun():boolean
+--- Internal ready state flag (private, set after boot pipeline completes)
+---@field _ready boolean
 --- Plugin SDK functions
 ---@field RegisterPlugin fun(manifest:table):(boolean, string|nil)
 ---@field LoadConfig fun(path:string):table|nil

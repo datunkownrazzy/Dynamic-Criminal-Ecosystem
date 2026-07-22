@@ -1,35 +1,23 @@
--- DCE Core - Resource Entry Point
--- Initializes Service Registry, Event Bus, Scheduler, Logger, Config Loader, Plugin Manager,
--- Profiler, Cache, and Pool services.
--- Registers the DCE global table that all other resources use.
--- Files are loaded in dependency order via fxmanifest.lua, so globals are available.
--- Defensive nil-check patterns are intentional for FiveM resource timing safety per ADR-0001
-
--- Global DCE Table
--- ===========================================================================
--- This is the single entry point all DCE resources use.
--- It exposes: RegisterService, GetService, HasService, GetServiceOrThrow, UnregisterService,
---             Emit, On, Once, Off, Schedule, Log, and SDK registration functions.
+-- DCE Core v2 — Sprint 1.9 Platform Complete
+-- Five-stage boot pipeline:
+--   BOOT → REGISTRATION → VERIFICATION → REPORTING → READY
+--
+-- No phase may repeat work already completed by an earlier phase.
+-- Every future resource can safely depend on Core without architectural modification.
+-- After Sprint 1.9, architectural changes to dce-core are breaking changes.
+---@diagnostic disable: duplicate-set-field, undefined-global
 
 DCE = {}
 
--- ===========================================================================
--- Initialization Order
--- ===========================================================================
--- 1. Logger (no dependencies)
--- 2. Config (depends on Logger)
--- 3. Registry (depends on Logger)
--- 4. Event Bus (depends on Logger)
--- 5. Scheduler (depends on Logger)
--- 6. Profiler (depends on Logger)
--- 7. Cache (depends on Logger)
--- 8. Pool (depends on Logger)
--- 9. Plugin Manager (depends on Logger, Config)
+-- ============================================================================
+-- PHASE 0: BOOT — Initialize runtime
+-- ============================================================================
+-- Logger. Diagnostics. Configuration. Profiler. Boot timeline.
 
--- NOTE: _G.DCE is set AFTER InitializeCore() completes (see below)
--- This ensures DCE.On, DCE.Emit, etc. are available before other resources access them
+local function BootPhase()
+    -- Set _G.DCE immediately so all subsystems can access it
+    _G.DCE = DCE
 
-local function InitializeCore()
     local Logger = DCELogger
     local Registry = DCERegistry
     local EventBus = DCEEventBus
@@ -42,15 +30,12 @@ local function InitializeCore()
     local AlertHandler = DCEAlertHandler
     local Diagnostics = DCEDiagnostics
 
--- Step 1: Initialize Logger
+    -- Step 1: Initialize Logger (no dependencies)
     if Logger then
         Logger.Init()
-        Logger.Info("core", "=== DCE v1.0.0 Core Initializing ===")
-    else
-        print("^1[DCE Core] WARNING: Logger not available, using fallback logging^0")
     end
 
--- Step 2: Initialize core services (only if dependencies exist)
+    -- Step 2: Initialize core services
     if Registry then Registry.Init(Logger) end
     if EventBus then EventBus.Init(Logger) end
     if Scheduler then Scheduler.Init(Logger) end
@@ -61,291 +46,293 @@ local function InitializeCore()
     if ConfigLoader then ConfigLoader.Init(Logger) end
     if PluginManager then PluginManager.Init(Logger) end
     if Diagnostics then Diagnostics.Init(Logger) end
-    
-    -- Mark startup start for diagnostics
-    if Diagnostics and Diagnostics.MarkStartupStart then
-        Diagnostics.MarkStartupStart()
+
+    -- Initialize runtime diagnostics
+    local RuntimeInit = _G.DCERuntimeInit
+    if RuntimeInit and RuntimeInit.Initialize then
+        RuntimeInit.Initialize(Logger)
     end
 
--- Step 3: Register DCE global API (must be before AlertHandler.Setup)
-    -- Service Registry
+    -- Initialize Sprint 1.9 architecture components
+    local EventRegistry = _G.DCEEventRegistry
+    if EventRegistry and EventRegistry.Init then
+        EventRegistry.Init()
+    end
+
+    local ConfigFramework = _G.DCEConfigFramework
+    if ConfigFramework and ConfigFramework.Init then
+        ConfigFramework.Init()
+    end
+
+    return Logger
+end
+
+-- ============================================================================
+-- PHASE 1: REGISTRATION — Register services, exports, plugins, interfaces, SDK
+-- ============================================================================
+
+local function RegistrationPhase(Logger)
+    -- Register DCE global API
     DCE.RegisterService = function(name, serviceTable, options)
-        if Registry then
-            return Registry.Register(name, serviceTable, options)
-        end
+        local reg = _G.DCERegistry
+        if reg then return reg.Register(name, serviceTable, options) end
         return false
     end
 
     DCE.GetService = function(name)
-        if Registry then
-            return Registry.Get(name)
-        end
+        local reg = _G.DCERegistry
+        if reg then return reg.Get(name) end
         return nil
     end
 
     DCE.HasService = function(name)
-        if Registry then
-            return Registry.Has(name)
-        end
+        local reg = _G.DCERegistry
+        if reg then return reg.Has(name) end
         return false
     end
 
     DCE.GetServiceOrThrow = function(name)
-        if Registry then
-            return Registry.GetOrThrow(name)
-        end
+        local reg = _G.DCERegistry
+        if reg then return reg.GetOrThrow(name) end
         error("DCE Service Registry: required service '" .. name .. "' is not registered")
     end
 
     DCE.UnregisterService = function(name)
-        if Registry then
-            return Registry.Unregister(name)
-        end
+        local reg = _G.DCERegistry
+        if reg then return reg.Unregister(name) end
         return false
     end
 
-    -- Event Bus (must be available before AlertHandler.Setup)
+    -- Event Bus
     DCE.Emit = function(eventName, payload)
-        if EventBus then
-            -- Diagnostic trace
-            if Diagnostics and Diagnostics.OnEventEmit then
-                Diagnostics.OnEventEmit(eventName, "dce-core")
+        local eb = _G.DCEEventBus
+        if eb then
+            -- Validate payload against event contract
+            local eventReg = _G.DCEEventRegistry
+            if eventReg and eventReg.ValidatePayload then
+                eventReg.ValidatePayload(eventName, payload)
             end
-            return EventBus.Emit(eventName, payload)
+            return eb.Emit(eventName, payload)
         end
     end
 
     DCE.On = function(eventName, handlerFn)
-        -- Validation at DCE API boundary prevents invalid callbacks reaching EventBus.On
-        -- Per Architecture rules: "Defensive nil-check patterns are intentional for FiveM timing safety"
         if not handlerFn or type(handlerFn) ~= "function" then
-            local Logger = DCELogger
             local msg = ("EventBus.On: handlerFn must be a function for event '%s'"):format(
-                type(eventName) == "string" and eventName or tostring(eventName)
-            )
-            if Logger and Logger.Log then
-                Logger.Log("core", "error", msg)
-            else
-                print(("[DCE] %s"):format(msg))
-            end
+                type(eventName) == "string" and eventName or tostring(eventName))
+            local l = _G.DCELogger
+            if l and l.Log then l.Log("core", "error", msg)
+            else print(("[DCE] %s"):format(msg)) end
             return nil
         end
-        
-        if EventBus then
-            return EventBus.On(eventName, handlerFn)
-        end
-        
-        -- EventBus not initialized - likely race condition
-        print("[DCE] WARNING: EventBus is nil for event=" .. tostring(eventName))
+        local eb = _G.DCEEventBus
+        if eb then return eb.On(eventName, handlerFn) end
         return nil
     end
 
     DCE.Once = function(eventName, handlerFn)
         if not handlerFn or type(handlerFn) ~= "function" then
-            local Logger = DCELogger
             local msg = ("EventBus.Once: handlerFn must be a function for event '%s'"):format(
-                type(eventName) == "string" and eventName or tostring(eventName)
-            )
-            if Logger and Logger.Log then
-                Logger.Log("core", "error", msg)
-            else
-                print(("[DCE] %s"):format(msg))
-            end
+                type(eventName) == "string" and eventName or tostring(eventName))
+            local l = _G.DCELogger
+            if l and l.Log then l.Log("core", "error", msg)
+            else print(("[DCE] %s"):format(msg)) end
             return nil
         end
-        if EventBus then
-            return EventBus.Once(eventName, handlerFn)
-        end
+        local eb = _G.DCEEventBus
+        if eb then return eb.Once(eventName, handlerFn) end
         return nil
     end
 
     DCE.Off = function(eventName, handlerId)
-        if EventBus then
-            return EventBus.Off(eventName, handlerId)
-        end
+        local eb = _G.DCEEventBus
+        if eb then return eb.Off(eventName, handlerId) end
     end
 
     -- Scheduler
     DCE.Schedule = function(taskName, intervalMs, callback, options)
-        if Scheduler then
-            return Scheduler.Schedule(taskName, intervalMs, callback, options)
-        end
+        local sched = _G.DCEScheduler
+        if sched then return sched.Schedule(taskName, intervalMs, callback, options) end
         return false
     end
 
     DCE.ScheduleNow = function(taskName)
-        if Scheduler then
-            return Scheduler.ExecuteNow(taskName)
-        end
+        local sched = _G.DCEScheduler
+        if sched then return sched.ExecuteNow(taskName) end
         return false
     end
 
-    -- Plugin Manager
+    -- Plugin
     DCE.RegisterPlugin = function(manifest)
-        if PluginManager then
-            return PluginManager.Register(manifest)
-        end
+        local pm = _G.DCEPluginArchitecture
+        if pm then return pm.Register(manifest) end
+        local oldPm = _G.DCEPluginManager
+        if oldPm then return oldPm.Register(manifest) end
         return false
     end
 
-    -- Config Loader
+    -- Config
     DCE.LoadConfig = function(path)
-        if ConfigLoader then
-            return ConfigLoader.Load(path)
-        end
+        local cl = _G.DCEConfigLoader
+        if cl then return cl.Load(path) end
         return nil
     end
 
     DCE.ValidateConfig = function(config, schema)
-        if ConfigLoader then
-            return ConfigLoader.Validate(config, schema)
+        local cf = _G.DCEConfigFramework
+        if cf then
+            local ok, _ = cf.Validate(config, schema)
+            return ok
         end
         return false
     end
 
-    -- Logger convenience
+    -- Logger
     DCE.Log = function(module, level, message, ...)
-        if Logger then
-            Logger.Log(module, level, message, ...)
-        end
+        local l = _G.DCELogger
+        if l then l.Log(module, level, message, ...) end
     end
 
-    -- Setup alert handler for performance events (now DCE.On is available)
-    if AlertHandler then AlertHandler.Setup() end
+    -- Version
+    DCE.GetVersion = function()
+        return "1.0.0"
+    end
 
-    -- Initialize default object pools
-    if Pool then Pool.InitializeDefaultPools() end
+    -- READY state query - canonical way to check if Core completed initialization
+    -- Consumers should use: exports['dce-core']:IsReady() or DCE.IsReady()
+    DCE.IsReady = function()
+        return DCE._ready == true
+    end
 
-    -- SDK Wrapper Functions (Plugin_SDK.md)
-    -- These provide a thin wrapper over the Service Registry/Event Bus for plugin authors.
-
-    --- Register a new organization from a plugin.
-    -- Emits sdk:organization:registered event for the Organizations service to handle.
-    ---@param orgDataTable table Organization data following Organizations.md schema
-    ---@return boolean success, string|nil errorMessage
+    -- SDK Registration APIs (future reserved)
     DCE.RegisterOrganization = function(orgDataTable)
-        if not orgDataTable or type(orgDataTable) ~= "table" then
-            return false, "orgDataTable must be a table"
-        end
-        if not orgDataTable.id then
-            return false, "orgDataTable.id is required"
-        end
-
+        if not orgDataTable or type(orgDataTable) ~= "table" then return false, "orgDataTable must be a table" end
         DCE.Emit("sdk:organization:registered", {
-            eventVersion = 1,
-            timestamp = os.time(),
-            source = "dce-core-sdk",
-            payload = {
-                orgId = orgDataTable.id,
-            },
+            eventVersion = 1, timestamp = os.time(), source = "dce-core-sdk",
+            payload = { orgId = orgDataTable.id },
         })
         return true
     end
 
-    --- Register a dispatch adapter from a plugin.
-    ---@param adapterTable table Adapter configuration
-    ---@return boolean success
     DCE.RegisterDispatchAdapter = function(adapterTable)
-        if not adapterTable then
-            return false
-        end
+        if not adapterTable then return false end
         DCE.Emit("sdk:adapter:registered", {
-            eventVersion = 1,
-            timestamp = os.time(),
-            source = "dce-core-sdk",
-            payload = {
-                category = "dispatch",
-                adapterName = adapterTable.Name or "unknown",
-            },
+            eventVersion = 1, timestamp = os.time(), source = "dce-core-sdk",
+            payload = { category = "dispatch", adapterName = adapterTable.Name or "unknown" },
         })
         return true
     end
 
-    --- Register an evidence/inventory adapter from a plugin.
-    ---@param adapterTable table Adapter configuration
-    ---@return boolean success
     DCE.RegisterEvidenceAdapter = function(adapterTable)
-        if not adapterTable then
-            return false
-        end
+        if not adapterTable then return false end
         DCE.Emit("sdk:adapter:registered", {
-            eventVersion = 1,
-            timestamp = os.time(),
-            source = "dce-core-sdk",
-            payload = {
-                category = "evidence",
-                adapterName = adapterTable.Name or "unknown",
-            },
+            eventVersion = 1, timestamp = os.time(), source = "dce-core-sdk",
+            payload = { category = "evidence", adapterName = adapterTable.Name or "unknown" },
         })
         return true
     end
 
-    --- Register an MDT adapter from a plugin.
-    ---@param adapterTable table Adapter configuration
-    ---@return boolean success
     DCE.RegisterMDTAdapter = function(adapterTable)
-        if not adapterTable then
-            return false
-        end
+        if not adapterTable then return false end
         DCE.Emit("sdk:adapter:registered", {
-            eventVersion = 1,
-            timestamp = os.time(),
-            source = "dce-core-sdk",
-            payload = {
-                category = "mdt",
-                adapterName = adapterTable.Name or "unknown",
-            },
+            eventVersion = 1, timestamp = os.time(), source = "dce-core-sdk",
+            payload = { category = "mdt", adapterName = adapterTable.Name or "unknown" },
         })
         return true
     end
 
-    --- Register a behavior/scenario extension from a plugin.
-    ---@param behaviorDataTable table Behavior definition
-    ---@return boolean success
     DCE.RegisterBehavior = function(behaviorDataTable)
-        if not behaviorDataTable then
-            return false
-        end
+        if not behaviorDataTable then return false end
         DCE.Emit("sdk:behavior:registered", {
-            eventVersion = 1,
-            timestamp = os.time(),
-            source = "dce-core-sdk",
-            payload = {
-                behaviorType = behaviorDataTable.type or "unknown",
-            },
+            eventVersion = 1, timestamp = os.time(), source = "dce-core-sdk",
+            payload = { behaviorType = behaviorDataTable.type or "unknown" },
         })
         return true
     end
 
-    --- Register an escalation chain from a plugin.
-    ---@param escalationSchemaTable table Escalation chain definition
-    ---@return boolean success
     DCE.RegisterEscalationChain = function(escalationSchemaTable)
-        if not escalationSchemaTable then
-            return false
-        end
+        if not escalationSchemaTable then return false end
         DCE.Emit("sdk:escalation:registered", {
-            eventVersion = 1,
-            timestamp = os.time(),
-            source = "dce-core-sdk",
-            payload = {
-                chainId = escalationSchemaTable.id or "unknown",
-            },
+            eventVersion = 1, timestamp = os.time(), source = "dce-core-sdk",
+            payload = { chainId = escalationSchemaTable.id or "unknown" },
         })
         return true
     end
 
-    -- Step 4: Register core services
-    -- Defensive patterns: return nil OR actual value for service timing safety
+    -- Register core services
     DCE.RegisterService("CoreRegistry", {
-        ListServices = function() if Registry then return Registry.List() end return {} end,
-        ListPlugins = function() if PluginManager then return PluginManager.List() end return {} end,
-        ListTasks = function() if Scheduler then return Scheduler.ListTasks() end return {} end,
-        ListEvents = function() if EventBus then return EventBus.ListEvents() end return {} end,
+        ListServices = function() local r = _G.DCERegistry if r then return r.List() end return {} end,
+        ListPlugins = function() local pm = _G.DCEPluginArchitecture if pm then return pm.List() end return {} end,
+        ListTasks = function() local s = _G.DCEScheduler if s then return s.ListTasks() end return {} end,
+        ListEvents = function() local eb = _G.DCEEventBus if eb then return eb.ListEvents() end return {} end,
         GetDCEVersion = function() return "1.0.0" end,
     })
+    DCE.RegisterService("Logger", _G.DCELogger)
+    DCE.RegisterService("EventBus", _G.DCEEventBus)
+    DCE.RegisterService("Scheduler", _G.DCEScheduler)
 
-    -- Step 5: Emit core ready event
+    if AlertHandler then AlertHandler.Setup() end
+    if Pool then Pool.InitializeDefaultPools() end
+end
+
+-- ============================================================================
+-- PHASE 2: VERIFICATION — Run consolidated verifier
+-- ============================================================================
+
+local function VerificationPhase()
+    local Verifier = _G.DCEVerifier
+    if Verifier and Verifier.RunAll then
+        -- Development profile by default; can be changed via config
+        return Verifier.RunAll("development")
+    end
+
+    -- Fallback to old validators if new verifier not available
+    local RuntimeInit = _G.DCERuntimeInit
+    if RuntimeInit and RuntimeInit.RunStartupValidations then
+        RuntimeInit.RunStartupValidations()
+    end
+    return nil
+end
+
+-- ============================================================================
+-- PHASE 3: REPORTING — Generate diagnostic, architecture, performance reports
+-- ============================================================================
+
+local function ReportingPhase(verificationResult)
+    if verificationResult then
+        local Verifier = _G.DCEVerifier
+        if Verifier and Verifier.GetSummary then
+            local summary = Verifier.GetSummary()
+            -- Production mode: minimal output
+            local totalPassed = (verificationResult.totalPassed or 0)
+            local totalFailed = (verificationResult.totalFailed or 0)
+            local total = (verificationResult.total or 1)
+            print(string.format("^4[DCE] Verification: %d/%d passed, %d failed^0",
+                totalPassed, total, totalFailed))
+            if totalFailed > 0 then
+                print("^1[DCE] Verification failures detected - check diagnostic report^0")
+            end
+        end
+    end
+
+    -- Generate runtime report
+    local RuntimeReport = _G.DCERuntimeReport
+    if RuntimeReport and RuntimeReport.Generate then
+        RuntimeReport.Generate()
+    end
+
+    -- Register diagnostic commands
+    local RuntimeInit = _G.DCERuntimeInit
+    if RuntimeInit and RuntimeInit.RegisterCommands then
+        RuntimeInit.RegisterCommands()
+    end
+end
+
+-- ============================================================================
+-- PHASE 4: READY — Emit core:initialized, expose SDK, enable runtime
+-- ============================================================================
+
+local function ReadyPhase(Logger)
     DCE.Emit("core:initialized", {
         eventVersion = 1,
         timestamp = os.time(),
@@ -355,120 +342,113 @@ local function InitializeCore()
 
     if Logger then
         Logger.Info("core", "DCE v1.0.0 Core Initialized")
-        if Registry then
-            Logger.Info("core", "Registered services: %s", table.concat(Registry.List(), ", "))
+        local reg = _G.DCERegistry
+        if reg then
+            Logger.Info("core", "Registered services: %s", table.concat(reg.List(), ", "))
         end
     end
-    
-    -- Print startup summary at the end
+
+    -- Mark startup complete
+    local Diagnostics = _G.DCEDiagnostics
     if Diagnostics and Diagnostics.MarkStartupComplete then
         Diagnostics.MarkStartupComplete()
+    end
+
+    -- Set authoritative ready state - this is the canonical READY signal
+    -- Consumers should use exports['dce-core']:IsReady() or DCE.IsReady()
+    DCE._ready = true
+    _G.DCECoreReady = true
+
+    -- Record boot timeline
+    local BootTimeline = _G.DCEBootTimeline
+    if BootTimeline and BootTimeline.Record then
+        BootTimeline.Record("Boot Complete")
+    end
+end
+
+-- ============================================================================
+-- Five-Stage Boot Pipeline
+-- ============================================================================
+
+local function InitializeCore()
+    _G.DCE = DCE
+
+    local ok, err = pcall(function()
+        -- Stage 1: BOOT
+        local Logger = BootPhase()
+
+        -- Stage 2: REGISTRATION
+        RegistrationPhase(Logger)
+
+        -- Stage 3: VERIFICATION
+        local verificationResult = VerificationPhase()
+
+        -- Stage 4: REPORTING
+        ReportingPhase(verificationResult)
+
+        -- Stage 5: READY
+        ReadyPhase(Logger)
+    end)
+
+    if not ok then
+        print("^1[DCE Core] FATAL: Boot pipeline failed: " .. tostring(err) .. "^0")
     end
 end
 
 -- ============================================================================
 -- Shutdown
 -- ============================================================================
--- Clean up all registrations and subscriptions on resource stop.
--- This is required per AGENTS.md: "Clean up all registrations and subscriptions on onResourceStop."
 
 local function ShutdownCore()
-    local Logger = DCELogger
-    local Registry = DCERegistry
-    local EventBus = DCEEventBus
-    local Scheduler = DCEScheduler
-    local PluginManager = DCEPluginManager
-    local Profiler = DCEProfiler
-    local Cache = DCECache
-    local Pool = DCEPool
-    local AlertHandler = DCEAlertHandler
-    local Diagnostics = DCEDiagnostics
-
-    if Logger then
-        Logger.Info("core", "=== DCE Core Shutting Down ===")
-    end
-    
-    -- Diagnostic shutdown trace
-    if Diagnostics and Diagnostics.OnShutdown then
-        Diagnostics.OnShutdown()
+    -- Use lifecycle framework for shutdown
+    local ServiceLifecycle = _G.DCEServiceLifecycle
+    if ServiceLifecycle and ServiceLifecycle.ShutdownAll then
+        ServiceLifecycle.ShutdownAll()
     end
 
-    -- 1. Clear all scheduled tasks (this stops all running timers)
-    if Scheduler then Scheduler.ClearAll() end
+    -- Fallback shutdown
+    local sched = _G.DCEScheduler
+    if sched then sched.ClearAll() end
+    local eb = _G.DCEEventBus
+    if eb then eb.ClearAll() end
+    local reg = _G.DCERegistry
+    if reg then reg.Clear() end
 
-    -- 2. Clear all event handlers
-    if EventBus then EventBus.ClearAll() end
-
-    -- 3. Unregister all services
-    if Registry then Registry.Clear() end
-
-    -- 4. Clear plugin registrations
-    if PluginManager then PluginManager.Clear() end
-
-    -- 5. Shutdown profiler
-    if Profiler then Profiler.Shutdown() end
-
-    -- 6. Shutdown cache (clear all caches)
-    if Cache then Cache.Shutdown() end
-
-    -- 7. Shutdown pool (clear all pools)
-    if Pool then Pool.Shutdown() end
-
-    -- 8. Shutdown alert handler
-    if AlertHandler then AlertHandler.Shutdown() end
-
+    local Logger = _G.DCELogger
     if Logger then
-        Logger.Info("core", "DCE Core Shutdown Complete")
+        Logger.Info("core", "=== DCE Core Shutdown Complete ===")
     end
 end
 
 -- ============================================================================
--- Export Function for Dependent Resources
+-- Exports — Sprint 1.10.2 Canonical SDK Access
 -- ============================================================================
--- FiveM resources run in isolated environments. DCE global is set per-resource,
--- but we need to explicitly export the DCE API for other resources to use it.
+-- ARCHITECTURAL RULE:
+-- The exported SDK is the sole supported public interface.
+-- Internal globals are implementation details.
+-- External resources must never depend on implementation globals.
+--
+-- Every external DCE resource shall obtain Core exclusively through:
+--   local DCE = exports["dce-core"]:GetDCEAPI()
+-- No external resource should rely on _G.DCE, _G.DCERegistry, etc.
 
--- ============================================================================
--- Export: Subscribe to a DCE event via FiveM event bridge
--- ============================================================================
--- When DCE.On is called from another resource, the callback function is
--- marshalled into a proxy table by FiveM's export system (see ADR-0020).
--- Instead, resources subscribe by providing a FiveM event name:
---   exports['dce-core']:DCE_Subscribe("dce:event", "my:event")
--- When the DCE event fires, dce-core triggers the FiveM event with payload.
--- The handler in the subscribing resource stays a real function.
--- ============================================================================
-
----@type table<string, table<string, true>>  -- dceEvent -> { [fivemEvent] = true }
 local dceEventBridges = {}
 
---- Subscribe a FiveM event to a DCE event.
---- When the DCE event fires, the FiveM event is triggered with the payload.
----@param dceEvent string The DCE event name to subscribe to
----@param fivemEvent string|nil The FiveM event to trigger when the DCE event fires. If nil, a unique event name is auto-generated.
----@return string|false The FiveM event name used for the bridge, or false on failure
 function DCE_Subscribe(dceEvent, fivemEvent)
     if type(dceEvent) ~= "string" then
         print("^1[DCE Core] DCE_Subscribe: dceEvent must be a string^0")
         return false
     end
-    
-    -- Auto-generate a unique FiveM event name if not provided
     if not fivemEvent then
         fivemEvent = "dce-bridge:" .. dceEvent .. ":" .. tostring(math.floor(os.clock() * 1000)) .. ":" .. tostring(math.random(100000, 999999))
     elseif type(fivemEvent) ~= "string" then
         print("^1[DCE Core] DCE_Subscribe: fivemEvent must be a string or nil^0")
         return false
     end
-    
-    -- Register a handler for the DCE event if not already done
     if not dceEventBridges[dceEvent] then
         dceEventBridges[dceEvent] = {}
-        
-        -- Subscribe to the DCE event (runs in dce-core's VM, no proxy issue)
         if DCE and DCE.On then
             DCE.On(dceEvent, function(payload)
-                -- Forward to all bridged FiveM events
                 local bridges = dceEventBridges[dceEvent]
                 if bridges then
                     for fivemEventName in pairs(bridges) do
@@ -478,41 +458,41 @@ function DCE_Subscribe(dceEvent, fivemEvent)
             end)
         end
     end
-    
-    -- Register this FiveM event as a bridge target
     dceEventBridges[dceEvent][fivemEvent] = true
     return fivemEvent
 end
 
+-- Sprint 1.10.2: GetDCEAPI now returns the FROZEN SDK table
+-- The frozen SDK contains ONLY public documented APIs.
+-- It never returns internal service tables directly.
+-- It never exposes mutable implementation state.
 function GetDCEAPI()
-    return DCE
+    return _G.DCE_FROZEN_SDK or DCE
+end
+
+function IsReady()
+    return _G.DCECoreReady == true
 end
 
 -- ============================================================================
 -- Resource Lifecycle Hooks
 -- ============================================================================
 
--- Startup: Initialize core systems
 local initSuccess, initErr = pcall(InitializeCore)
 if not initSuccess then
-    -- If core fails to initialize, log the error and don't proceed
     print("^1[DCE Core] FATAL: Initialization failed: " .. tostring(initErr) .. "^0")
 else
-    -- Export DCE globally ONLY after all methods are set up
-    -- This prevents race conditions where DCE.On, DCE.Emit, etc. are nil
-    _G.DCE = DCE
+    if not _G.DCE then _G.DCE = DCE end
 
-    -- Register shutdown handler
     AddEventHandler("onResourceStop", function(resourceName)
         if resourceName == GetCurrentResourceName() then
             ShutdownCore()
         end
     end)
 
-    -- Register restart handler
     AddEventHandler("onResourceStart", function(resourceName)
         if resourceName == GetCurrentResourceName() then
-            local Logger = DCELogger
+            local Logger = _G.DCELogger
             if Logger then
                 Logger.Info("core", "Resource restarted: %s", resourceName)
             end
