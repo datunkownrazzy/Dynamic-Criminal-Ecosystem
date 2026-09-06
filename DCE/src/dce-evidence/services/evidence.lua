@@ -26,11 +26,11 @@ function EvidenceService.Initialize()
         return
     end
     if DCE and DCE.Log then
-        DCE.Log("evidence", "info", "Evidence Service initializing...")
+        DCE:Log("evidence", "info", "Evidence Service initializing...")
     end
     isInitialized = true
     if DCE and DCE.Log then
-        DCE.Log("evidence", "info", "Evidence Service initialized")
+        DCE:Log("evidence", "info", "Evidence Service initialized")
     end
 end
 
@@ -44,11 +44,11 @@ function EvidenceService.SetAdapter(adapter)
     activeAdapter = adapter
     if adapter then
         if DCE and DCE.Log then
-            DCE.Log("evidence", "info", "Evidence adapter set")
+            DCE:Log("evidence", "info", "Evidence adapter set")
         end
     else
         if DCE and DCE.Log then
-            DCE.Log("evidence", "warn", "Evidence adapter cleared (using local standalone registry)")
+            DCE:Log("evidence", "warn", "Evidence adapter cleared (using local standalone registry)")
         end
     end
 end
@@ -85,7 +85,7 @@ function EvidenceService.InitializeAdapter()
 
         if integration.EnableStandaloneFallback ~= false then
             if DCE and DCE.Log then
-                DCE.Log("evidence", "warn", "ERS evidence adapter unavailable; using local standalone registry")
+                DCE:Log("evidence", "warn", "ERS evidence adapter unavailable; using local standalone registry")
             end
         end
     end
@@ -126,12 +126,12 @@ function EvidenceService.CreateEvidence(data)
     custodyRecords[evidence.id] = {}
 
     if DCE and DCE.Log then
-        DCE.Log("evidence", "info", "Evidence created: %s (%s) - %s", evidence.id, evidence.type, evidence.description)
+        DCE:Log("evidence", "info", "Evidence created: %s (%s) - %s", evidence.id, evidence.type, evidence.description)
     end
 
     -- Emit event
     if DCE and DCE.Emit then
-        DCE.Emit("evidence:item:created", {
+        DCE:Emit("evidence:item:created", {
             eventName = "evidence:item:created",
             eventVersion = 1,
             timestamp = os.time(),
@@ -216,7 +216,7 @@ function EvidenceService.TransferEvidence(evidenceId, from, to, reason)
         table.insert(custodyRecords[evidenceId], custody)
 
         if DCE and DCE.Emit then
-            DCE.Emit("evidence:item:transferred", {
+            DCE:Emit("evidence:item:transferred", {
                 eventName = "evidence:item:transferred",
                 eventVersion = 1,
                 timestamp = os.time(),
@@ -263,7 +263,7 @@ function EvidenceService.VerifyEvidence(evidenceId)
     end
 
     if DCE and DCE.Emit then
-        DCE.Emit("evidence:item:verified", {
+        DCE:Emit("evidence:item:verified", {
             eventName = "evidence:item:verified",
             eventVersion = 1,
             timestamp = os.time(),
@@ -306,7 +306,7 @@ end
 
 function EvidenceService.Shutdown()
     if DCE and DCE.Log then
-        DCE.Log("evidence", "info", "Evidence Service shutting down...")
+        DCE:Log("evidence", "info", "Evidence Service shutting down...")
     end
     for id, _ in pairs(evidenceRegistry) do
         evidenceRegistry[id] = nil
@@ -314,7 +314,7 @@ function EvidenceService.Shutdown()
     end
     isInitialized = false
     if DCE and DCE.Log then
-        DCE.Log("evidence", "info", "Evidence Service shutdown complete")
+        DCE:Log("evidence", "info", "Evidence Service shutdown complete")
     end
 end
 

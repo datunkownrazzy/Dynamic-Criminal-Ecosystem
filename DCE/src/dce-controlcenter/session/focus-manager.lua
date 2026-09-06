@@ -2,6 +2,11 @@
 -- SOLE OWNER of SetNuiFocus - ONLY this file may call this native
 -- Per ADR-0026: Every focus change is logged with full context
 -- Registered with DCE Core via DCE:RegisterService() - never globals
+--
+-- Sprint 1.11.6 FiveM Loader Compliance:
+--   fxmanifest.lua declares dependencies { 'dce-core' }, which per the FiveM
+--   resource manifest reference REQUIRES dce-core to load and fully start
+--   BEFORE this resource executes any script. No polling, no Wait(), no retries.
 
 local FocusManager = {}
 local dceCoreReady = false
@@ -15,18 +20,18 @@ local currentSessionId = nil
 
 local function ConnectToCore()
     if dceCoreReady then return true end
-    if GetResourceState('dce-core') ~= 'started' then return false end
+    -- Deterministic: dce-core is guaranteed started by the dependency directive.
     DCE = exports['dce-core']:GetDCEAPI()
     if not DCE then return false end
-    EventBus = DCE.GetService and DCE.GetService("EventBus")
-    Logger = DCE.GetService and DCE.GetService("Logger")
+    EventBus = DCE.GetService and DCE:GetService("EventBus")
+    Logger = DCE.GetService and DCE:GetService("Logger")
     dceCoreReady = true
     return true
 end
 
 local function log(level, message)
     if Logger and Logger.Log then
-        Logger.Log("focus", level, message)
+        Logger:Log("focus", level, message)
     else
         print(("[DCE Focus] %s: %s"):format(level, message))
     end
@@ -34,7 +39,7 @@ end
 
 local function logFocusChange(hasFocus, hasCursor, stateBefore, caller, reason)
     ConnectToCore()
-    local timestamp = GetGameTimer and (GetGameTimer() * 1000) or (os.time() * 1000)
+    local timestamp = GetGameTimer and (GetGameTimer() * 1000) or 0
     local stack = debug and debug.traceback and debug.traceback() or "disabled"
     
     print(("[DCE-FOCUS][%s] ts=%d | before=%s | focus=%s | cursor=%s | caller=%s | reason=%s | session=%s")
@@ -43,7 +48,7 @@ local function logFocusChange(hasFocus, hasCursor, stateBefore, caller, reason)
                 tostring(currentSessionId or "none")))
     
     if EventBus and EventBus.Emit then
-        EventBus.Emit("controlcenter:focus:" .. (hasFocus and "acquired" or "released"), {
+        EventBus:Emit("controlcenter:focus:" .. (hasFocus and "acquired" or "released"), {
             eventVersion = 1, timestamp = timestamp, source = "focus-manager",
             payload = { hasFocus = hasFocus, hasCursor = hasCursor, sessionId = currentSessionId, caller = caller, reason = reason }
         })
@@ -113,12 +118,10 @@ end
 
 AddEventHandler("onClientResourceStart", function(resourceName)
     if GetCurrentResourceName() ~= resourceName then return end
-    local attempts = 0
-    while not ConnectToCore() and attempts < 50 do
-        Wait(100); attempts = attempts + 1
-    end
+    -- Deterministic single-pass init. No polling, no Wait(), no retries.
+    ConnectToCore()
     if DCE and DCE.RegisterService then
-        DCE.RegisterService("FocusManager", FocusManager)
+        DCE:RegisterService("FocusManager", FocusManager)
         log("info", "FocusManager registered with DCE Core")
     end
 end)

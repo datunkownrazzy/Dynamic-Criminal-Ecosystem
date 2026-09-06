@@ -5,7 +5,6 @@
  * This file ONLY provides DCE.NUI.post and the lazy loader.
  * NO application logic exists here.
  * NO DCE.Bus, NO DCE.Workspace, NO boot data storage, NO message routing for DCE subsystems.
- * Exactly ~50 lines.
  * 
  * Lazy Loading Contract:
  * - bootstrap.js loads at resource start (unavoidable FiveM constraint)
@@ -30,8 +29,16 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data || {})
             })
-            .then(function(response) { return response.ok ? response.json() : null; })
-            .catch(function() { return null; });
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('NUI request failed: ' + action + ' (' + response.status + ')');
+                }
+                return response.json();
+            })
+            .catch(function(error) {
+                console.error('[DCE NUI] Request failed:', action, error);
+                throw error;
+            });
         }
     };
     
@@ -90,7 +97,19 @@
         var data = event.data;
         if (!data || !data.action) return;
         if (data.action === 'application:boot') {
-            DCE.Loader.loadScript('js/application/application-manager.js');
+            // Load application-manager.js, then invoke Boot() with the sessionId.
+            // The Lua side sends SendNUIMessage({ action = "application:boot", data = { sessionId = ... } })
+            // so the sessionId is at data.data.sessionId, not data.sessionId.
+            var sessionId = data.data && data.data.sessionId;
+            DCE.Loader.loadScript('js/application/application-manager.js')
+                .then(function() {
+                    if (DCE.Application && DCE.Application.Boot) {
+                        DCE.Application.Boot(sessionId);
+                    }
+                })
+                .catch(function(err) {
+                    console.error('[DCE Bootstrap] Failed to load application-manager:', err);
+                });
         }
     });
     

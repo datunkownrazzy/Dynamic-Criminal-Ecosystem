@@ -31,7 +31,7 @@ function AIDirectorService.Initialize()
     end
 
     if DCE and DCE.Log then
-        DCE.Log("ai", "info", "AI Director initializing...")
+        DCE:Log("ai", "info", "AI Director initializing...")
     end
 
     -- Load activity definitions
@@ -40,13 +40,13 @@ function AIDirectorService.Initialize()
         if Activity.New then
             activities[id] = Activity.New(id, data)
             if DCE and DCE.Log then
-                DCE.Log("ai", "info", "  Activity loaded: %s", id)
+                DCE:Log("ai", "info", "  Activity loaded: %s", id)
             end
         end
     end
 
     if DCE and DCE.Log then
-        DCE.Log("ai", "info", "AI Director initialized with %d activity types", #activityData)
+        DCE:Log("ai", "info", "AI Director initialized with %d activity types", #activityData)
     end
     isInitialized = true
 end
@@ -100,7 +100,7 @@ function AIDirectorService.EvaluateOrganization(orgId)
     local orgState = org:GetState()
 
     -- Get world state context
-    local World = DCE and DCE.GetService and DCE.GetService("World")
+    local World = DCE and DCE.GetService and DCE:GetService("World")
     if not World then
         return nil
     end
@@ -174,7 +174,7 @@ function AIDirectorService.EvaluateOrganization(orgId)
 
     -- Emit the decision event
     if DCE and DCE.Emit then
-        DCE.Emit("organization:activity:started", {
+        DCE:Emit("organization:activity:started", {
             eventName = "organization:activity:started",
             eventVersion = 1,
             timestamp = os.time(),
@@ -191,7 +191,7 @@ function AIDirectorService.EvaluateOrganization(orgId)
     end
 
     if DCE and DCE.Log then
-        DCE.Log("ai", "info", "AI Director: %s selected '%s' in %s (score: %d)",
+        DCE:Log("ai", "info", "AI Director: %s selected '%s' in %s (score: %d)",
             orgId, selected.activityId, selected.regionId, selected.score)
     end
 
@@ -206,7 +206,7 @@ end
 ---@param decision table
 function AIDirectorService.EmitDecisionExecuted(decision)
     if DCE and DCE.Emit then
-        DCE.Emit("ai:director:decision:executed", {
+        DCE:Emit("ai:director:decision:executed", {
             eventName = "ai:director:decision:executed",
             eventVersion = 1,
             timestamp = os.time(),
@@ -235,14 +235,14 @@ end
 
 function AIDirectorService.Shutdown()
     if DCE and DCE.Log then
-        DCE.Log("ai", "info", "AI Director shutting down...")
+        DCE:Log("ai", "info", "AI Director shutting down...")
     end
     for orgId, _ in pairs(activeDecisions) do
         activeDecisions[orgId] = nil
     end
     isInitialized = false
     if DCE and DCE.Log then
-        DCE.Log("ai", "info", "AI Director shutdown complete")
+        DCE:Log("ai", "info", "AI Director shutdown complete")
     end
 end
 

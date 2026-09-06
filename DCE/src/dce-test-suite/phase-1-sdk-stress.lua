@@ -104,36 +104,45 @@ function Phase1.Run(suite)
     -- ====================================
 
     -- DCE.GetService — retrieve a registered service
-    local registryService = dce.GetService("CoreRegistry")
-    H().RecordSuccess(result, H().AssertNotNil(registryService, "DCE.GetService('CoreRegistry')"))
+    local registryService = dce:GetService("CoreRegistry")
+    H().RecordSuccess(result, H().AssertNotNil(registryService, "DCE:GetService('CoreRegistry')"))
 
     -- DCE.HasService — check service existence
-    local hasLogger = dce.HasService("Logger")
-    H().RecordSuccess(result, H().Assert(hasLogger == true, "DCE.HasService('Logger')"))
+    local hasLogger = dce:HasService("Logger")
+    H().RecordSuccess(result, H().Assert(hasLogger == true, "DCE:HasService('Logger')"))
 
-    local hasFake = dce.HasService("NonExistentService")
-    H().RecordSuccess(result, H().Assert(hasFake == false, "DCE.HasService('NonExistentService') false"))
+    local hasFake = dce:HasService("NonExistentService")
+    H().RecordSuccess(result, H().Assert(hasFake == false, "DCE:HasService('NonExistentService') false"))
 
     -- DCE.RegisterService — register a new service
     local testService = {
         Name = "dce-test-service",
         TestMethod = function() return true end,
     }
-    local regOk = dce.RegisterService("DCEPhase1TestService", testService)
-    H().RecordSuccess(result, H().Assert(regOk == true, "DCE.RegisterService('DCEPhase1TestService')"))
+    local regOk = dce:RegisterService("DCEPhase1TestService", testService)
+    H().RecordSuccess(result, H().Assert(regOk == true, "DCE:RegisterService('DCEPhase1TestService')"))
 
-    -- DCE.GetServiceOrThrow — retrieve or throw
-    local ok, err = pcall(dce.GetServiceOrThrow, "DCEPhase1TestService")
-    H().RecordSuccess(result, H().Assert(ok and err ~= nil, "DCE.GetServiceOrThrow('DCEPhase1TestService')"))
+    -- DCE.GetService — retrieve the registered test service
+    local retrieved = dce:GetService("DCEPhase1TestService")
+    H().RecordSuccess(result, H().AssertNotNil(retrieved, "DCE:GetService('DCEPhase1TestService') returns service"))
+    if retrieved then
+        -- CONTRACT (Sprint 1.11.12): the service table crosses the FiveM
+        -- boundary, so its methods are callable FunctionRef tables. Validate
+        -- callability, not type() == "function".
+        H().RecordSuccess(result, H().Assert(H().IsCallable(retrieved.TestMethod),
+            "DCE:GetService('DCEPhase1TestService').TestMethod is callable"))
+    end
 
-    local ok2, err2 = pcall(dce.GetServiceOrThrow, "NonExistentService")
-    H().RecordSuccess(result, H().Assert(not ok2, "DCE.GetServiceOrThrow('NonExistentService') throws error"))
+    -- DCE.HasService — verify the service exists before unregistering
+    local hasBeforeUnreg = dce:HasService("DCEPhase1TestService")
+    H().RecordSuccess(result, H().Assert(hasBeforeUnreg == true,
+        "DCE:HasService('DCEPhase1TestService') true before unregister"))
 
     -- DCE.UnregisterService — unregister a service
-    local unregOk = dce.UnregisterService("DCEPhase1TestService")
-    H().RecordSuccess(result, H().Assert(unregOk == true, "DCE.UnregisterService('DCEPhase1TestService')"))
+    local unregOk = dce:UnregisterService("DCEPhase1TestService")
+    H().RecordSuccess(result, H().Assert(unregOk == true, "DCE:UnregisterService('DCEPhase1TestService')"))
 
-    local hasAfter = dce.HasService("DCEPhase1TestService")
+    local hasAfter = dce:HasService("DCEPhase1TestService")
     H().RecordSuccess(result, H().Assert(hasAfter == false, "Service unregistered: HasService false"))
 
     -- ====================================
@@ -142,10 +151,10 @@ function Phase1.Run(suite)
 
     -- DCE.On — subscribe to an event
     local receivedPayload = nil
-    local handlerId = dce.On("test:sdk:event", function(payload)
+    local handlerId = dce:On("test:sdk:event", function(payload)
         receivedPayload = payload
     end)
-    H().RecordSuccess(result, H().AssertNotNil(handlerId, "DCE.On('test:sdk:event') returns handler ID"))
+    H().RecordSuccess(result, H().AssertNotNil(handlerId, "DCE:On('test:sdk:event') returns handler ID"))
 
     -- DCE.Emit — emit an event
     local testPayload = {
@@ -154,7 +163,7 @@ function Phase1.Run(suite)
         source = "dce-test-suite",
         payload = { data = "test-data", value = 42 },
     }
-    dce.Emit("test:sdk:event", testPayload)
+    dce:Emit("test:sdk:event", testPayload)
     H().RecordSuccess(result, H().Assert(receivedPayload ~= nil, "DCE.Emit: handler received payload"))
     if receivedPayload then
         H().RecordSuccess(result, H().Assert(receivedPayload.payload.data == "test-data",
@@ -163,23 +172,23 @@ function Phase1.Run(suite)
 
     -- DCE.Once — subscribe for one emission
     local onceCount = 0
-    local onceId = dce.Once("test:sdk:once", function()
+    local onceId = dce:Once("test:sdk:once", function()
         onceCount = onceCount + 1
     end)
-    H().RecordSuccess(result, H().AssertNotNil(onceId, "DCE.Once('test:sdk:once') returns handler ID"))
+    H().RecordSuccess(result, H().AssertNotNil(onceId, "DCE:Once('test:sdk:once') returns handler ID"))
 
-    dce.Emit("test:sdk:once", testPayload)
-    dce.Emit("test:sdk:once", testPayload)
+    dce:Emit("test:sdk:once", testPayload)
+    dce:Emit("test:sdk:once", testPayload)
     H().RecordSuccess(result, H().Assert(onceCount == 1,
         "DCE.Once: handler fires exactly once (count=" .. onceCount .. ")"))
 
     -- DCE.Off — unsubscribe from an event
-    local offResult = dce.Off("test:sdk:event", handlerId)
+    local offResult = dce:Off("test:sdk:event", handlerId)
     H().RecordSuccess(result, H().Assert(offResult == nil or offResult == true,
-        "DCE.Off('test:sdk:event') unsubscribes"))
+        "DCE:Off('test:sdk:event') unsubscribes"))
 
     receivedPayload = nil
-    dce.Emit("test:sdk:event", testPayload)
+    dce:Emit("test:sdk:event", testPayload)
     H().RecordSuccess(result, H().Assert(receivedPayload == nil,
         "DCE.Off: handler no longer receives events"))
 
@@ -189,19 +198,19 @@ function Phase1.Run(suite)
 
     -- DCE.Schedule — schedule a task
     local taskRunCount = 0
-    local schedOk = dce.Schedule("dce:sdk:test:task", 1000, function()
+    local schedOk = dce:Schedule("dce:sdk:test:task", 1000, function()
         taskRunCount = taskRunCount + 1
     end)
-    H().RecordSuccess(result, H().Assert(schedOk == true, "DCE.Schedule('dce:sdk:test:task')"))
+    H().RecordSuccess(result, H().Assert(schedOk == true, "DCE:Schedule('dce:sdk:test:task')"))
 
     -- DCE.ScheduleNow — execute immediately
-    local execOk = dce.ScheduleNow("dce:sdk:test:task")
-    H().RecordSuccess(result, H().Assert(execOk == true, "DCE.ScheduleNow('dce:sdk:test:task')"))
+    local execOk = dce:ScheduleNow("dce:sdk:test:task")
+    H().RecordSuccess(result, H().Assert(execOk == true, "DCE:ScheduleNow('dce:sdk:test:task')"))
 
     -- Clean up via scheduler service
-    local scheduler = dce.GetService("Scheduler")
+    local scheduler = dce:GetService("Scheduler")
     if scheduler and scheduler.Unschedule then
-        scheduler.Unschedule("dce:sdk:test:task")
+        scheduler:Unschedule("dce:sdk:test:task")
     end
 
     -- ====================================
@@ -209,76 +218,77 @@ function Phase1.Run(suite)
     -- ====================================
 
     -- DCE.RegisterPlugin — register a plugin
-    local pluginOk, pluginErr = dce.RegisterPlugin(mockPlugin)
+    local pluginOk, pluginErr = dce:RegisterPlugin(mockPlugin)
     H().RecordSuccess(result, H().Assert(pluginOk == true or pluginOk == nil,
-        "DCE.RegisterPlugin(mockPlugin): " .. tostring(pluginErr or "ok")))
+        "DCE:RegisterPlugin(mockPlugin): " .. tostring(pluginErr or "ok")))
 
     -- Try duplicate registration
-    local pluginOk2 = dce.RegisterPlugin(mockPlugin)
+    local pluginOk2 = dce:RegisterPlugin(mockPlugin)
     H().RecordSuccess(result, H().Assert(pluginOk2 == false or pluginOk2 == nil,
-        "DCE.RegisterPlugin(duplicate) returns false"))
+        "DCE:RegisterPlugin(duplicate) returns false"))
 
     -- ====================================
     -- 5. SDK Registration APIs (SDK)
     -- ====================================
 
-    -- DCE.RegisterOrganization
-    local orgOk = dce.RegisterOrganization(mockOrg)
-    H().RecordSuccess(result, H().Assert(orgOk == true,
-        "DCE.RegisterOrganization(mockOrg)"))
+    -- Canonical SDK registry API (Sprint 1.11.7): adapter/organization/behavior
+    -- registration is performed via DCE:RegisterService per consumer ownership.
+    -- Verify the canonical pattern instead of non-existent SDK methods:
+    -- Register a service via DCE:RegisterService (already tested above), then
+    -- verify it can be listed and retrieved.
+    local listServices = dce:ListServices()
+    H().RecordSuccess(result, H().Assert(type(listServices) == "table",
+        "DCE:ListServices() returns table"))
+    if type(listServices) == "table" then
+        local hasLogger = false
+        for _, name in ipairs(listServices) do
+            if name == "Logger" then hasLogger = true break end
+        end
+        H().RecordSuccess(result, H().Assert(hasLogger,
+            "DCE:ListServices() contains 'Logger'"))
+    end
 
-    -- DCE.RegisterDispatchAdapter
-    local dispatchOk = dce.RegisterDispatchAdapter(mockDispatchAdapter)
-    H().RecordSuccess(result, H().Assert(dispatchOk == true,
-        "DCE.RegisterDispatchAdapter(mockDispatchAdapter)"))
-
-    -- DCE.RegisterEvidenceAdapter
-    local evidenceOk = dce.RegisterEvidenceAdapter({
-        Name = "dce-test-evidence",
-        Version = "1.0.0",
-    })
-    H().RecordSuccess(result, H().Assert(evidenceOk == true,
-        "DCE.RegisterEvidenceAdapter()"))
-
-    -- DCE.RegisterMDTAdapter
-    local mdtOk = dce.RegisterMDTAdapter({
-        Name = "dce-test-mdt",
-        Version = "1.0.0",
-    })
-    H().RecordSuccess(result, H().Assert(mdtOk == true,
-        "DCE.RegisterMDTAdapter()"))
-
-    -- DCE.RegisterBehavior
-    local behaviorOk = dce.RegisterBehavior({
-        type = "test-behavior",
-        priority = 1,
-    })
-    H().RecordSuccess(result, H().Assert(behaviorOk == true,
-        "DCE.RegisterBehavior()"))
-
-    -- DCE.RegisterEscalationChain
-    local escOk = dce.RegisterEscalationChain({
-        id = "test-escalation-001",
-        steps = {"step1", "step2"},
-    })
-    H().RecordSuccess(result, H().Assert(escOk == true,
-        "DCE.RegisterEscalationChain()"))
+    -- Verify RegisterPlugin (the canonical plugin registration path)
+    local pluginRegistered = dce:GetService("PluginManager") ~= nil
+    H().RecordSuccess(result, H().Assert(pluginRegistered,
+        "PluginManager service available via DCE.GetService"))
 
     -- ====================================
     -- 6. Config & Logger API Tests (SDK)
     -- ====================================
 
     -- DCE.GetVersion
-    local version = dce.GetVersion()
-    H().RecordSuccess(result, H().AssertString(version, "DCE.GetVersion() returns string"))
+    local version = dce:GetVersion()
+    H().RecordSuccess(result, H().AssertEqual(version, "1.11.7",
+        "DCE:GetVersion() returns canonical version"))
 
-    -- DCE.Log
-    local logOk = pcall(dce.Log, "dce-test-suite", "info", "SDK stress test log message")
-    H().RecordSuccess(result, H().Assert(logOk, "DCE.Log works without error"))
+    local snapshot = dce:GetSnapshot()
+    H().RecordSuccess(result, H().Assert(snapshot and snapshot.version == version,
+        "DCE:GetSnapshot().version matches DCE:GetVersion()"))
+
+    local coreRegistry = dce:GetService("CoreRegistry")
+    H().RecordSuccess(result, H().Assert(coreRegistry and H().IsCallable(coreRegistry.GetDCEVersion)
+        and coreRegistry:GetDCEVersion() == version,
+        "CoreRegistry:GetDCEVersion() matches DCE:GetVersion()"))
+
+    -- DCE.Log (canonical single logger surface)
+    local logOk = pcall(function() dce:Log("dce-test-suite", "info", "SDK stress test log message") end)
+    H().RecordSuccess(result, H().Assert(logOk, "DCE:Log works without error"))
 
     -- DCE.LoadConfig — call but don't expect file to exist in test
-    local configOk, configErr = pcall(dce.LoadConfig, "nonexistent-config.json")
-    H().RecordSuccess(result, H().Assert(true, "DCE.LoadConfig() callable without error"))
+    local configOk = pcall(function() dce:LoadConfig("nonexistent-config.json") end)
+    H().RecordSuccess(result, H().Assert(true, "DCE:LoadConfig() callable without error"))
+
+    -- Canonical Logger surface: ONLY DCE.Log exists.
+    -- The obsolete aliases (LogError/LogInfo/LogWarn/LogDebug) are REMOVED.
+    H().RecordSuccess(result, H().Assert(dce.LogError == nil,
+        "DCE.LogError removed (canonical: DCE:Log)"))
+    H().RecordSuccess(result, H().Assert(dce.LogInfo == nil,
+        "DCE.LogInfo removed (canonical: DCE:Log)"))
+    H().RecordSuccess(result, H().Assert(dce.LogWarn == nil,
+        "DCE.LogWarn removed (canonical: DCE:Log)"))
+    H().RecordSuccess(result, H().Assert(dce.LogDebug == nil,
+        "DCE.LogDebug removed (canonical: DCE:Log)"))
 
     -- ====================================
     -- 7. Exports API Tests (SDK)
@@ -297,16 +307,16 @@ function Phase1.Run(suite)
     -- ====================================
 
     -- Verify that no test created new services in CoreRegistry that shouldn't exist
-    local coreRegistry = dce.GetService("CoreRegistry")
+    local coreRegistry = dce:GetService("CoreRegistry")
     if coreRegistry then
-        local services = coreRegistry.ListServices()
-        H().RecordSuccess(result, H().AssertNotNil(services, "CoreRegistry.ListServices() works"))
+        local services = coreRegistry:ListServices()
+        H().RecordSuccess(result, H().AssertNotNil(services, "CoreRegistry:ListServices() works"))
     end
 
-    -- Clean up test registrations via plugin architecture service
-    local pluginArch = dce.GetService("PluginArchitecture")
-    if pluginArch and pluginArch.Clear then
-        pluginArch.Clear()
+    -- Clean up test registrations via canonical PluginManager (colon-call)
+    local pluginManager = dce:GetService("PluginManager")
+    if pluginManager and pluginManager.Clear then
+        pluginManager:Clear()
     end
 
     return H().FinalizePhaseResult(result)

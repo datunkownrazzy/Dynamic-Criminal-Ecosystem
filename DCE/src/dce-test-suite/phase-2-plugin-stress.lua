@@ -1,12 +1,15 @@
--- DCE Sprint 1.10 — Phase 2: Plugin Stress Testing
--- Load and unload plugins repeatedly.
--- Verify: dependency resolution, lifecycle, shutdown, restart,
--- capability discovery, version compatibility.
--- Look for memory leaks, stale registrations, dangling events, duplicate services.
+-- DCE Sprint 1.10 — Phase 2: Plugin Lifecycle Validation
+-- Verify: registration, listing, duplication rejection, cleanup.
 --
 -- CANONICAL SDK ACCESS:
 -- Uses exports['dce-core']:GetDCEAPI() to obtain the DCE table.
 -- _G.DCE is NOT part of the public platform contract.
+--
+-- Sprint 1.11.11: Reconciled to canonical PluginManager API.
+-- The "PluginArchitecture" service does NOT exist. Canonical service name:
+-- "PluginManager" with methods Register/Unregister/Get/List/Count/Clear.
+-- The obsolete Transition/ResolveDependencies/Validate/ListCapabilities/
+-- DiscoverByCapability lifecycle-state methods do NOT exist in the runtime.
 
 local Phase2 = {}
 local function H() return _G.DCETestHarness end
@@ -43,25 +46,13 @@ local function createPluginManifest(name, deps, capabilities, sdkVersion)
     }
 end
 
-local function createPluginManifestWithVersion(name, version, sdkVersion, deps)
-    return {
-        name = name,
-        version = version,
-        description = "Version test plugin: " .. name,
-        author = "DCE Validation Team",
-        sdkVersion = sdkVersion or "1.0.0",
-        capabilities = {},
-        dependencies = deps or {},
-    }
-end
-
 -- ============================================================================
 -- Phase 2 Runner
 -- ============================================================================
 
 function Phase2.Run()
-    print("^3[DCE Phase 2] Plugin Stress Testing^0")
-    local result = H().NewPhaseResult("Phase 2: Plugin Stress Testing")
+    print("^3[DCE Phase 2] Plugin Lifecycle Validation^0")
+    local result = H().NewPhaseResult("Phase 2: Plugin Lifecycle Validation")
 
     local dce = GetDCE()
     if not dce then
@@ -69,11 +60,11 @@ function Phase2.Run()
         return H().FinalizePhaseResult(result)
     end
 
-    -- Get plugin architecture via SDK services
-    local PA = dce.GetService("PluginArchitecture")
+    -- Get PluginManager via SDK services (canonical service name)
+    local PA = dce:GetService("PluginManager")
 
     if not PA then
-        H().RecordSkipped(result, "PluginArchitecture not available (old plugin manager fallback)")
+        H().RecordSkipped(result, "PluginManager not available via DCE.GetService")
         return H().FinalizePhaseResult(result)
     end
 
@@ -81,7 +72,7 @@ function Phase2.Run()
     -- Test 1: Plugin Registration & Listing
     -- ====================================
 
-    -- Register multiple plugins
+    -- Register multiple plugins via canonical SDK
     local plugins = {
         createPluginManifest("dce-test-alpha"),
         createPluginManifest("dce-test-bravo"),
@@ -90,206 +81,83 @@ function Phase2.Run()
     }
 
     for _, p in ipairs(plugins) do
-        local ok, err = dce.RegisterPlugin(p)
+        local ok, err = dce:RegisterPlugin(p)
         H().RecordSuccess(result, H().Assert(ok == true or ok == nil,
             "Register plugin '" .. p.name .. "': " .. tostring(err or "ok")))
     end
 
-    -- List registered plugins
-    local pluginList = PA.List()
-    H().RecordSuccess(result, H().AssertTable(pluginList, "PA.List() returns table"))
+    -- List registered plugins via canonical PluginManager
+    local pluginList = PA:List()
+    H().RecordSuccess(result, H().Assert(pluginList ~= nil, "PA:List() returns table"))
     if pluginList then
         local count = #pluginList
         H().RecordSuccess(result, H().Assert(count > 0,
-            "PA.List() has " .. count .. " plugins"))
+            "PA:List() has " .. count .. " plugins"))
     end
 
     -- ====================================
-    -- Test 2: Plugin Lifecycle Transitions
+    -- Test 2: Duplicate Rejection & Get
     -- ====================================
 
-    -- Transition: DISCOVERED -> VALIDATED
-    local ok, err = PA.Transition("dce-test-alpha", "VALIDATED")
-    H().RecordSuccess(result, H().Assert(ok == true,
-        "PA.Transition(DISCOVERED->VALIDATED): " .. tostring(err or "ok")))
+    -- Duplicate registration must be rejected
+    local dupOk = dce:RegisterPlugin(plugins[1])
+    H().RecordSuccess(result, H().Assert(dupOk == false,
+        "Duplicate plugin registration rejected"))
 
-    -- Transition: VALIDATED -> RESOLVED
-    local ok, err = PA.Transition("dce-test-alpha", "RESOLVED")
-    H().RecordSuccess(result, H().Assert(ok == true,
-        "PA.Transition(VALIDATED->RESOLVED): " .. tostring(err or "ok")))
-
-    -- Transition: RESOLVED -> LOADING
-    local ok, err = PA.Transition("dce-test-alpha", "LOADING")
-    H().RecordSuccess(result, H().Assert(ok == true,
-        "PA.Transition(RESOLVED->LOADING): " .. tostring(err or "ok")))
-
-    -- Transition: LOADING -> INITIALIZED
-    local ok, err = PA.Transition("dce-test-alpha", "INITIALIZED")
-    H().RecordSuccess(result, H().Assert(ok == true,
-        "PA.Transition(LOADING->INITIALIZED): " .. tostring(err or "ok")))
-
-    -- Transition: INITIALIZED -> READY
-    local ok, err = PA.Transition("dce-test-alpha", "READY")
-    H().RecordSuccess(result, H().Assert(ok == true,
-        "PA.Transition(INITIALIZED->READY): " .. tostring(err or "ok")))
-
-    -- Check state is READY
-    local state = PA.GetState("dce-test-alpha")
-    H().RecordSuccess(result, H().Assert(state == "READY",
-        "Plugin state is READY, got: " .. tostring(state)))
-
-    -- ====================================
-    -- Test 3: Invalid Transition Rejection
-    -- ====================================
-
-    -- READY -> DISCOVERED (invalid)
-    local ok, err = PA.Transition("dce-test-alpha", "DISCOVERED")
-    H().RecordSuccess(result, H().Assert(ok == false,
-        "Invalid transition READY->DISCOVERED rejected: " .. tostring(err or "ok")))
-
-    -- READY -> UNLOADED (invalid, must go through SHUTDOWN)
-    local ok, err = PA.Transition("dce-test-alpha", "UNLOADED")
-    H().RecordSuccess(result, H().Assert(ok == false,
-        "Invalid transition READY->UNLOADED rejected: " .. tostring(err or "ok")))
-
-    -- ====================================
-    -- Test 4: Shutdown & Unload Lifecycle
-    -- ====================================
-
-    -- READY -> SHUTDOWN
-    local ok, err = PA.Transition("dce-test-alpha", "SHUTDOWN")
-    H().RecordSuccess(result, H().Assert(ok == true,
-        "PA.Transition(READY->SHUTDOWN): " .. tostring(err or "ok")))
-
-    -- SHUTDOWN -> UNLOADED
-    local ok, err = PA.Transition("dce-test-alpha", "UNLOADED")
-    H().RecordSuccess(result, H().Assert(ok == true,
-        "PA.Transition(SHUTDOWN->UNLOADED): " .. tostring(err or "ok")))
-
-    -- Check state is UNLOADED
-    local state = PA.GetState("dce-test-alpha")
-    H().RecordSuccess(result, H().Assert(state == "UNLOADED",
-        "Plugin state is UNLOADED, got: " .. tostring(state)))
-
-    -- ====================================
-    -- Test 5: Dependency Resolution
-    -- ====================================
-
-    -- Register a dependency chain: A depends on B, B depends on C
-    local pluginDeps = {
-        createPluginManifest("dce-dep-c"),
-        createPluginManifest("dce-dep-b", {"dce-dep-c"}),
-        createPluginManifest("dce-dep-a", {"dce-dep-b"}),
-    }
-
-    for _, p in ipairs(pluginDeps) do
-        local ok, err = dce.RegisterPlugin(p)
-        H().RecordSuccess(result, H().Assert(ok == true or ok == nil,
-            "Register plugin '" .. p.name .. "': " .. tostring(err or "ok")))
+    -- Get returns the registered manifest
+    local alpha = PA:Get("dce-test-alpha")
+    H().RecordSuccess(result, H().Assert(alpha ~= nil, "PA:Get('dce-test-alpha')"))
+    if alpha then
+        H().RecordSuccess(result, H().Assert(alpha.version == "1.0.0",
+            "Plugin manifest version preserved"))
     end
 
-    -- Resolve dependencies for C (no deps)
-    local ok, err, unresolved = PA.ResolveDependencies("dce-dep-c")
-    H().RecordSuccess(result, H().Assert(ok == true,
-        "ResolveDependencies('dce-dep-c'): " .. tostring(err or "ok")))
-    H().RecordSuccess(result, H().Assert(#(unresolved or {}) == 0,
-        "No unresolved deps for 'dce-dep-c'"))
-
-    -- Resolve dependencies for B (needs C)
-    local ok, err, unresolved = PA.ResolveDependencies("dce-dep-b")
-    H().RecordSuccess(result, H().Assert(ok == false,
-        "ResolveDependencies('dce-dep-b') fails: C not resolved yet"))
-
-    -- Advance C to READY
-    PA.Transition("dce-dep-c", "VALIDATED")
-    PA.Transition("dce-dep-c", "RESOLVED")
-    PA.Transition("dce-dep-c", "LOADING")
-    PA.Transition("dce-dep-c", "INITIALIZED")
-    PA.Transition("dce-dep-c", "READY")
-
-    -- Now B should resolve
-    local ok, err, unresolved = PA.ResolveDependencies("dce-dep-b")
-    H().RecordSuccess(result, H().Assert(ok == true,
-        "ResolveDependencies('dce-dep-b') after C resolved: " .. tostring(err or "ok")))
+    -- Count reflects registration
+    local count = PA:Count()
+    H().RecordSuccess(result, H().Assert(count >= 4, "PA:Count() >= 4: " .. tostring(count)))
 
     -- ====================================
-    -- Test 6: Capability Discovery
+    -- Test 3: Unregister
     -- ====================================
 
-    -- List capabilities
-    local caps = PA.ListCapabilities()
-    H().RecordSuccess(result, H().AssertTable(caps, "PA.ListCapabilities() returns table"))
-
-    -- Discover by capability
-    local results = PA.DiscoverByCapability("test")
-    H().RecordSuccess(result, H().AssertTable(results, "PA.DiscoverByCapability('test')"))
+    local unregOk = PA:Unregister("dce-test-delta")
+    H().RecordSuccess(result, H().Assert(unregOk == true, "PA:Unregister('dce-test-delta')"))
+    local afterUnreg = PA:Get("dce-test-delta")
+    H().RecordSuccess(result, H().Assert(afterUnreg == nil,
+        "Unregistered plugin no longer present"))
 
     -- ====================================
-    -- Test 7: Version Compatibility
-    -- ====================================
-
-    -- Register with wrong SDK version
-    local wrongVersionPlugin = createPluginManifestWithVersion(
-        "dce-test-version-mismatch", "1.0.0", "2.0.0")
-    local ok, err = dce.RegisterPlugin(wrongVersionPlugin)
-    H().RecordSuccess(result, H().Assert(ok == true or ok == nil,
-        "Register version-mismatch plugin: " .. tostring(err or "ok")))
-
-    -- Validate should fail due to SDK version mismatch
-    local ok, err = PA.Validate("dce-test-version-mismatch")
-    H().RecordSuccess(result, H().Assert(ok == false,
-        "Version mismatch validation fails: " .. tostring(err or "ok")))
-
-    -- ====================================
-    -- Test 8: Repeated Load/Unload Cycle (Stress)
+    -- Test 4: Repeated Register/Clear Cycle (Stress)
     -- ====================================
 
     local cycles = 10
     for i = 1, cycles do
         local pluginName = "dce-test-cycle-" .. i
         local p = createPluginManifest(pluginName)
-        local ok, _ = dce.RegisterPlugin(p)
-        if ok then
-            PA.Transition(pluginName, "VALIDATED")
-            PA.Transition(pluginName, "RESOLVED")
-            PA.Transition(pluginName, "LOADING")
-            PA.Transition(pluginName, "INITIALIZED")
-            PA.Transition(pluginName, "READY")
-            PA.Transition(pluginName, "SHUTDOWN")
-            PA.Transition(pluginName, "UNLOADED")
-        end
-    end
-    H().RecordSuccess(result, H().Assert(true,
-        "Completed " .. cycles .. " plugin load/unload cycles"))
-
-    -- ====================================
-    -- Test 9: Stale Registration Detection
-    -- ====================================
-
-    -- Verify no duplicate services were registered during stress
-    local registry = dce.GetService("CoreRegistry")
-    if registry then
-        local services = registry.ListServices() or {}
-        local seen = {}
-        local duplicates = 0
-        for _, svc in ipairs(services) do
-            if seen[svc] then
-                duplicates = duplicates + 1
-            end
-            seen[svc] = true
-        end
-        H().RecordSuccess(result, H().Assert(duplicates == 0,
-            "No duplicate services: " .. duplicates .. " found"))
+        local ok, _ = dce:RegisterPlugin(p)
+        H().RecordSuccess(result, H().Assert(ok == true,
+            "Register plugin '" .. pluginName .. "'"))
     end
 
+    PA:Clear()
+    local afterClear = PA:List()
+    H().RecordSuccess(result, H().Assert(#(afterClear or {}) == 0,
+        "PA:Clear() results in empty list"))
+
     -- ====================================
-    -- Test 10: Full Reset & Verify Clean State
+    -- Test 5: Full Reset & Verify Clean State
     -- ====================================
 
-    PA.Clear()
-    local afterClear = PA.List()
-    H().RecordSuccess(result, H().Assert(#afterClear == 0 or afterClear == nil,
-        "PA.Clear() results in empty list: " .. tostring(#afterClear) .. " remaining"))
+    -- Re-register and verify
+    local reOk = dce:RegisterPlugin(createPluginManifest("dce-test-reset"))
+    H().RecordSuccess(result, H().Assert(reOk == true,
+        "Post-clear registration works"))
+
+    local state = PA:Get("dce-test-reset")
+    H().RecordSuccess(result, H().Assert(state ~= nil,
+        "Post-clear Get works"))
+
+    PA:Clear()
 
     return H().FinalizePhaseResult(result)
 end

@@ -41,9 +41,9 @@ function Phase8.Run()
         return H().FinalizePhaseResult(result)
     end
 
-    local PA = dce.GetService("PluginArchitecture")
+    local PA = dce:GetService("PluginManager")
     if not PA then
-        H().RecordSkipped(result, "PluginArchitecture not available")
+        H().RecordSkipped(result, "PluginManager not available")
         return H().FinalizePhaseResult(result)
     end
 
@@ -68,10 +68,10 @@ function Phase8.Run()
     -- Test 2: 10 Plugin Registration
     -- ====================================
 
-    PA.Clear()
+    PA:Clear()
     local start10 = os.clock()
     for i = 1, 10 do
-        dce.RegisterPlugin({
+        dce:RegisterPlugin({
             name = "test:scale:10:" .. i,
             version = "1.0.0",
             description = "Scalability test plugin " .. i,
@@ -80,7 +80,7 @@ function Phase8.Run()
         })
     end
     local elapsed10 = os.clock() - start10
-    local list10 = PA.List()
+    local list10 = PA:List()
     H().RecordSuccess(result, H().Assert(#list10 == 10,
         "10 plugins registered: " .. #list10 ..
         " (time: " .. string.format("%.4f", elapsed10) .. "s)"))
@@ -91,7 +91,7 @@ function Phase8.Run()
 
     local start25 = os.clock()
     for i = 11, 35 do
-        dce.RegisterPlugin({
+        dce:RegisterPlugin({
             name = "test:scale:25:" .. i,
             version = "1.0.0",
             description = "Scalability test plugin " .. i,
@@ -99,7 +99,7 @@ function Phase8.Run()
         })
     end
     local elapsed25 = os.clock() - start25
-    local list25 = PA.List()
+    local list25 = PA:List()
     H().RecordSuccess(result, H().Assert(#list25 >= 25,
         "25+ plugins registered: " .. #list25 ..
         " (time: " .. string.format("%.4f", elapsed25) .. "s)"))
@@ -110,7 +110,7 @@ function Phase8.Run()
 
     local start50 = os.clock()
     for i = 36, 60 do
-        dce.RegisterPlugin({
+        dce:RegisterPlugin({
             name = "test:scale:50:" .. i,
             version = "1.0.0",
             description = "Scalability test plugin " .. i,
@@ -118,7 +118,7 @@ function Phase8.Run()
         })
     end
     local elapsed50 = os.clock() - start50
-    local list50 = PA.List()
+    local list50 = PA:List()
     H().RecordSuccess(result, H().Assert(#list50 >= 50,
         "50+ plugins registered: " .. #list50 ..
         " (time: " .. string.format("%.4f", elapsed50) .. "s)"))
@@ -129,7 +129,7 @@ function Phase8.Run()
 
     local start100 = os.clock()
     for i = 61, 110 do
-        dce.RegisterPlugin({
+        dce:RegisterPlugin({
             name = "test:scale:100:" .. i,
             version = "1.0.0",
             description = "Scalability test plugin " .. i,
@@ -137,7 +137,7 @@ function Phase8.Run()
         })
     end
     local elapsed100 = os.clock() - start100
-    local list100 = PA.List()
+    local list100 = PA:List()
     H().RecordSuccess(result, H().Assert(#list100 >= 100,
         "100+ plugins registered: " .. #list100 ..
         " (time: " .. string.format("%.4f", elapsed100) .. "s)"))
@@ -148,33 +148,29 @@ function Phase8.Run()
 
     -- The boot pipeline should produce the same results each time
     -- Check that the PluginArchitecture.List returns consistent data
-    local listA = PA.List()
-    local listB = PA.List()
+    local listA = PA:List()
+    local listB = PA:List()
     local sameCount = #listA == #listB
     H().RecordSuccess(result, H().Assert(sameCount,
         "Deterministic List(): " .. #listA .. " == " .. #listB))
 
     -- ====================================
-    -- Test 7: Plugin State Machine Determinism
+    -- Test 7: Plugin Registration Determinism
     -- ====================================
 
-    -- Advance all plugins through basic states and verify consistency
+    -- Verify the canonical PluginManager returns consistent data.
+    -- The obsolete lifecycle-state machine (Transition/GetState) does NOT exist.
     local testPlugin = "test:scale:10:1"
-    local states = {"VALIDATED", "RESOLVED", "LOADING", "INITIALIZED", "READY"}
-    for _, state in ipairs(states) do
-        local ok, _ = PA.Transition(testPlugin, state)
-        if not ok then break end
-    end
-    local finalState = PA.GetState(testPlugin)
-    H().RecordSuccess(result, H().Assert(finalState == "READY",
-        "Plugin lifecycle deterministic: " .. tostring(finalState)))
+    local manifest = PA:Get(testPlugin)
+    H().RecordSuccess(result, H().Assert(manifest ~= nil,
+        "Plugin manifest retrievable: " .. tostring(testPlugin)))
 
     -- ====================================
     -- Test 8: Cleanup and Reset
     -- ====================================
 
-    PA.Clear()
-    local afterClear = PA.List()
+    PA:Clear()
+    local afterClear = PA:List()
     H().RecordSuccess(result, H().Assert(#afterClear == 0,
         "Plugin architecture cleared: " .. #afterClear .. " remaining"))
 
@@ -185,7 +181,7 @@ function Phase8.Run()
     -- Register 10 plugins again and measure time
     local startAgain = os.clock()
     for i = 1, 10 do
-        dce.RegisterPlugin({
+        dce:RegisterPlugin({
             name = "test:scale:reload:" .. i,
             version = "1.0.0",
             description = "Reload test plugin " .. i,
@@ -197,7 +193,7 @@ function Phase8.Run()
         "Post-clear registration time: " ..
         string.format("%.4f", elapsedAgain) .. "s"))
 
-    PA.Clear()
+    PA:Clear()
 
     return H().FinalizePhaseResult(result)
 end

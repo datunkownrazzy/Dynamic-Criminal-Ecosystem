@@ -1,164 +1,69 @@
--- DCE Dispatch Service - Resource Entry Point
--- Defensive nil-check patterns are intentional for FiveM resource timing safety per ADR-0001
+-- DCE Dispatch — Sprint 1.11.6 FiveM Loader Compliance
+--
+-- PLATFORM CONSUMER.
+-- Does NOT own runtime state. Does NOT poll. Does NOT retry.
+--
+-- SDK acquisition is DIRECT and UNCONDITIONAL:
+--   local DCE = exports['dce-core']:GetDCEAPI()
+--
+-- Deterministic because fxmanifest.lua declares dependencies { 'dce-core' },
+-- which per the FiveM resource manifest reference REQUIRES dce-core to load
+-- and fully start BEFORE this resource executes any script.
+---
+---@diagnostic disable: undefined-global
 
 -- ============================================================================
--- Resource Lifecycle
+-- SDK Acquisition — Direct, single call, no polling, no retries
 -- ============================================================================
+local DCE = exports['dce-core']:GetDCEAPI()
 
-local function GetDCEAPI()
-    local DCEAPI = nil
-    local attempts = 0
-    while not DCEAPI and attempts < 50 do
-        attempts = attempts + 1
-        Citizen.Wait(100)
-        local success, api = pcall(function()
-            if exports and exports['dce-core'] and exports['dce-core'].GetDCEAPI then
-                return exports['dce-core']:GetDCEAPI()
-            end
-            return nil
-        end)
-        if success then
-            DCEAPI = api
-        end
-    end
-    return DCEAPI
+if not DCE then
+    error("dce-dispatch: exports['dce-core']:GetDCEAPI() returned nil. Add 'dce-core' to dependencies and ensure it starts first.")
 end
 
---- Get Config safely
-local function getConfig()
-    return _G.Config or {}
-end
-
-local function GetConfiguredAdapter()
-    local Config = getConfig()
-    local integration = {}
-    if Config.Dispatch and Config.Dispatch.Integration then
-        integration = Config.Dispatch.Integration
-    end
-    local mode = integration.Mode or "native"
-
-    if mode == "custom" and integration.Adapter then
-        return integration.Adapter
-    end
-
-    if mode == "ers" then
-        -- ERS adapter is optional - check at runtime
-        if _G.DCEERSDispatchAdapter and _G.DCEERSDispatchAdapter.New then
-            local adapter = _G.DCEERSDispatchAdapter.New(integration)
-            if adapter and adapter.IsAvailable and adapter:IsAvailable() then
-                return adapter
-            end
-        end
-
-        if integration.EnableStandaloneFallback ~= false then
-            if DCE and DCE.Log then
-                DCE.Log("dispatch", "warn", "ERS dispatch adapter unavailable; falling back to native standalone")
-            end
-        end
-    end
-
-    if mode == "native" or mode == "ers" or mode == "custom" then
-        local nativeAdapter = _G.DCENativeDispatchAdapter
-        if nativeAdapter and nativeAdapter.New then
-            return nativeAdapter.New()
-        end
-    end
-
-    return {}
-end
+local initialized = false
 
 local function OnDispatchStart()
-    local DCEAPI = GetDCEAPI()
-    if not DCEAPI then
-        print("^1[DCE Dispatch] FATAL: Could not obtain DCE API from dce-core^0")
-        return
-    end
-    -- _G.DCE is owned by dce-core; use the API locally
-    -- Do NOT overwrite _G.DCE to prevent race conditions
+    if initialized then return end
 
-    if DCE and DCE.Log then
-        DCE.Log("dispatch", "info", "=== DCE Dispatch Service Starting ===")
-    end
+    DCE:Log("dispatch", "info", "=== DCE Dispatch Starting ===")
 
-    -- Initialize dispatch service (DCEDispatchService is set by services/dispatch.lua at load time)
     if DCEDispatchService and DCEDispatchService.Initialize then
         DCEDispatchService.Initialize()
     end
 
-    if DCEDispatchService and DCEDispatchService.SetAdapter then
-        DCEDispatchService.SetAdapter(GetConfiguredAdapter())
-    end
+    DCE:RegisterService("Dispatch", {
+        CreateCall = function(data) return DCEDispatchService and DCEDispatchService.CreateCall(data) end,
+        GetCall = function(callId) return DCEDispatchService and DCEDispatchService.GetCall(callId) end,
+        UpdateCall = function(callId, data) return DCEDispatchService and DCEDispatchService.UpdateCall(callId, data) end,
+        CloseCall = function(callId) return DCEDispatchService and DCEDispatchService.CloseCall(callId) end,
+        GetActiveCalls = function() return DCEDispatchService and DCEDispatchService.GetActiveCalls() end,
+        GetAllCalls = function() return DCEDispatchService and DCEDispatchService.GetAllCalls() end,
+        DispatchUnit = function(unitId, callId) return DCEDispatchService and DCEDispatchService.DispatchUnit(unitId, callId) end,
+    })
 
-    -- Register the Dispatch service
-    -- Defensive patterns: return nil OR actual value for service timing safety
-    if DCE and DCE.RegisterService then
-        DCE.RegisterService("Dispatch", {
-            CreateCall = function(data) return DCEDispatchService and DCEDispatchService.CreateCall(data) end,
-            GetCallDetails = function(callId) return DCEDispatchService and DCEDispatchService.GetCallDetails(callId) end,
-            GetActiveCalls = function() return DCEDispatchService and DCEDispatchService.GetActiveCalls() end,
-            GetAllCalls = function() return DCEDispatchService and DCEDispatchService.GetAllCalls() end,
-            ActivateCall = function(callId) return DCEDispatchService and DCEDispatchService.ActivateCall(callId) end,
-            UpdateCall = function(callId, updateText) return DCEDispatchService and DCEDispatchService.UpdateCall(callId, updateText) end,
-            ResolveCall = function(callId, disposition) return DCEDispatchService and DCEDispatchService.ResolveCall(callId, disposition) end,
-            IsIncidentReported = function(incidentId) return DCEDispatchService and DCEDispatchService.IsIncidentReported(incidentId) end,
-            SetAdapter = function(adapter) 
-                if DCEDispatchService and DCEDispatchService.SetAdapter then 
-                    DCEDispatchService.SetAdapter(adapter) 
-                end 
-            end,
-        })
-    end
-
-    -- Subscribe to dispatch call requests from the scenario engine
-    if DCE and DCE.On then
-        DCE.On("dispatch:call:requested", function(payload)
-            local data = payload and (payload.payload or payload)
-            if data and DCEDispatchService and DCEDispatchService.CreateCall then
-                DCEDispatchService.CreateCall({
-                    incidentId = data.scenarioId,
-                    description = data.description or "Suspicious activity reported",
-                    regionId = data.regionId,
-                    priority = data.priority or "medium",
-                    organizationId = data.organizationId,
-                    scenarioId = data.scenarioId,
-                })
-            end
-        end)
-    end
-
-    if DCE and DCE.Log then
-        DCE.Log("dispatch", "info", "=== DCE Dispatch Service Started ===")
-    end
+    initialized = true
+    DCE:Log("dispatch", "info", "=== DCE Dispatch Started ===")
 end
 
 local function OnDispatchStop()
-    -- Safely clean up - DCE may be nil if core shut down first
-    if DCE and DCE.Log then
-        DCE.Log("dispatch", "info", "=== DCE Dispatch Service Stopping ===")
-    end
-    
-    if DCE and DCE.UnregisterService then
-        DCE.UnregisterService("Dispatch")
-    end
-    
+    if not DCE then return end
+    DCE:Log("dispatch", "info", "=== DCE Dispatch Stopping ===")
+    DCE:UnregisterService("Dispatch")
     if DCEDispatchService and DCEDispatchService.Shutdown then
         DCEDispatchService.Shutdown()
     end
-    
-    if DCE and DCE.Log then
-        DCE.Log("dispatch", "info", "=== DCE Dispatch Service Stopped ===")
-    end
+    initialized = false
+    DCE:Log("dispatch", "info", "=== DCE Dispatch Stopped ===")
 end
 
 -- ============================================================================
--- Lifecycle Hooks
+-- Lifecycle — Unconditional sticky subscription
 -- ============================================================================
-
--- Wait for events to be ready before initializing
-AddEventHandler("onResourceStart", function(resourceName)
-    if resourceName == "dce-events" then
-        OnDispatchStart()
-    end
+-- The EventBus replays sticky events to new subscribers, guaranteeing delivery
+-- even if lifecycle:running was already emitted before this resource loaded.
+DCE:On("lifecycle:running", function(payload)
+    OnDispatchStart()
 end)
 
 AddEventHandler("onResourceStop", function(resourceName)

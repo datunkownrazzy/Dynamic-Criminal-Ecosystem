@@ -6,14 +6,13 @@
 
 ---@class DCEPluginSDK
 --- DCE Plugin SDK - Registration functions for plugin authors.
---- These functions allow plugins to register organizations, adapters, behaviors, and escalation chains.
---- All SDK functions emit events that DCE services handle.
----@field RegisterOrganization fun(orgDataTable:table):(boolean, string|nil)
----@field RegisterDispatchAdapter fun(adapterTable:table):boolean
----@field RegisterEvidenceAdapter fun(adapterTable:table):boolean
----@field RegisterMDTAdapter fun(adapterTable:table):boolean
----@field RegisterBehavior fun(behaviorDataTable:table):boolean
----@field RegisterEscalationChain fun(escalationSchemaTable:table):boolean
----@field RegisterPlugin fun(manifest:table):(boolean, string|nil)
+--- The canonical SDK (Sprint 1.11.7+) registers ALL domain objects (organizations,
+--- adapters, behaviors, escalation chains) via DCE:RegisterService(name, serviceTable)
+--- per consumer ownership. The obsolete RegisterOrganization/RegisterDispatchAdapter/
+--- RegisterEvidenceAdapter/RegisterMDTAdapter/RegisterBehavior/RegisterEscalationChain
+--- methods were REMOVED. The canonical plugin registration surface is RegisterPlugin.
+--- All SDK methods are COLON-defined (self is the first parameter).
+---@field RegisterPlugin fun(self:DCEPluginSDK, manifest:table):boolean Register a plugin manifest
+---@field ListPlugins fun(self:DCEPluginSDK):string[] List registered plugin names
 ---@type DCEPluginSDK
 DCEPluginSDK = nil

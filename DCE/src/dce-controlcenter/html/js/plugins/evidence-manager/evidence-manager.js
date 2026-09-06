@@ -42,8 +42,8 @@
         render: function(container) {
             container.innerHTML = `
                 <div class="card">
-                    <div class="card-header">Evidence Manager</div>
-                    <div class="loading">Evidence and custody chain management</div>
+                    <div class="card-header">Evidence</div>
+                    <div class="page-state unavailable"><strong>Evidence data unavailable</strong><span>There are no evidence records available to display.</span></div>
                 </div>
             `;
         },

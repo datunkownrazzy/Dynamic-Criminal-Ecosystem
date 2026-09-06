@@ -5,24 +5,17 @@
 --- @class DCEEventBus
 --- Event Bus: Pub/sub mechanism for all cross-module communication.
 --- All events follow the envelope format: { eventName, eventVersion, timestamp, source, correlationId?, payload }
----@field Init fun(log:ILogger|nil):nil Initialize the event bus
----@field Emit fun(eventName:string, payload:table):nil Emit an event
----@field On fun(eventName:string, handlerFn:function):number|nil Register an event handler
----@field Once fun(eventName:string, handlerFn:function):number|nil Register one-time handler
----@field Off fun(eventName:string, handlerId:number):nil Unsubscribe from an event
----@field OnPriority fun(eventName:string, handlerFn:function, priority:string):number|nil Register handler with priority
----@field ClearAll fun():nil Clear all handlers
----@field ClearEvent fun(eventName:string):nil Clear handlers for specific event
----@field ListEvents fun():string[] List all event names
----@field HandlerCount fun(eventName:string):number Get handler count for event
----@field EmitBatch fun(eventList:table):nil Emit multiple events
----@field EmitDebounced fun(eventName:string, payload:table, debounceMs:number):nil Emit with rate limiting
----@field EmitCoalesced fun(eventName:string, payload:table, coalesceMs:number):nil Emit merging similar events
----@field EmitDelayed fun(eventName:string, payload:table, delayMs:number):nil Emit with delayed execution
----@field GetAsyncQueueDepth fun(eventName:string):number Get pending queue count
----@field GetStats fun():table Get event bus statistics
----@field GetMetrics fun():table Get detailed event bus metrics
----@field ResetMetrics fun():nil Reset event bus metrics
+--- All methods are COLON-defined (self is the first parameter).
+---@field Emit fun(self:DCEEventBus, eventName:string, payload:any):nil Emit an event
+---@field On fun(self:DCEEventBus, eventName:string, handlerFn:function):number|nil Register an event handler
+---@field Once fun(self:DCEEventBus, eventName:string, handlerFn:function):number|nil Register one-time handler
+---@field Off fun(self:DCEEventBus, eventName:string, handlerId:number):boolean Unsubscribe from an event
+---@field Sticky fun(self:DCEEventBus, eventName:string):nil Mark an event as sticky
+---@field EmitSticky fun(self:DCEEventBus, eventName:string, payload:any):nil Emit a sticky event
+---@field GetListenerCount fun(self:DCEEventBus, eventName:string):number Get listener count for event
+---@field ListEvents fun(self:DCEEventBus):string[] List all event names
+---@field ListStickyEvents fun(self:DCEEventBus):string[] List all sticky event names
+---@field Clear fun(self:DCEEventBus):nil Clear all handlers
 
 --- @class IEventBusMetrics
 --- Event bus metrics for instrumentation.

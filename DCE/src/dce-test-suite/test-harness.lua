@@ -30,6 +30,38 @@ local function GetDCE()
 end
 
 -- ============================================================================
+-- FiveM cross-resource callable detection
+-- ============================================================================
+-- FiveM marshals Lua functions across the resource export boundary as callable
+-- FunctionRef TABLES (not native Lua closures). type() reports "table" even
+-- though the value is callable. This is the same documented FiveM semantics
+-- that runtime/eventbus.lua normalizeHandler and runtime/scheduler.lua
+-- normalizeCallback handle.
+--
+-- A value is CALLABLE (satisfying the SDK contract) if it is either:
+--   * a native Lua function, or
+--   * a FiveM callable FunctionRef table (table with a __call metamethod)
+local function IsCallable(v)
+    if type(v) == "function" then
+        return true
+    end
+    if type(v) == "table" then
+        local mt = getmetatable(v)
+        if mt ~= nil and type(mt.__call) == "function" then
+            return true
+        end
+    end
+    return false
+end
+
+--- Public helper: verify a value satisfies the callable contract.
+--- Use this instead of type(v) == "function" when validating SDK methods that
+--- may have crossed the FiveM resource boundary.
+function Harness.IsCallable(v)
+    return IsCallable(v)
+end
+
+-- ============================================================================
 -- Assertion Utilities
 -- ============================================================================
 
@@ -71,8 +103,14 @@ function Harness.AssertBoolean(result, message)
     return Harness.Assert(type(result) == "boolean", message or ("Expected boolean, got " .. type(result)))
 end
 
+-- CONTRACT ASSERTION (Sprint 1.11.12):
+-- Asserts the value is CALLABLE — either a native Lua function OR a FiveM
+-- callable FunctionRef table (table with __call metamethod). This validates the
+-- platform contract ("method is callable") rather than the Lua representation
+-- ("type(method) == 'function'"), which FiveM does not preserve across the
+-- resource boundary.
 function Harness.AssertFunction(result, message)
-    return Harness.Assert(type(result) == "function", message or ("Expected function, got " .. type(result)))
+    return Harness.Assert(IsCallable(result), message or ("Expected callable, got " .. type(result)))
 end
 
 function Harness.AssertNil(result, message)
@@ -106,6 +144,16 @@ function Harness.FinalizePhaseResult(result)
 end
 
 function Harness.RecordSuccess(result, detail)
+    -- detail is the return value of an assertion function (true/false)
+    -- If it's a boolean false, the assertion FAILED and we must record it as such
+    if detail == false then
+        result.failed = result.failed + 1
+        table.insert(result.details, {
+            status = "FAIL",
+            detail = "Assertion returned false",
+        })
+        return
+    end
     result.passed = result.passed + 1
     table.insert(result.details, {
         status = "PASS",
@@ -148,10 +196,12 @@ function Harness.ValidateSDK()
     end
 
     -- Core functions exist on the canonical SDK
+    -- Sprint 1.11.7: Validate all frozen SDK APIs
     Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.GetService, "DCE.GetService"))
     Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.RegisterService, "DCE.RegisterService"))
     Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.HasService, "DCE.HasService"))
-    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.GetServiceOrThrow, "DCE.GetServiceOrThrow"))
+    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.UnregisterService, "DCE.UnregisterService"))
+    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.ListServices, "DCE.ListServices"))
     Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.Emit, "DCE.Emit"))
     Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.On, "DCE.On"))
     Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.Once, "DCE.Once"))
@@ -159,34 +209,42 @@ function Harness.ValidateSDK()
     Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.Schedule, "DCE.Schedule"))
     Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.ScheduleNow, "DCE.ScheduleNow"))
     Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.RegisterPlugin, "DCE.RegisterPlugin"))
+    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.GetConfig, "DCE.GetConfig"))
     Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.LoadConfig, "DCE.LoadConfig"))
-    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.ValidateConfig, "DCE.ValidateConfig"))
     Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.Log, "DCE.Log"))
+    -- Sprint 1.11.7: The SDK exposes ONE canonical logger method (Log).
+    -- The obsolete aliases (LogError/LogInfo/LogWarn/LogDebug) were removed.
+    Harness.RecordSuccess(results, Harness.Assert(canonicalDCE.LogError == nil,
+        "DCE.LogError removed (canonical: DCE.Log)"))
+    Harness.RecordSuccess(results, Harness.Assert(canonicalDCE.LogInfo == nil,
+        "DCE.LogInfo removed (canonical: DCE.Log)"))
+    Harness.RecordSuccess(results, Harness.Assert(canonicalDCE.LogWarn == nil,
+        "DCE.LogWarn removed (canonical: DCE.Log)"))
+    Harness.RecordSuccess(results, Harness.Assert(canonicalDCE.LogDebug == nil,
+        "DCE.LogDebug removed (canonical: DCE.Log)"))
     Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.GetVersion, "DCE.GetVersion"))
+    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.IsReady, "DCE.IsReady"))
+    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.GetRuntimeStatus, "DCE.GetRuntimeStatus"))
+    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.GetBootID, "DCE.GetBootID"))
+    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.GetSnapshot, "DCE.GetSnapshot"))
+    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.ListPlugins, "DCE.ListPlugins"))
 
-    -- SDK Registration APIs (future reserved)
-    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.RegisterOrganization, "DCE.RegisterOrganization"))
-    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.RegisterDispatchAdapter, "DCE.RegisterDispatchAdapter"))
-    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.RegisterEvidenceAdapter, "DCE.RegisterEvidenceAdapter"))
-    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.RegisterMDTAdapter, "DCE.RegisterMDTAdapter"))
-    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.RegisterBehavior, "DCE.RegisterBehavior"))
-    Harness.RecordSuccess(results, Harness.AssertFunction(canonicalDCE.RegisterEscalationChain, "DCE.RegisterEscalationChain"))
-
-    -- Version check via canonical SDK
-    local version = canonicalDCE.GetVersion()
+    -- Version check via canonical SDK (colon-call)
+    local version = canonicalDCE:GetVersion()
     Harness.RecordSuccess(results, Harness.AssertString(version, "DCE.GetVersion returns string"))
-    Harness.RecordSuccess(results, Harness.Assert(version == "1.0.0",
-        "Expected version 1.0.0, got " .. tostring(version)))
+    Harness.RecordSuccess(results, Harness.Assert(version == "1.11.7",
+        "Expected version 1.11.7, got " .. tostring(version)))
 
     -- Core services accessible via canonical SDK
-    local registry = canonicalDCE.GetService("CoreRegistry")
+    local registry = canonicalDCE:GetService("CoreRegistry")
     Harness.RecordSuccess(results, Harness.AssertNotNil(registry, "CoreRegistry service"))
     if registry then
         Harness.RecordSuccess(results, Harness.AssertFunction(registry.ListServices, "CoreRegistry.ListServices"))
         Harness.RecordSuccess(results, Harness.AssertFunction(registry.ListPlugins, "CoreRegistry.ListPlugins"))
         Harness.RecordSuccess(results, Harness.AssertFunction(registry.ListTasks, "CoreRegistry.ListTasks"))
-        Harness.RecordSuccess(results, Harness.AssertFunction(registry.ListEvents, "CoreRegistry.ListEvents"))
         Harness.RecordSuccess(results, Harness.AssertFunction(registry.GetDCEVersion, "CoreRegistry.GetDCEVersion"))
+        Harness.RecordSuccess(results, Harness.Assert(registry:GetDCEVersion() == version,
+            "CoreRegistry.GetDCEVersion matches DCE.GetVersion"))
     end
 
     -- Export validation: verify GetDCEAPI() is the canonical entry point

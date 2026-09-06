@@ -28,7 +28,7 @@ function Escalation.ProcessEvents(events)
             })
 
             if DCE and DCE.Log then
-                DCE.Log("events", "info", "Escalation: scenario %s triggered dispatch (stage: %s)",
+                DCE:Log("events", "info", "Escalation: scenario %s triggered dispatch (stage: %s)",
                     event.scenarioId, event.stage)
             end
         end
@@ -36,14 +36,14 @@ function Escalation.ProcessEvents(events)
         if event.type == "scenario:completed" then
             -- Scenario completed successfully
             if DCE and DCE.Log then
-                DCE.Log("events", "info", "Escalation: scenario %s completed successfully", event.scenarioId)
+                DCE:Log("events", "info", "Escalation: scenario %s completed successfully", event.scenarioId)
             end
         end
 
         if event.type == "scenario:timed_out" then
             -- Scenario timed out
             if DCE and DCE.Log then
-                DCE.Log("events", "warn", "Escalation: scenario %s timed out", event.scenarioId)
+                DCE:Log("events", "warn", "Escalation: scenario %s timed out", event.scenarioId)
             end
         end
     end

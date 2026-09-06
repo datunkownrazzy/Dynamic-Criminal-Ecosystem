@@ -2,6 +2,12 @@
 -- SOLE OWNER: Orchestration, permission validation, session coordination
 -- Self-registers with DCE Core via Registry (never globals)
 -- Per ADR-0026: True Lazy Initialization
+--
+-- Sprint 1.11.6 FiveM Loader Compliance:
+--   fxmanifest.lua declares dependencies { 'dce-core' }, which per the FiveM
+--   resource manifest reference REQUIRES dce-core to load and fully start
+--   BEFORE this resource executes any script. Therefore exports['dce-core']
+--   is guaranteed to exist here. No polling, no Wait(), no retries.
 
 local ControlCenterService = {}
 local dceCoreReady = false
@@ -11,20 +17,20 @@ local DCE = nil
 
 local function ConnectToCore()
     if dceCoreReady then return true end
-    if GetResourceState('dce-core') ~= 'started' then return false end
-    
+
+    -- Deterministic: dce-core is guaranteed started by the dependency directive.
     DCE = exports['dce-core']:GetDCEAPI()
     if not DCE then return false end
-    
-    EventBus = DCE.GetService and DCE.GetService("EventBus")
-    Logger = DCE.GetService and DCE.GetService("Logger")
+
+    EventBus = DCE.GetService and DCE:GetService("EventBus")
+    Logger = DCE.GetService and DCE:GetService("Logger")
     dceCoreReady = true
     return true
 end
 
 local function log(level, message, ...)
     if Logger and Logger.Log then
-        Logger.Log("controlcenter", level, message, ...)
+        Logger:Log("controlcenter", level, message, ...)
     else
         print(("[DCE CC] %s: %s"):format(level, message:format(...)))
     end
@@ -32,7 +38,7 @@ end
 
 local function GetService(serviceName)
     if not DCE then return nil end
-    return DCE.GetService and DCE.GetService(serviceName)
+    return DCE.GetService and DCE:GetService(serviceName)
 end
 
 -- ============================================================================
@@ -96,6 +102,46 @@ function ControlCenterService.RequestClose(source)
 end
 
 -- ============================================================================
+-- Administrative Read Contract
+-- ============================================================================
+
+function ControlCenterService.RequestData(source, requestId, dataType)
+    if not source or not requestId or not dataType then return false end
+    if not ControlCenterService.HasPermission(source) then
+        TriggerClientEvent('dce-cc:client:data-response', source, {
+            requestId = requestId,
+            status = "error",
+            message = "Permission denied"
+        })
+        return false
+    end
+
+    local response = {
+        requestId = requestId,
+        status = "unavailable",
+        message = "This Control Center data source is not available in V1."
+    }
+
+    local locationManager = GetService("LocationManager")
+    if dataType == "world-locations" and locationManager and locationManager.GetAllLocations then
+        response.status = "ok"
+        response.locations = locationManager.GetAllLocations() or {}
+        response.message = nil
+    elseif dataType == "world-territories" and locationManager and locationManager.GetAllTerritories then
+        response.status = "ok"
+        response.territories = locationManager.GetAllTerritories() or {}
+        response.message = nil
+    elseif dataType == "organizations" then
+        response.message = "Organization administration is not backed by an available V1 adapter."
+    elseif dataType == "configuration" then
+        response.message = "Runtime configuration editing has no V1 server contract yet."
+    end
+
+    TriggerClientEvent('dce-cc:client:data-response', source, response)
+    return response.status == "ok"
+end
+
+-- ============================================================================
 -- Init & Shutdown
 -- ============================================================================
 
@@ -107,7 +153,7 @@ function ControlCenterService.Init()
     end
     
     if DCE and DCE.RegisterService then
-        DCE.RegisterService("ControlCenter", ControlCenterService)
+        DCE:RegisterService("ControlCenter", ControlCenterService)
         log("info", "Registered with DCE Core")
     end
     
@@ -142,12 +188,18 @@ AddEventHandler('dce-cc:server:close', function()
     if src then ControlCenterService.RequestClose(src) end
 end)
 
+RegisterNetEvent('dce-cc:server:data-request')
+AddEventHandler('dce-cc:server:data-request', function(data)
+    local src = source
+    ControlCenterService.RequestData(src, data and data.requestId, data and data.dataType)
+end)
+
 RegisterNetEvent('dce-cc:server:eventbus:subscribe')
 AddEventHandler('dce-cc:server:eventbus:subscribe', function(data)
     local src = source
     ConnectToCore()
     if EventBus and EventBus.On and data and data.eventName then
-        EventBus.On(data.eventName, function(payload)
+        EventBus:On(data.eventName, function(payload)
             TriggerClientEvent('dce-cc:client:eventbus', src, {
                 eventName = data.eventName,
                 payload = payload
@@ -162,11 +214,11 @@ end)
 
 AddEventHandler('onResourceStart', function(resourceName)
     if GetCurrentResourceName() ~= resourceName then return end
-    local attempts = 0
-    while not ConnectToCore() and attempts < 50 do
-        Wait(100); attempts = attempts + 1
-    end
-    SetTimeout(0, function() ControlCenterService.Init() end)
+    -- Deterministic single-pass init. No polling, no Wait(), no retries.
+    -- dce-core is guaranteed started (dependency directive), so ConnectToCore
+    -- succeeds on the first call.
+    ConnectToCore()
+    ControlCenterService.Init()
 end)
 
 AddEventHandler('onResourceStop', function(resourceName)

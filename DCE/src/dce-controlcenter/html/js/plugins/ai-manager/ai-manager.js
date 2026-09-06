@@ -42,8 +42,8 @@
         render: function(container) {
             container.innerHTML = `
                 <div class="card">
-                    <div class="card-header">AI Manager</div>
-                    <div class="loading">Decision trees and behavior visualization</div>
+                    <div class="card-header">Intelligence</div>
+                    <div class="page-state unavailable"><strong>Intelligence data unavailable</strong><span>The intelligence service is not currently providing operational data.</span></div>
                 </div>
             `;
         },

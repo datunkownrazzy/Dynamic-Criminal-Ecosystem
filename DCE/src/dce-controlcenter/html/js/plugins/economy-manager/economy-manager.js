@@ -48,8 +48,8 @@
         render: function(container) {
             container.innerHTML = `
                 <div class="card">
-                    <div class="card-header">Economy Manager</div>
-                    <div class="loading">Economy and financial operations</div>
+                    <div class="card-header">Economy</div>
+                    <div class="page-state unavailable"><strong>Economy data unavailable</strong><span>The economy service is not currently providing operational data.</span></div>
                 </div>
             `;
         },

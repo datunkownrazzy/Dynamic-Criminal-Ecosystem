@@ -2,6 +2,11 @@
 -- SOLE OWNER of session lifecycle on the server side.
 -- Per ADR-0026: Sessions are created/destroyed only here.
 -- Registers with DCE Core via DCE:RegisterService() - never globals.
+--
+-- Sprint 1.11.6 FiveM Loader Compliance:
+--   fxmanifest.lua declares dependencies { 'dce-core' }, which per the FiveM
+--   resource manifest reference REQUIRES dce-core to load and fully start
+--   BEFORE this resource executes any script. No polling, no Wait(), no retries.
 
 local SessionManagerServer = {}
 local dceCoreReady = false
@@ -15,18 +20,18 @@ local sessions = {}
 
 local function ConnectToCore()
     if dceCoreReady then return true end
-    if GetResourceState('dce-core') ~= 'started' then return false end
+    -- Deterministic: dce-core is guaranteed started by the dependency directive.
     DCE = exports['dce-core']:GetDCEAPI()
     if not DCE then return false end
-    EventBus = DCE.GetService and DCE.GetService("EventBus")
-    Logger = DCE.GetService and DCE.GetService("Logger")
+    EventBus = DCE.GetService and DCE:GetService("EventBus")
+    Logger = DCE.GetService and DCE:GetService("Logger")
     dceCoreReady = true
     return true
 end
 
 local function log(level, message, ...)
     if Logger and Logger.Log then
-        Logger.Log("session-server", level, message, ...)
+        Logger:Log("session-server", level, message, ...)
     else
         print(("[DCE Session] %s: %s"):format(level, message:format(...)))
     end
@@ -65,7 +70,7 @@ function SessionManagerServer.CreateSession(playerSource)
     log("info", "Session created: %s for player %d", sessionId, playerSource)
     
     if EventBus then
-        EventBus.Emit("session:created", {
+        EventBus:Emit("session:created", {
             eventVersion = 1, timestamp = os.time(), source = "session-manager",
             payload = { sessionId = sessionId, playerSource = playerSource }
         })
@@ -89,7 +94,7 @@ function SessionManagerServer.StartSession(sessionId)
     })
     
     if EventBus then
-        EventBus.Emit("session:started", {
+        EventBus:Emit("session:started", {
             eventVersion = 1, timestamp = os.time(), source = "session-manager",
             payload = { sessionId = sessionId, playerSource = session.playerSource }
         })
@@ -124,7 +129,7 @@ function SessionManagerServer.CloseSession(sessionId)
     TriggerClientEvent('dce-cc:client:session:end', session.playerSource, { sessionId = sessionId })
     
     if EventBus then
-        EventBus.Emit("session:closed", {
+        EventBus:Emit("session:closed", {
             eventVersion = 1, timestamp = os.time(), source = "session-manager",
             payload = { sessionId = sessionId, playerSource = session.playerSource }
         })
@@ -142,7 +147,7 @@ function SessionManagerServer.EndSession(sessionId)
     log("info", "Session ended: %s", sessionId)
     
     if EventBus then
-        EventBus.Emit("session:ended", {
+        EventBus:Emit("session:ended", {
             eventVersion = 1, timestamp = os.time(), source = "session-manager",
             payload = { sessionId = sessionId, playerSource = playerSource }
         })
@@ -208,12 +213,10 @@ end)
 -- Resource stop cleanup
 AddEventHandler('onResourceStart', function(resourceName)
     if GetCurrentResourceName() ~= resourceName then return end
-    local attempts = 0
-    while not ConnectToCore() and attempts < 50 do
-        Wait(100); attempts = attempts + 1
-    end
+    -- Deterministic single-pass init. No polling, no Wait(), no retries.
+    ConnectToCore()
     if DCE and DCE.RegisterService then
-        DCE.RegisterService("SessionManager", SessionManagerServer)
+        DCE:RegisterService("SessionManager", SessionManagerServer)
         log("info", "SessionManager registered with DCE Core")
     end
 end)

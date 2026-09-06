@@ -72,8 +72,6 @@
     ];
     
     var PLUGIN_MANAGER_SCRIPT = 'js/plugins/plugin-manager.js';
-    var PLUGIN_HOST_SCRIPT = 'js/plugins/plugin-host.js';
-    
     var PLUGIN_SCRIPTS = [
         'js/plugins/world-manager/world-manager.js',
         'js/plugins/organization-manager/organization-manager.js',
@@ -160,6 +158,8 @@
         DCE.Application.setState(APP_STATE.ACTIVE);
         
         if (DCE.Dock && DCE.Dock._refreshDock) DCE.Dock._refreshDock();
+        if (DCE.Taskbar && DCE.Taskbar.init) DCE.Taskbar.init();
+        if (DCE.Desktop && DCE.Desktop.navigate) DCE.Desktop.navigate('home');
         
         DCE.NUI.post('dce-cc:session:started', {
             sessionId: DCE.Application.sessionId,
@@ -227,7 +227,8 @@
         
         switch (data.action) {
             case 'application:boot':
-                DCE.Application.Boot(data.sessionId);
+                // Lua sends { action = "application:boot", data = { sessionId = ... } }
+                DCE.Application.Boot(data.data && data.data.sessionId);
                 break;
             case 'application:activate':
                 DCE.Application.Activate();
@@ -242,5 +243,5 @@
         }
     });
     
-    console.log('[DCE Application] Loaded (v2.0.0)');
+    console.log('[DCE Application] Loaded (V1 Control Center)');
 })();

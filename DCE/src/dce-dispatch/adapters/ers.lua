@@ -24,11 +24,11 @@ function ERSAdapter.New(config)
     if GetResourceState and GetResourceState(resourceName) == "started" then
         self.available = true
         if DCE and DCE.Log then
-            DCE.Log("dispatch", "info", "ERS dispatch adapter: ERS resource detected and available")
+            DCE:Log("dispatch", "info", "ERS dispatch adapter: ERS resource detected and available")
         end
     else
         if DCE and DCE.Log then
-            DCE.Log("dispatch", "warn", "ERS dispatch adapter: ERS resource not found, using native adapter")
+            DCE:Log("dispatch", "warn", "ERS dispatch adapter: ERS resource not found, using native adapter")
         end
     end
 
@@ -112,12 +112,12 @@ function ERSAdapter:HealthCheck()
     if GetResourceState and GetResourceState(self.config.ResourceName or "ers") == "started" then
         self.available = true
         if DCE and DCE.Log and not wasAvailable then
-            DCE.Log("dispatch", "info", "ERS dispatch adapter: Connection restored")
+            DCE:Log("dispatch", "info", "ERS dispatch adapter: Connection restored")
         end
     else
         self.available = false
         if DCE and DCE.Log and wasAvailable then
-            DCE.Log("dispatch", "warn", "ERS dispatch adapter: Connection lost")
+            DCE:Log("dispatch", "warn", "ERS dispatch adapter: Connection lost")
         end
     end
 

@@ -42,7 +42,7 @@ function Phase3.Run()
     end
 
     -- Get EventBus via SDK service
-    local EB = dce.GetService("EventBus")
+    local EB = dce:GetService("EventBus")
 
     if not EB then
         H().RecordSkipped(result, "EventBus not available via DCE.GetService")
@@ -54,12 +54,12 @@ function Phase3.Run()
     -- ====================================
 
     local received = 0
-    local handlerId = EB.On("test:phase3:basic", function()
+    local handlerId = EB:On("test:phase3:basic", function()
         received = received + 1
     end)
     H().RecordSuccess(result, H().AssertNotNil(handlerId, "EB.On returns handler ID"))
 
-    EB.Emit("test:phase3:basic", { source = "phase3" })
+    EB:Emit("test:phase3:basic", { source = "phase3" })
     Citizen.Wait(50)
     H().RecordSuccess(result, H().Assert(received == 1,
         "Basic event dispatch: received=" .. received))
@@ -69,9 +69,9 @@ function Phase3.Run()
     -- ====================================
 
     local countA, countB = 0, 0
-    EB.On("test:phase3:multi", function() countA = countA + 1 end)
-    EB.On("test:phase3:multi", function() countB = countB + 1 end)
-    EB.Emit("test:phase3:multi", { source = "phase3" })
+    EB:On("test:phase3:multi", function() countA = countA + 1 end)
+    EB:On("test:phase3:multi", function() countB = countB + 1 end)
+    EB:Emit("test:phase3:multi", { source = "phase3" })
     Citizen.Wait(50)
     H().RecordSuccess(result, H().Assert(countA == 1 and countB == 1,
         "Multiple listeners: A=" .. countA .. " B=" .. countB))
@@ -81,7 +81,7 @@ function Phase3.Run()
     -- ====================================
 
     local receivedPayload = nil
-    EB.Once("test:phase3:payload", function(payload)
+    EB:Once("test:phase3:payload", function(payload)
         receivedPayload = payload
     end)
     local testPayload = {
@@ -95,7 +95,7 @@ function Phase3.Run()
             table = { a = 1, b = 2 },
         },
     }
-    EB.Emit("test:phase3:payload", testPayload)
+    EB:Emit("test:phase3:payload", testPayload)
     Citizen.Wait(50)
     H().RecordSuccess(result, H().AssertNotNil(receivedPayload, "Payload received"))
     if receivedPayload then
@@ -114,9 +114,9 @@ function Phase3.Run()
     -- ====================================
 
     local onceCount = 0
-    EB.Once("test:phase3:once", function() onceCount = onceCount + 1 end)
-    EB.Emit("test:phase3:once", { source = "phase3" })
-    EB.Emit("test:phase3:once", { source = "phase3" })
+    EB:Once("test:phase3:once", function() onceCount = onceCount + 1 end)
+    EB:Emit("test:phase3:once", { source = "phase3" })
+    EB:Emit("test:phase3:once", { source = "phase3" })
     Citizen.Wait(50)
     H().RecordSuccess(result, H().Assert(onceCount == 1,
         "Once semantics: fired exactly " .. onceCount .. " time(s)"))
@@ -126,11 +126,11 @@ function Phase3.Run()
     -- ====================================
 
     local offCount = 0
-    local offId = EB.On("test:phase3:off", function() offCount = offCount + 1 end)
-    EB.Emit("test:phase3:off", { source = "phase3" })
+    local offId = EB:On("test:phase3:off", function() offCount = offCount + 1 end)
+    EB:Emit("test:phase3:off", { source = "phase3" })
     Citizen.Wait(50)
-    if offId then EB.Off("test:phase3:off", offId) end
-    EB.Emit("test:phase3:off", { source = "phase3" })
+    if offId then EB:Off("test:phase3:off", offId) end
+    EB:Emit("test:phase3:off", { source = "phase3" })
     Citizen.Wait(50)
     H().RecordSuccess(result, H().Assert(offCount == 1,
         "Unsubscribe: handler fired " .. offCount .. " time(s) after Off"))
@@ -140,31 +140,31 @@ function Phase3.Run()
     -- ====================================
 
     local stressCount = 0
-    local stressHandler = EB.On("test:phase3:stress", function()
+    local stressHandler = EB:On("test:phase3:stress", function()
         stressCount = stressCount + 1
     end)
 
     local volume = 1000
     for i = 1, volume do
-        EB.Emit("test:phase3:stress", { source = "phase3", index = i })
+        EB:Emit("test:phase3:stress", { source = "phase3", index = i })
     end
     Citizen.Wait(200)
     H().RecordSuccess(result, H().Assert(stressCount == volume,
         "High volume: " .. stressCount .. "/" .. volume .. " events received"))
 
-    if stressHandler then EB.Off("test:phase3:stress", stressHandler) end
+    if stressHandler then EB:Off("test:phase3:stress", stressHandler) end
 
     -- ====================================
     -- Test 7: Concurrent Event Streams
     -- ====================================
 
     local streamA, streamB = 0, 0
-    EB.On("test:phase3:streamA", function() streamA = streamA + 1 end)
-    EB.On("test:phase3:streamB", function() streamB = streamB + 1 end)
+    EB:On("test:phase3:streamA", function() streamA = streamA + 1 end)
+    EB:On("test:phase3:streamB", function() streamB = streamB + 1 end)
 
     for i = 1, 100 do
-        EB.Emit("test:phase3:streamA", { source = "phase3" })
-        EB.Emit("test:phase3:streamB", { source = "phase3" })
+        EB:Emit("test:phase3:streamA", { source = "phase3" })
+        EB:Emit("test:phase3:streamB", { source = "phase3" })
     end
     Citizen.Wait(100)
     H().RecordSuccess(result, H().Assert(streamA == 100 and streamB == 100,
@@ -175,12 +175,12 @@ function Phase3.Run()
     -- ====================================
 
     local order = {}
-    EB.On("test:phase3:order", function(payload)
+    EB:On("test:phase3:order", function(payload)
         table.insert(order, payload.index)
     end)
 
     for i = 1, 50 do
-        EB.Emit("test:phase3:order", { source = "phase3", index = i })
+        EB:Emit("test:phase3:order", { source = "phase3", index = i })
     end
     Citizen.Wait(100)
     local inOrder = true
@@ -197,7 +197,7 @@ function Phase3.Run()
     -- Test 9: Empty Event Name Handling
     -- ====================================
 
-    local ok, err = pcall(EB.Emit, "", { source = "phase3" })
+    local ok, err = pcall(function() EB:Emit("", { source = "phase3" }) end)
     H().RecordSuccess(result, H().Assert(true,
         "Empty event name handled without crash: " .. tostring(ok)))
 
@@ -206,10 +206,10 @@ function Phase3.Run()
     -- ====================================
 
     local nilReceived = false
-    EB.Once("test:phase3:nil", function(payload)
+    EB:Once("test:phase3:nil", function(payload)
         nilReceived = (payload == nil)
     end)
-    local ok, err = pcall(EB.Emit, "test:phase3:nil", nil)
+    local ok, err = pcall(function() EB:Emit("test:phase3:nil", nil) end)
     Citizen.Wait(50)
     H().RecordSuccess(result, H().Assert(true,
         "Nil payload handled without crash: " .. tostring(ok)))
@@ -218,14 +218,24 @@ function Phase3.Run()
     -- Cleanup
     -- ====================================
 
-    -- Remove all test handlers
-    for _, eventName in ipairs({
-        "test:phase3:basic", "test:phase3:multi", "test:phase3:payload",
-        "test:phase3:once", "test:phase3:off", "test:phase3:stress",
-        "test:phase3:streamA", "test:phase3:streamB", "test:phase3:order",
-        "test:phase3:nil",
-    }) do
-        pcall(EB.ClearEvent, eventName)
+    -- Remove all test handlers via canonical Off (ClearEvent does not exist)
+    local cleanupIds = {
+        { "test:phase3:basic", handlerId },
+        { "test:phase3:multi", nil },
+        { "test:phase3:payload", nil },
+        { "test:phase3:once", nil },
+        { "test:phase3:off", offId },
+        { "test:phase3:stress", stressHandler },
+        { "test:phase3:streamA", nil },
+        { "test:phase3:streamB", nil },
+        { "test:phase3:order", nil },
+        { "test:phase3:nil", nil },
+    }
+    for _, entry in ipairs(cleanupIds) do
+        local eventName, id = entry[1], entry[2]
+        if id then
+            pcall(function() EB:Off(eventName, id) end)
+        end
     end
 
     return H().FinalizePhaseResult(result)

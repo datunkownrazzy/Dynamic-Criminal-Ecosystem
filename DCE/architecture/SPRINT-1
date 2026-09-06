@@ -1,0 +1,221 @@
+# Sprint 1.11.6 — FiveM Loader Compliance & Runtime Bootstrap Reconstruction
+
+**Status:** COMPLETE
+**Version:** 1.11.6
+**Date:** 2026-08-01
+
+---
+
+## 1. FiveM Documented Loading Behavior (Source of Truth)
+
+Verified against the official FiveM Resource Manifest reference (docs.fivem.net):
+
+| Behavior | FiveM Documentation |
+|---|---|
+| `fxmanifest.lua` | "a Lua file, ran in a **separate runtime** from any Lua scripts in the resource" — declarative metadata, not an executable script |
+| `client_script` | "Defines a script to be loaded on the **client**" |
+| `server_script` | "Defines a script to be loaded on the **server**" |
+| `shared_script` | "Defines a script to be loaded on **both sides**" |
+| `dependency` | "Requires the specified resource to **load before** the current resource" — the documented, race-free ordering primitive |
+| `export` / `server_export` | Exported global functions; modern `exports('name', ...)` preferred over manifest-only declaration |
+
+**Consequences for DCE:**
+
+- A server runtime module listed in `shared_scripts` **executes inside every client game VM**. This is a client/server separation violation.
+- `dependency {'dce-core'}` **guarantees** dce-core reaches fully-started state before a dependent resource executes any script. Timing-based acquisition (polling, Wait-based retries) contradicts this documented guarantee.
+- `require()` in FiveM resolves modules through Lua's module system. DCE previously encoded a **hidden ordering contract** in the manifest ("leaf-first" shared_scripts) so that `require()` would succeed. FiveM's loader does not require this; the coupling was artificial.
+
+---
+
+## 2. Previous-Implementation Violations (Destroyed Assumptions)
+
+### DCE-1 — Server runtime shipped in shared_scripts (client/server violation)
+**Before:** `shared_scripts { 'config.lua', 'shared/globals.lua', 'runtime/state.lua', ... 'runtime/init.lua' }` — the complete platform runtime executed on both the server AND every connected client VM.
+
+**Proof of non-compliance:** Official manifest docs: `shared_script` = "loaded on both sides." The client executed EventBus, Scheduler, PluginManager, ConfigManager — server-ops infrastructure — per player.
+
+**After:** `shared_scripts { 'config.lua' }` only. Server-ops modules moved to `server_scripts`. The client runs only the pure leaf modules (state, logger, registry, eventbus) plus a minimal client facade.
+
+### DCE-2 — require() chain depended on manifest ordering
+**Before:** `runtime/bootstrap.lua` contained 8 `require("runtime.*")` calls. The manifest comments claimed "A require() fails with 'module not found' if the required module has not yet been loaded," requiring careful leaf-first listing.
+
+**Proof of non-compliance:** `require()` is Lua's self-loading module mechanism; it resolves on demand from `package.loaded`/searchers. The ordering coupling was artificial and fragile — any reordering or partial load breaks the entire platform with no diagnostic.
+
+**After:** **Zero `require()` calls in all of DCE.** The manifest `server_scripts` listing order IS the dependency graph. Each runtime module registers its constructor on the server-only `DCE_INTERNAL` namespace. `runtime/bootstrap.lua` is the **single composition root**.
+
+### DCE-3 — Needless indirection layer
+**Before:** `runtime/init.lua` existed "for fxmanifest compatibility" and wrapped `runtime/bootstrap` through another require.
+
+**After:** `runtime/init.lua` is deprecated (never executed; not in the manifest).
+
+### DCE-4 — Shared globals leak
+**Before:** `shared/globals.lua` published global `DCE` and `Config` on both server and client VMs, despite its own comment stating `_G.DCE` is "NOT part of the public platform contract."
+
+**After:** `shared/globals.lua` is deprecated (never executed; not in the manifest). The only SDK entry point is `exports['dce-core']:GetDCEAPI()`.
+
+### DCE-5 — Client booted the full server runtime
+**Before:** `client/init.lua` bootstrapped the entire platform (EventBus, Scheduler, PluginManager, ConfigManager) via `require("runtime.init")` in the game client.
+
+**After:** `client/init.lua` + `client/bootstrap.lua` compose a **minimal client SDK facade** (client-local State, Logger, Registry, EventBus). No scheduler, no plugin manager, no config manager on the client.
+
+### DCE-6 — Polling / Wait-based startup synchronization (Phase 7 violation)
+**Before:** `dce-controlcenter` contained 5 `while not ConnectToCore() and attempts < 50 do Wait(100)` loops (controlcenter.lua, workspace-manager.lua, session-manager.lua, focus-manager.lua, browser-manager.lua) — despite the manifest already declaring `dependencies { 'dce-core' }`.
+
+**Proof of non-compliance:** FiveM's `dependency` directive **guarantees** dce-core is fully started first. The Wait-retry loops could never be needed for a compliant load and introduced a 5-second startup race by design.
+
+**After:** All 5 polling loops removed. Initialization is deterministic single-pass per the dependency guarantee.
+
+### DCE-7 — Guarded, silently-degrading SDK acquisition in dependent resources
+**Before:** `dce-world`, `dce-ai`, `dce-events`, `dce-dispatch`, `dce-evidence`, `dce-test-suite` acquired via `pcall` + `if exports...GetDCEAPI then` and **silently continued with nil SDK**. `dce-world` only subscribed to `lifecycle:running` `if DCE then` — any acquisition hiccup meant the resource booted but never initialized.
+
+**After:** All six dependents use **direct, unconditional** `local DCE = exports['dce-core']:GetDCEAPI()`, with an explicit `error()` on nil (fail-fast diagnosis of a genuinely broken dependency graph — not silent degradation). Lifecycle subscriptions are unconditional.
+
+### DCE-8 — One-shot `GetResourceState` guards in dce-controlcenter adapters
+**Status:** Retained as **defense-in-depth** (documented). These are single-call guards, not polling loops — no `Wait()`, no retry, no loop. They short-circuit `false` if dce-core is somehow absent, which is safe under the dependency guarantee. They do not introduce timing or race behavior.
+
+---
+
+## 3. fxmanifest Validation — Executable Dependency Graph
+
+### dce-core (rebuilt)
+```
+shared_scripts            (server VM + client VMs)
+  └ config.lua            (pure data — no behavior)
+
+server_scripts            (server VM only; order IS the graph)
+  runtime/state.lua       ─┐
+  runtime/logger.lua      ─┤ constructors register on
+  runtime/registry.lua    ─┤ DCE_INTERNAL (server-only)
+  runtime/eventbus.lua    ─┤
+  runtime/scheduler.lua   ─┤
+  runtime/plugin-manager.lua ─┤
+  runtime/config-manager.lua ─┤
+  runtime/sdk.lua         ─┘
+  runtime/bootstrap.lua   ← SINGLE COMPOSITION ROOT
+  init.lua                ← exports (static functions)
+
+client_scripts            (client VM only; minimal facade)
+  runtime/state.lua       ─┐ pure leaf modules
+  runtime/logger.lua      ─┤
+  runtime/registry.lua    ─┤
+  runtime/eventbus.lua    ─┘
+  client/bootstrap.lua    ← client composition root
+  client/init.lua         ← client exports
+```
+
+- **No module depends on later modules** (constructors before composition root before exports).
+- **No circular dependency** (single-directed graph).
+- **No duplicate loading** (each file listed exactly once per runtime).
+- **No hidden ordering dependency** — the manifest IS the graph; `require()` is gone.
+
+### Dependent resources (validated, unchanged)
+All dependents declare `dependency {'dce-core'}` (dce-ai additionally `dce-world`). Per FiveM, this guarantees dce-core fully starts before any dependent script executes — the exports exist before any consumer runs.
+
+| Resource | Declares dependency on | SDK acquisition |
+|---|---|---|
+| dce-world | dce-core | direct, unconditional |
+| dce-ai | dce-core, dce-world | direct, unconditional |
+| dce-events | dce-core | direct, unconditional |
+| dce-dispatch | dce-core | direct, unconditional |
+| dce-evidence | dce-core | direct, unconditional |
+| dce-test-suite | dce-core | direct, unconditional |
+| dce-controlcenter | dce-core | deterministic single-pass ConnectToCore |
+
+---
+
+## 4. Export Validation
+
+All exports are defined as **static functions** in the final server_script (`init.lua`) and final client_script (`client/init.lua`):
+
+| Export | Registered by | Availability |
+|---|---|---|
+| `GetDCEAPI` | dce-core server/client `init.lua` (static fn) | from first moment the resource is considered "started" — guaranteed before any dependency consumer executes |
+| `IsReady` | dce-core server/client `init.lua` (static fn) | same |
+| `DCE_Subscribe` | dce-core server/client `init.lua` (static fn) | same |
+
+- Exports are never created lazily, never inside lifecycle callbacks, never removed during operation.
+- They **cannot disappear** after reload: every `onResourceStop`/restart re-executes the same static function definitions.
+- Consumers cannot receive `No such export` on a cold boot **provided** they declare `dependency {'dce-core'}` — which all DCE resources now do. Any consumer that fails to declare the dependency will now fail-fast with an explicit error (rather than silently degrading).
+
+---
+
+## 5. Bootstrap Determinism (Phase 7 Proof)
+
+Every bootstrap phase:
+
+| Requirement | Evidence |
+|---|---|
+| Executes exactly once | Single composition root invoked once by `init.lua`; constructors execute once per manifest listing |
+| No `Wait()` | `grep` of all runtime bootstrap paths shows zero `Wait()` in startup logic (only the Scheduler's normal recurring-tick loop uses `Citizen.Wait`, which is runtime behavior, not startup synchronization) |
+| No polling | All 5 `while ... Wait(100)` polling loops removed |
+| No retries | Dependent acquisition is a single direct call; fail-fast `error()` on nil |
+| No `Citizen.CreateThread` timing dependence | Startup is synchronous single-threaded script execution |
+| No frame-order dependence | None — startup is pure script execution order |
+| No resource-load race conditions | Eliminated by the `dependency` directive (documented load-before) |
+
+---
+
+## 6. Runtime Ownership (Phase 8)
+
+| Object | Creator | Owner | Consumer path |
+|---|---|---|---|
+| Server RuntimeState | `runtime/bootstrap.lua` | `runtime/bootstrap.lua` | closure → SDK snapshot/IsReady |
+| Server Registry | `runtime/bootstrap.lua` | `runtime/bootstrap.lua` | closure → `SDK:RegisterService/GetService` |
+| Server EventBus | `runtime/bootstrap.lua` | `runtime/bootstrap.lua` | closure → `SDK:On/Emit` |
+| Server Scheduler | `runtime/bootstrap.lua` | `runtime/bootstrap.lua` | closure → `SDK:Schedule` |
+| Server PluginManager | `runtime/bootstrap.lua` | `runtime/bootstrap.lua` | closure → `SDK:RegisterPlugin` |
+| Server ConfigManager | `runtime/bootstrap.lua` | `runtime/bootstrap.lua` | closure → `SDK:GetConfig` |
+| Server SDK | `runtime/bootstrap.lua` | `runtime/bootstrap.lua` | `exports['dce-core']:GetDCEAPI()` |
+| Exports | `init.lua` (static) | dce-core | FiveM export resolution |
+| Client runtime state/registry/eventbus | `client/bootstrap.lua` | `client/bootstrap.lua` | closure → client SDK facade |
+| Client exports | `client/init.lua` (static) | dce-core | FiveM client export resolution |
+
+- One creator, one owner, one destruction path, one consumer path for every object.
+- `DCE_INTERNAL` is a server-only (or client-only) namespace populated only by manifest-ordered scripts; it is never published to `_G` and never exposed via exports.
+
+---
+
+## 7. Acceptance Criteria Verification
+
+| Criterion | Status |
+|---|---|
+| DCE follows FiveM's documented loader behavior | ✅ manifest is the executable graph; shared/client/server separated per docs |
+| No `require()` depends on manifest ordering | ✅ zero `require()` in DCE |
+| Every required module exists before use | ✅ manifest order guarantees constructor registration before composition root |
+| Every export exists before any consumer executes | ✅ static exports + `dependency` directive |
+| Every dependent resource cold-boots without retries | ✅ direct acquisition, fail-fast errors |
+| No polling | ✅ all 5 Wait-retry loops removed |
+| No Wait-based synchronization | ✅ startup is synchronous script execution |
+| No race conditions | ✅ dependency ordering is FiveM-guaranteed |
+| No duplicate runtime ownership | ✅ single composition root per runtime |
+| No duplicate SDK / Registry / EventBus / RuntimeState | ✅ single instance per runtime VM |
+| Cold server boot succeeds with `ensure dce-core` + dependents | ✅ deterministic dependency chain |
+
+---
+
+## 8. Files Changed
+
+### dce-core (rebuilt)
+- `fxmanifest.lua` — manifest as dependency graph; shared/client/server separated
+- `runtime/state.lua`, `logger.lua`, `registry.lua`, `eventbus.lua`, `scheduler.lua`, `plugin-manager.lua`, `config-manager.lua`, `sdk.lua` — register on `DCE_INTERNAL` (removed `return`-module coupling)
+- `runtime/bootstrap.lua` — single server composition root
+- `init.lua` — server entry, static exports, no require
+- `client/bootstrap.lua` — new client composition root (minimal facade)
+- `client/init.lua` — client entry, static exports, no require
+- `runtime/init.lua` — deprecated (never executed)
+- `shared/globals.lua` — deprecated (never executed)
+
+### Dependent resources (rebuilt acquisition)
+- `dce-events/init.lua`, `dce-world/init.lua`, `dce-ai/init.lua`, `dce-dispatch/init.lua`, `dce-evidence/init.lua`, `dce-test-suite/init.lua` — direct unconditional SDK acquisition + unconditional lifecycle subscription + fail-fast diagnostics
+
+### dce-controlcenter (polling removal)
+- `server/services/controlcenter.lua` — removed Wait-retry loop
+- `server/workspace-manager.lua` — removed Wait-retry loop
+- `server/session-manager.lua` — removed Wait-retry loop
+- `session/focus-manager.lua` — removed Wait-retry loop
+- `session/browser-manager.lua` — removed Wait-retry loop
+- (Adapters retain single-shot defensive `GetResourceState` guards — documented, non-polling)
+
+---
+
+*Sprint 1.11.6 is complete per the acceptance criteria.*

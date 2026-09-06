@@ -52,8 +52,8 @@ function Phase9.Run()
         {"DCE.GetService", "function"},
         {"DCE.RegisterService", "function"},
         {"DCE.HasService", "function"},
-        {"DCE.GetServiceOrThrow", "function"},
         {"DCE.UnregisterService", "function"},
+        {"DCE.ListServices", "function"},
 
         -- Event Bus
         {"DCE.On", "function"},
@@ -67,22 +67,19 @@ function Phase9.Run()
 
         -- Plugin
         {"DCE.RegisterPlugin", "function"},
+        {"DCE.ListPlugins", "function"},
 
         -- Config
+        {"DCE.GetConfig", "function"},
         {"DCE.LoadConfig", "function"},
-        {"DCE.ValidateConfig", "function"},
 
         -- Logger
         {"DCE.Log", "function"},
         {"DCE.GetVersion", "function"},
-
-        -- SDK Registration (Future Reserved)
-        {"DCE.RegisterOrganization", "function"},
-        {"DCE.RegisterDispatchAdapter", "function"},
-        {"DCE.RegisterEvidenceAdapter", "function"},
-        {"DCE.RegisterMDTAdapter", "function"},
-        {"DCE.RegisterBehavior", "function"},
-        {"DCE.RegisterEscalationChain", "function"},
+        {"DCE.IsReady", "function"},
+        {"DCE.GetRuntimeStatus", "function"},
+        {"DCE.GetBootID", "function"},
+        {"DCE.GetSnapshot", "function"},
 
         -- Exports (canonical)
         {"GetDCEAPI via exports['dce-core']", "function"},
@@ -112,14 +109,24 @@ function Phase9.Run()
         end
 
         local exists = value ~= nil
-        local correctType = expectedType == "any" or type(value) == expectedType
+        -- CONTRACT (Sprint 1.11.12): SDK methods cross the FiveM boundary as
+        -- callable FunctionRef tables. Validate callability for "function"
+        -- expectations instead of type() == "function".
+        local correctType
+        if expectedType == "any" then
+            correctType = true
+        elseif expectedType == "function" then
+            correctType = H().IsCallable(value)
+        else
+            correctType = type(value) == expectedType
+        end
 
         if not exists then
             allExist = false
             table.insert(missing, name .. " (missing)")
         elseif not correctType then
             allExist = false
-            table.insert(missing, name .. " (wrong type: " .. type(value) .. ", expected " .. expectedType .. ")")
+            table.insert(missing, name .. " (not callable: " .. type(value) .. ", expected " .. expectedType .. ")")
         end
     end
 
@@ -131,42 +138,42 @@ function Phase9.Run()
     -- ====================================
 
     -- DCE.GetService returns table|nil
-    local svc = dce.GetService("CoreRegistry")
+    local svc = dce:GetService("CoreRegistry")
     H().RecordSuccess(result, H().Assert(svc == nil or type(svc) == "table",
         "DCE.GetService returns table|nil: got " .. type(svc)))
 
     -- DCE.RegisterService returns boolean
-    local regOk = dce.RegisterService("test:docs:validate", { Name = "test" })
+    local regOk = dce:RegisterService("test:docs:validate", { Name = "test" })
     H().RecordSuccess(result, H().Assert(type(regOk) == "boolean",
         "DCE.RegisterService returns boolean: got " .. type(regOk)))
-    dce.UnregisterService("test:docs:validate")
+    dce:UnregisterService("test:docs:validate")
 
     -- DCE.HasService returns boolean
-    local has = dce.HasService("CoreRegistry")
+    local has = dce:HasService("CoreRegistry")
     H().RecordSuccess(result, H().Assert(type(has) == "boolean",
         "DCE.HasService returns boolean: got " .. type(has)))
 
     -- DCE.On returns string|nil
-    local id = dce.On("test:docs:on", function() end)
+    local id = dce:On("test:docs:on", function() end)
     H().RecordSuccess(result, H().Assert(id == nil or type(id) == "string" or type(id) == "number",
         "DCE.On returns string|number|nil: got " .. type(id)))
-    if id then dce.Off("test:docs:on", id) end
+    if id then dce:Off("test:docs:on", id) end
 
     -- DCE.Once returns string|nil
-    local onceId = dce.Once("test:docs:once", function() end)
+    local onceId = dce:Once("test:docs:once", function() end)
     H().RecordSuccess(result, H().Assert(onceId == nil or type(onceId) == "string" or type(onceId) == "number",
         "DCE.Once returns string|number|nil: got " .. type(onceId)))
-    if onceId then dce.Off("test:docs:once", onceId) end
+    if onceId then dce:Off("test:docs:once", onceId) end
 
     -- DCE.Schedule returns boolean
-    local schedOk = dce.Schedule("test:docs:sched", 1000, function() end)
+    local schedOk = dce:Schedule("test:docs:sched", 1000, function() end)
     H().RecordSuccess(result, H().Assert(type(schedOk) == "boolean",
         "DCE.Schedule returns boolean: got " .. type(schedOk)))
-    local scheduler = dce.GetService("Scheduler")
-    if scheduler and scheduler.Unschedule then scheduler.Unschedule("test:docs:sched") end
+    local scheduler = dce:GetService("Scheduler")
+    if scheduler and scheduler.Unschedule then scheduler:Unschedule("test:docs:sched") end
 
     -- DCE.GetVersion returns string
-    local ver = dce.GetVersion()
+    local ver = dce:GetVersion()
     H().RecordSuccess(result, H().Assert(type(ver) == "string",
         "DCE.GetVersion returns string: got " .. type(ver)))
 
@@ -186,71 +193,78 @@ function Phase9.Run()
         sdkVersion = "1.0.0",
         capabilities = {"docs-validation"},
     }
-    local pluginOk = dce.RegisterPlugin(mockPlugin)
+    local pluginOk = dce:RegisterPlugin(mockPlugin)
     H().RecordSuccess(result, H().Assert(pluginOk == true or pluginOk == nil,
         "Mock plugin built from SDK docs: " .. tostring(pluginOk)))
 
-    -- Mock Organization (uses DCE.RegisterOrganization)
-    local orgOk = dce.RegisterOrganization({
-        id = "dce-docs-test-org",
-        name = "Docs Test Org",
-        type = "validation",
+    -- Mock Organization (canonical: DCE:RegisterService per consumer ownership)
+    -- The obsolete SDK method RegisterOrganization was removed.
+    local orgOk = dce:RegisterService("DCEPhase9TestOrg", {
+        Name = "dce-docs-test-org",
+        GetOrgId = function() return "dce-docs-test-org" end,
     })
     H().RecordSuccess(result, H().Assert(orgOk == true,
-        "Mock organization built from SDK docs"))
+        "Mock organization built from SDK docs (canonical RegisterService)"))
+    dce:UnregisterService("DCEPhase9TestOrg")
 
-    -- Mock Dispatch Adapter (uses DCE.RegisterDispatchAdapter)
-    local dispatchOk = dce.RegisterDispatchAdapter({
+    -- Mock Dispatch Adapter (canonical: DCE:RegisterService)
+    -- The obsolete SDK method RegisterDispatchAdapter was removed.
+    local dispatchOk = dce:RegisterService("DCEPhase9DispatchAdapter", {
         Name = "dce-docs-test-dispatch",
         Version = "1.0.0",
     })
     H().RecordSuccess(result, H().Assert(dispatchOk == true,
-        "Mock dispatch adapter built from SDK docs"))
+        "Mock dispatch adapter built from SDK docs (canonical RegisterService)"))
+    dce:UnregisterService("DCEPhase9DispatchAdapter")
 
-    -- Mock Evidence Adapter (uses DCE.RegisterEvidenceAdapter)
-    local evidenceOk = dce.RegisterEvidenceAdapter({
+    -- Mock Evidence Adapter (canonical: DCE:RegisterService)
+    local evidenceOk = dce:RegisterService("DCEPhase9EvidenceAdapter", {
         Name = "dce-docs-test-evidence",
         Version = "1.0.0",
     })
     H().RecordSuccess(result, H().Assert(evidenceOk == true,
-        "Mock evidence adapter built from SDK docs"))
+        "Mock evidence adapter built from SDK docs (canonical RegisterService)"))
+    dce:UnregisterService("DCEPhase9EvidenceAdapter")
 
-    -- Mock MDT Adapter (uses DCE.RegisterMDTAdapter)
-    local mdtOk = dce.RegisterMDTAdapter({
+    -- Mock MDT Adapter (canonical: DCE:RegisterService)
+    local mdtOk = dce:RegisterService("DCEPhase9MDTAdapter", {
         Name = "dce-docs-test-mdt",
         Version = "1.0.0",
     })
     H().RecordSuccess(result, H().Assert(mdtOk == true,
-        "Mock MDT adapter built from SDK docs"))
+        "Mock MDT adapter built from SDK docs (canonical RegisterService)"))
+    dce:UnregisterService("DCEPhase9MDTAdapter")
 
-    -- Mock Behavior (uses DCE.RegisterBehavior)
-    local behaviorOk = dce.RegisterBehavior({
-        type = "docs-test-behavior",
-        priority = 1,
+    -- Mock Behavior (canonical: DCE:RegisterService)
+    local behaviorOk = dce:RegisterService("DCEPhase9Behavior", {
+        Type = "docs-test-behavior",
+        Priority = 1,
     })
     H().RecordSuccess(result, H().Assert(behaviorOk == true,
-        "Mock behavior built from SDK docs"))
+        "Mock behavior built from SDK docs (canonical RegisterService)"))
+    dce:UnregisterService("DCEPhase9Behavior")
 
-    -- Mock Escalation Chain (uses DCE.RegisterEscalationChain)
-    local escOk = dce.RegisterEscalationChain({
-        id = "dce-docs-test-escalation",
-        steps = {"step1", "step2"},
+    -- Mock Escalation Chain (canonical: DCE:RegisterService)
+    local escOk = dce:RegisterService("DCEPhase9Escalation", {
+        EscalationId = "dce-docs-test-escalation",
+        Steps = {"step1", "step2"},
     })
     H().RecordSuccess(result, H().Assert(escOk == true,
-        "Mock escalation chain built from SDK docs"))
+        "Mock escalation chain built from SDK docs (canonical RegisterService)"))
+    dce:UnregisterService("DCEPhase9Escalation")
 
     -- ====================================
     -- Test 4: Event Subscription via SDK Only
     -- ====================================
 
     local eventReceived = false
-    local subId = dce.On("test:docs:event", function()
+    local subId = dce:On("test:docs:event", function()
         eventReceived = true
     end)
     H().RecordSuccess(result, H().AssertNotNil(subId,
         "Event subscription via SDK docs"))
 
-    dce.Emit("test:docs:event", {
+    dce:Emit("test:docs:event", {
         eventVersion = 1,
         timestamp = os.time(),
         source = "dce-test-suite",
@@ -259,7 +273,7 @@ function Phase9.Run()
     H().RecordSuccess(result, H().Assert(eventReceived,
         "Event emission via SDK docs"))
 
-    if subId then dce.Off("test:docs:event", subId) end
+    if subId then dce:Off("test:docs:event", subId) end
 
     -- ====================================
     -- Test 5: Service Registration via SDK Only
@@ -269,11 +283,11 @@ function Phase9.Run()
         Name = "dce-docs-test-service",
         GetData = function() return "test-data" end,
     }
-    local svcOk = dce.RegisterService("DCEPhase9TestService", testSvc)
+    local svcOk = dce:RegisterService("DCEPhase9TestService", testSvc)
     H().RecordSuccess(result, H().Assert(svcOk == true,
         "Service registration via SDK docs"))
 
-    local retrieved = dce.GetService("DCEPhase9TestService")
+    local retrieved = dce:GetService("DCEPhase9TestService")
     H().RecordSuccess(result, H().AssertNotNil(retrieved,
         "Service retrieval via SDK docs"))
     if retrieved then
@@ -281,7 +295,7 @@ function Phase9.Run()
             "Service data accessible via SDK docs"))
     end
 
-    dce.UnregisterService("DCEPhase9TestService")
+    dce:UnregisterService("DCEPhase9TestService")
 
     -- ====================================
     -- Test 6: Export Usage via SDK Only
@@ -323,7 +337,7 @@ function Phase9.Run()
     -- Test 8: CoreRegistry API Surface
     -- ====================================
 
-    local coreReg = dce.GetService("CoreRegistry")
+    local coreReg = dce:GetService("CoreRegistry")
     if coreReg then
         local documentedRegistryAPIs = {
             "ListServices",
@@ -334,7 +348,9 @@ function Phase9.Run()
         }
         local allRegAPIs = true
         for _, apiName in ipairs(documentedRegistryAPIs) do
-            if type(coreReg[apiName]) ~= "function" then
+            -- CONTRACT (Sprint 1.11.12): CoreRegistry methods cross the FiveM
+            -- boundary as callable FunctionRef tables. Validate callability.
+            if not H().IsCallable(coreReg[apiName]) then
                 allRegAPIs = false
             end
         end

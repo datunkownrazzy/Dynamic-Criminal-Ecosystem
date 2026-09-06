@@ -1,40 +1,42 @@
-# Sprint 1.10.2 — Platform SDK Standardization & Canonical API Access
+# Sprint 1.11.3 — Runtime Reimplementation (Hard Reset)
 
-## Progress
-- [x] Phase 1: Implement `exports("GetDCEAPI", ...)` returning frozen SDK table
-- [x] Phase 2: Create frozen SDK with all public APIs matching sdk/public-api.md
-- [x] Phase 3: Internal vs Public Boundary — mark globals as INTERNAL/UNSUPPORTED
-- [x] Phase 4: Resource Migration Audit — verified all resources use SDK
-- [x] Phase 5: Backward Compatibility — added deprecation comments to internal globals
-- [x] Phase 6: SDK Validation Rewrite — verifier validates exported SDK, not `_G.DCE`
-- [x] Phase 7: Control Center Compatibility — already uses SDK, verified no errors
-- [x] Phase 8: Test Suite Compatibility — already uses SDK, verified no regressions
-- [x] Phase 9: Created ADR-0029 — Canonical SDK Access
-- [x] Phase 10: Final verification — updated public-api.md with frozen SDK documentation
+## Task Progress
 
-## Exit Criteria Status
-
-| # | Criterion | Status |
-|---|-----------|--------|
-| 1 | `exports["dce-core"]:GetDCEAPI()` exists | ✅ |
-| 2 | Returned SDK matches frozen API in sdk/public-api.md | ✅ |
-| 3 | All platform resources obtain DCE through canonical SDK export | ✅ |
-| 4 | No platform resource directly depends on _G.DCE or implementation globals | ✅ |
-| 5 | Control Center initializes without SDK export errors | ✅ |
-| 6 | Test Suite validates exported SDK instead of internal details | ✅ |
-| 7 | Internal globals remain only for backward compatibility, documented unsupported | ✅ |
-| 8 | ADR-0029 created | ✅ |
-| 9 | SDK contract is single authoritative integration point for Sprint 2 | ✅ |
-| 10 | No gameplay systems started until platform standardization complete | ✅ |
-
-## Files Created
-- `DCE/src/dce-core/sdk/sdk-wrapper.lua` — Frozen SDK wrapper table
-
-## Files Modified
-- `DCE/src/dce-core/fxmanifest.lua` — Added `sdk/sdk-wrapper.lua` to both server/client scripts
-- `DCE/src/dce-core/init.lua` — `GetDCEAPI()` returns `_G.DCE_FROZEN_SDK`, `IsReady()` checks `_G.DCECoreReady`, sets `_G.DCECoreReady` in ReadyPhase
-- `DCE/src/dce-core/client/init.lua` — Sets `_G.DCECoreReady` in client initialization
-- `DCE/src/dce-core/shared/globals.lua` — Added INTERNAL/UNSUPPORTED deprecation comments
-- `DCE/src/dce-core/verifier/init.lua` — APIVerifier validates exported SDK instead of `_G.DCE`
-- `DCE/architecture/ADR-0029-Canonical-SDK-Access.md` — New ADR
-- `DCE/sdk/public-api.md` — Updated for Sprint 1.10.2 frozen SDK
+- [x] Phase 1: Create new runtime modules (clean slate, no preserved code)
+  - [x] Create `runtime/state.lua` — Single canonical RuntimeState
+  - [x] Create `runtime/logger.lua` — Logger
+  - [x] Create `runtime/registry.lua` — Registry
+  - [x] Create `runtime/eventbus.lua` — EventBus with sticky lifecycle
+  - [x] Create `runtime/scheduler.lua` — Scheduler
+  - [x] Create `runtime/plugin-manager.lua` — PluginManager
+  - [x] Create `runtime/config-manager.lua` — ConfigManager
+  - [x] Create `runtime/sdk.lua` — SDK builder/freezer
+  - [x] Create `runtime/bootstrap.lua` — Deterministic bootstrap pipeline
+- [x] Phase 2: Rewrite dce-core entry points
+  - [x] Rewrite `runtime/init.lua` — Server bootstrap runner
+  - [x] Rewrite `init.lua` — Server entry point (minimal, deterministic)
+  - [x] Rewrite `client/init.lua` — Client entry point (minimal, deterministic)
+  - [x] Rewrite `shared/globals.lua` — Minimal globals
+  - [x] Update `fxmanifest.lua` — Updated script ordering
+- [x] Phase 3: Convert Diagnostics/Verifier/Observatory to read-only passive observers
+  - [x] Rewrite `core/diagnostics.lua` — Read-only diagnostic display
+  - [x] Rewrite `verifier/init.lua` — Read-only verifier
+  - [x] Rewrite `runtime/observatory.lua` — Read-only observatory
+- [x] Phase 4: Update all DCE module consumers
+  - [x] Update `dce-world/init.lua` — Remove polling, use sticky lifecycle
+  - [x] Update `dce-ai/init.lua`
+  - [x] Update `dce-events/init.lua`
+  - [x] Update `dce-dispatch/init.lua`
+  - [x] Update `dce-evidence/init.lua`
+  - [x] Update `dce-controlcenter/server/init.lua`
+  - [x] Update `dce-controlcenter/client/init.lua`
+  - [x] Update `dce-controlcenter/bootstrap/bootstrap.lua`
+  - [x] Update `dce-test-suite/init.lua`
+- [x] Phase 5: Cross-module audit for violations
+  - [x] Audit all modules for old SDK usage
+  - [x] Audit for stale exports, duplicate registries, direct globals, polling, retry loops
+  - [x] Fix all violations found (plugin-registry.lua lifecycle:stageChanged → lifecycle:running)
+- [x] Phase 6: Final cleanup
+  - [x] Verify single RuntimeState, single Registry, single EventBus, single Scheduler
+  - [x] Verify no duplicate runtime state
+  - [x] Verify all modules consume the same SDK

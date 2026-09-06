@@ -56,7 +56,7 @@ body.cc-active {
     opacity: 1 !important;
     pointer-events: all !important;
     visibility: visible !important;
-    background: var(--cc-bg-primary);  /* Background applied ONLY when active */
+    background: transparent !important;
     transition: opacity 0.15s ease-out;
 }
 
@@ -65,7 +65,7 @@ body.cc-open {
     opacity: 1 !important;
     pointer-events: all !important;
     visibility: visible !important;
-    background: var(--cc-bg-primary);  /* Background applied ONLY when open */
+    background: transparent !important;
     transition: opacity 0.15s ease-out;
 }
 
@@ -75,13 +75,133 @@ body.cc-open {
 
 .desktop {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    inset: 50% auto auto 50%;
+    width: min(1440px, calc(100vw - clamp(32px, 8vw, 192px)));
+    height: min(900px, calc(100vh - clamp(32px, 8vh, 128px)));
     display: flex;
     flex-direction: column;
-    background: var(--cc-bg-primary);  /* Desktop handles its own background */
+    transform: translate(-50%, -50%);
+    overflow: hidden;
+    border: 1px solid var(--cc-border);
+    border-radius: 8px;
+    box-shadow: 0 20px 56px rgba(0, 0, 0, 0.58);
+    background: var(--cc-bg-primary);
+}
+
+.application-header {
+    min-height: 56px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px 0 20px;
+    border-bottom: 1px solid var(--cc-border);
+    background: var(--cc-bg-secondary);
+}
+
+.application-identity {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    min-width: 0;
+}
+
+.application-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.application-subtitle,
+.page-description {
+    color: var(--cc-text-secondary);
+}
+
+.close-control-center {
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--cc-border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--cc-text-primary);
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.close-control-center:hover,
+.close-control-center:focus-visible {
+    border-color: var(--cc-danger);
+    background: var(--cc-danger);
+    color: #fff;
+}
+
+.application-workspace {
+    min-height: 0;
+    flex: 1;
+    display: flex;
+}
+
+.application-content {
+    min-width: 0;
+    flex: 1;
+    overflow: auto;
+    padding: 22px 24px 24px;
+    background: var(--cc-bg-primary);
+}
+
+.application-content:focus {
+    outline: none;
+}
+
+.page-heading h1,
+.home-view h1 {
+    margin: 0 0 6px;
+    font-size: 20px;
+}
+
+.overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.overview-item,
+.state-list > div {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px;
+    border: 1px solid var(--cc-border);
+    border-radius: 6px;
+    background: var(--cc-bg-secondary);
+}
+
+.quick-actions {
+    margin: 20px 0;
+}
+
+.quick-actions h2 {
+    margin: 0 0 10px;
+    font-size: 14px;
+}
+
+.quick-actions > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.overview-label,
+.state-list span {
+    color: var(--cc-text-secondary);
+    font-size: 12px;
+}
+
+.state-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
 }
 
 .window-container {
@@ -179,24 +299,33 @@ body.cc-open {
 
 /* Dock/Toolbar */
 .dock {
-    height: 48px;
+    width: 176px;
+    flex: 0 0 176px;
     background: var(--cc-bg-secondary);
-    border-bottom: 1px solid var(--cc-border);
+    border-right: 1px solid var(--cc-border);
     display: flex;
-    align-items: center;
-    padding: 0 12px;
-    gap: 8px;
+    padding: 12px 8px;
+    box-sizing: border-box;
+}
+
+.dock-content {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
 }
 
 .dock-btn {
-    width: 36px;
-    height: 36px;
+    width: 100%;
+    min-height: 34px;
+    padding: 0 10px;
     background: transparent;
     border: 1px solid transparent;
     color: var(--cc-text-secondary, #8b949e);
     cursor: pointer;
     border-radius: 6px;
-    font-size: 16px;
+    font-size: 13px;
+    text-align: left;
     transition: all 0.15s ease;
 }
 
@@ -333,6 +462,12 @@ body.cc-open {
     cursor: not-allowed;
 }
 
+button:focus-visible,
+input:focus-visible {
+    outline: 2px solid var(--cc-accent);
+    outline-offset: 2px;
+}
+
 /* Tables */
 .data-table {
     width: 100%;
@@ -395,7 +530,7 @@ body.cc-open {
 
 /* Notifications */
 .notifications {
-    position: fixed;
+    position: absolute;
     top: 12px;
     right: 12px;
     display: flex;
@@ -438,7 +573,7 @@ body.cc-open {
 
 /* Modal Overlay */
 .modal-overlay {
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     width: 100vw;
@@ -521,4 +656,60 @@ body.cc-open {
 /* Version indicator */
 .status-version {
     opacity: 0.7;
+}
+
+.page-state {
+    padding: 18px;
+    border: 1px solid var(--cc-border);
+    border-radius: 6px;
+    background: var(--cc-bg-secondary);
+    color: var(--cc-text-secondary);
+}
+
+.page-state.unavailable {
+    border-left: 3px solid var(--cc-warning);
+}
+
+.page-state strong,
+.page-state span {
+    display: block;
+}
+
+.page-state span {
+    margin-top: 6px;
+}
+
+.page-state.empty {
+    border-left: 3px solid var(--cc-accent);
+}
+
+@media (max-width: 700px) {
+    .desktop {
+        width: calc(100vw - 24px);
+        height: calc(100vh - 24px);
+        border-radius: 6px;
+    }
+
+    .application-header {
+        height: auto;
+        min-height: 56px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 10px 14px;
+    }
+
+    .dock {
+        width: 132px;
+        flex-basis: 132px;
+    }
+
+    .application-identity {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 1px;
+    }
+
+    .application-content {
+        padding: 16px;
+    }
 }

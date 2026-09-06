@@ -6,37 +6,38 @@
 ---@class DCEFramework
 --- The main DCE framework API exposed via the global DCE table.
 --- This interface is for internal DCE use, not plugin SDK.
+--- All methods are COLON-defined (self is the first parameter).
 --- Service Registry API
----@field GetService fun(name:string):table|nil
----@field HasService fun(name:string):boolean
----@field GetServiceOrThrow fun(name:string):table
----@field RegisterService fun(name:string, service:table, options?:table):boolean
----@field UnregisterService fun(name:string):boolean
+---@field GetService fun(self:DCEFramework, name:string):table|nil
+---@field HasService fun(self:DCEFramework, name:string):boolean
+---@field RegisterService fun(self:DCEFramework, name:string, service:table, options?:table):boolean
+---@field UnregisterService fun(self:DCEFramework, name:string):boolean
+---@field ListServices fun(self:DCEFramework):string[]
 --- Event Bus API
----@field Emit fun(eventName:string, payload:table):nil
----@field On fun(eventName:string, handlerFn:function):number|nil
----@field Once fun(eventName:string, handlerFn:function):number|nil
----@field Off fun(eventName:string, handlerId:number):nil
+---@field Emit fun(self:DCEFramework, eventName:string, payload:any):nil
+---@field On fun(self:DCEFramework, eventName:string, handlerFn:function):number|nil
+---@field Once fun(self:DCEFramework, eventName:string, handlerFn:function):number|nil
+---@field Off fun(self:DCEFramework, eventName:string, handlerId:number):boolean
 --- Scheduler API
----@field Schedule fun(taskName:string, intervalMs:number, callback:function, options?:table):boolean
----@field ScheduleNow fun(taskName:string):boolean
---- Logger convenience
----@field Log fun(module:string, level:string, message:string, ...:any):nil
+---@field Schedule fun(self:DCEFramework, taskName:string, intervalMs:number, callback:function, options?:table):boolean
+---@field ScheduleNow fun(self:DCEFramework, taskName:string):boolean
+--- Plugin API
+---@field RegisterPlugin fun(self:DCEFramework, manifest:table):boolean
+---@field ListPlugins fun(self:DCEFramework):string[]
+--- Config API
+---@field GetConfig fun(self:DCEFramework, key:string, default?:any):any
+---@field LoadConfig fun(self:DCEFramework, path:string):table|nil
+--- Logger convenience (ONE canonical surface)
+---@field Log fun(self:DCEFramework, module:string, level:string, message:string, ...:any):nil
 --- Version convenience (Sprint 1.7)
----@field GetVersion fun():string
+---@field GetVersion fun(self:DCEFramework):string
 --- Ready state query (Sprint 1.10.2)
----@field IsReady fun():boolean
+---@field IsReady fun(self:DCEFramework):boolean
+--- Runtime status queries
+---@field GetRuntimeStatus fun(self:DCEFramework):string|nil
+---@field GetBootID fun(self:DCEFramework):string|nil
+---@field GetSnapshot fun(self:DCEFramework):table
 --- Internal ready state flag (private, set after boot pipeline completes)
 ---@field _ready boolean
---- Plugin SDK functions
----@field RegisterPlugin fun(manifest:table):(boolean, string|nil)
----@field LoadConfig fun(path:string):table|nil
----@field ValidateConfig fun(config:table, schema:table):boolean
----@field RegisterOrganization fun(orgDataTable:table):(boolean, string|nil)
----@field RegisterDispatchAdapter fun(adapterTable:table):boolean
----@field RegisterEvidenceAdapter fun(adapterTable:table):boolean
----@field RegisterMDTAdapter fun(adapterTable:table):boolean
----@field RegisterBehavior fun(behaviorDataTable:table):boolean
----@field RegisterEscalationChain fun(escalationSchemaTable:table):boolean
 ---@type DCEFramework
 DCE = nil

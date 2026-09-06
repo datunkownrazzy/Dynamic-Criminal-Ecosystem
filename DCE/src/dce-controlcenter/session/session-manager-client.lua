@@ -12,7 +12,7 @@ local dceCoreReady = false
 
 local function GetService(serviceName)
     if not DCE then return nil end
-    return DCE.GetService and DCE.GetService(serviceName)
+    return DCE.GetService and DCE:GetService(serviceName)
 end
 
 local function ConnectToCore()
@@ -72,14 +72,6 @@ function SessionManagerClient.ReuseSession(data)
     currentSessionId = data.sessionId
     isActive = true
     log("info", "Reusing session: " .. tostring(data.sessionId))
-    
-    local WM = GetService("WorkspaceManager")
-    if WM then
-        local ws = WM.LoadWorkspace(GetPlayerServerId(PlayerId()))
-        if ws then
-            SendNUIMessage({ action = "application:restore-workspace", data = { windows = ws.windows or {} } })
-        end
-    end
     
     SendNUIMessage({ action = "application:activate", data = { sessionId = data.sessionId } })
 end

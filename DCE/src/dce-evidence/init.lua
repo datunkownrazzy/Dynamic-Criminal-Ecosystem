@@ -1,42 +1,33 @@
--- DCE Evidence Service - Resource Entry Point
--- Defensive nil-check patterns are intentional for FiveM resource timing safety per ADR-0001
+-- DCE Evidence Service — Sprint 1.11.6 FiveM Loader Compliance
+--
+-- PLATFORM CONSUMER.
+-- Does NOT own runtime state. Does NOT poll. Does NOT retry.
+--
+-- SDK acquisition is DIRECT and UNCONDITIONAL:
+--   local DCE = exports['dce-core']:GetDCEAPI()
+--
+-- Deterministic because fxmanifest.lua declares dependencies { 'dce-core' },
+-- which per the FiveM resource manifest reference REQUIRES dce-core to load
+-- and fully start BEFORE this resource executes any script.
+---
+---@diagnostic disable: undefined-global
 
--- Resource Lifecycle
 -- ============================================================================
+-- SDK Acquisition — Direct, single call, no polling, no retries
+-- ============================================================================
+local DCE = exports['dce-core']:GetDCEAPI()
 
-local function GetDCEAPI()
-    local DCEAPI = nil
-    local attempts = 0
-    while not DCEAPI and attempts < 50 do
-        attempts = attempts + 1
-        Citizen.Wait(100)
-        local success, api = pcall(function()
-            if exports and exports['dce-core'] and exports['dce-core'].GetDCEAPI then
-                return exports['dce-core']:GetDCEAPI()
-            end
-            return nil
-        end)
-        if success then
-            DCEAPI = api
-        end
-    end
-    return DCEAPI
+if not DCE then
+    error("dce-evidence: exports['dce-core']:GetDCEAPI() returned nil. Add 'dce-core' to dependencies and ensure it starts first.")
 end
 
+local initialized = false
+
 local function OnEvidenceStart()
-    local DCEAPI = GetDCEAPI()
-    if not DCEAPI then
-        print("^1[DCE Evidence] FATAL: Could not obtain DCE API from dce-core^0")
-        return
-    end
-    -- _G.DCE is owned by dce-core; use the API locally
-    -- Do NOT overwrite _G.DCE to prevent race conditions
+    if initialized then return end
 
-    if DCE and DCE.Log then
-        DCE.Log("evidence", "info", "=== DCE Evidence Service Starting ===")
-    end
+    DCE:Log("evidence", "info", "=== DCE Evidence Service Starting ===")
 
-    -- Initialize evidence service (DCEEvidenceService is set by services/evidence.lua at load time)
     if DCEEvidenceService and DCEEvidenceService.Initialize then
         DCEEvidenceService.Initialize()
     end
@@ -44,32 +35,22 @@ local function OnEvidenceStart()
         DCEEvidenceService.InitializeAdapter()
     end
 
-    -- Register the Evidence service
-    -- Defensive patterns: return nil OR actual value for service timing safety
-    if DCE and DCE.RegisterService then
-        DCE.RegisterService("Evidence", {
-            CreateEvidence = function(data) return DCEEvidenceService and DCEEvidenceService.CreateEvidence(data) end,
-            GetEvidence = function(evidenceId) return DCEEvidenceService and DCEEvidenceService.GetEvidence(evidenceId) end,
-            GetAllEvidence = function() return DCEEvidenceService and DCEEvidenceService.GetAllEvidence() end,
-            GetEvidenceByScenario = function(scenarioId) return DCEEvidenceService and DCEEvidenceService.GetEvidenceByScenario(scenarioId) end,
-            GetEvidenceByOrganization = function(orgId) return DCEEvidenceService and DCEEvidenceService.GetEvidenceByOrganization(orgId) end,
-            TransferEvidence = function(evidenceId, from, to, reason) return DCEEvidenceService and DCEEvidenceService.TransferEvidence(evidenceId, from, to, reason) end,
-            GetCustodyChain = function(evidenceId) return DCEEvidenceService and DCEEvidenceService.GetCustodyChain(evidenceId) end,
-            VerifyEvidence = function(evidenceId) return DCEEvidenceService and DCEEvidenceService.VerifyEvidence(evidenceId) end,
-            LinkToCase = function(evidenceId, caseId) return DCEEvidenceService and DCEEvidenceService.LinkToCase(evidenceId, caseId) end,
-            SetAdapter = function(adapter) 
-                if DCEEvidenceService and DCEEvidenceService.SetAdapter then 
-                    DCEEvidenceService.SetAdapter(adapter) 
-                end 
-            end,
-            GetAdapter = function() return DCEEvidenceService and DCEEvidenceService.GetAdapter() end,
-        })
-    end
+    DCE:RegisterService("Evidence", {
+        CreateEvidence = function(data) return DCEEvidenceService and DCEEvidenceService.CreateEvidence(data) end,
+        GetEvidence = function(evidenceId) return DCEEvidenceService and DCEEvidenceService.GetEvidence(evidenceId) end,
+        GetAllEvidence = function() return DCEEvidenceService and DCEEvidenceService.GetAllEvidence() end,
+        GetEvidenceByScenario = function(scenarioId) return DCEEvidenceService and DCEEvidenceService.GetEvidenceByScenario(scenarioId) end,
+        GetEvidenceByOrganization = function(orgId) return DCEEvidenceService and DCEEvidenceService.GetEvidenceByOrganization(orgId) end,
+        TransferEvidence = function(evidenceId, from, to, reason) return DCEEvidenceService and DCEEvidenceService.TransferEvidence(evidenceId, from, to, reason) end,
+        GetCustodyChain = function(evidenceId) return DCEEvidenceService and DCEEvidenceService.GetCustodyChain(evidenceId) end,
+        VerifyEvidence = function(evidenceId) return DCEEvidenceService and DCEEvidenceService.VerifyEvidence(evidenceId) end,
+        LinkToCase = function(evidenceId, caseId) return DCEEvidenceService and DCEEvidenceService.LinkToCase(evidenceId, caseId) end,
+        SetAdapter = function(adapter) if DCEEvidenceService and DCEEvidenceService.SetAdapter then DCEEvidenceService.SetAdapter(adapter) end end,
+        GetAdapter = function() return DCEEvidenceService and DCEEvidenceService.GetAdapter() end,
+    })
 
-    -- Subscribe to scenario completion events via FiveM event bridge
-    -- ADR-0020: DCE.On cannot be called cross-resource due to FiveM proxy marshalling.
-    -- Instead, we register a local FiveM event handler and bridge through DCE_Subscribe.
-    AddEventHandler("dce-evidence:on:scenario:completed", function(payload)
+    -- Subscribe to scenario completion events
+    DCE:On("scenario:completed", function(payload)
         local data = payload and (payload.payload or payload)
         if data and DCEEvidenceFactory and DCEEvidenceFactory.FromScenarioCompletion then
             local evidenceData = DCEEvidenceFactory.FromScenarioCompletion(data)
@@ -78,54 +59,30 @@ local function OnEvidenceStart()
             end
         end
     end)
+    DCE:Log("evidence", "info", "Subscribed to scenario:completed")
 
-    -- Bridge: subscribe the DCE event to our FiveM event handler
-    -- No function reference crosses the resource boundary
-    -- DCE_Subscribe is an export, not a DCE method
-    if exports and exports['dce-core'] and exports['dce-core'].DCE_Subscribe then
-        local bridgeEvent = exports['dce-core']:DCE_Subscribe("scenario:completed", "dce-evidence:on:scenario:completed")
-        if bridgeEvent and DCE and DCE.Log then
-            DCE.Log("evidence", "info", "Subscribed to scenario:completed via event bridge")
-        end
-    else
-        if DCE and DCE.Log then
-            DCE.Log("evidence", "warn", "DCE_Subscribe export not available for scenario:completed")
-        end
-    end
-
-    if DCE and DCE.Log then
-        DCE.Log("evidence", "info", "=== DCE Evidence Service Started ===")
-    end
+    initialized = true
+    DCE:Log("evidence", "info", "=== DCE Evidence Service Started ===")
 end
 
 local function OnEvidenceStop()
-    -- Safely clean up - DCE may be nil if core shut down first
-    if DCE and DCE.Log then
-        DCE.Log("evidence", "info", "=== DCE Evidence Service Stopping ===")
-    end
-    
-    if DCE and DCE.UnregisterService then
-        DCE.UnregisterService("Evidence")
-    end
-    
+    if not DCE then return end
+    DCE:Log("evidence", "info", "=== DCE Evidence Service Stopping ===")
+    DCE:UnregisterService("Evidence")
     if DCEEvidenceService and DCEEvidenceService.Shutdown then
         DCEEvidenceService.Shutdown()
     end
-    
-    if DCE and DCE.Log then
-        DCE.Log("evidence", "info", "=== DCE Evidence Service Stopped ===")
-    end
+    initialized = false
+    DCE:Log("evidence", "info", "=== DCE Evidence Service Stopped ===")
 end
 
 -- ============================================================================
--- Lifecycle Hooks
+-- Lifecycle — Unconditional sticky subscription
 -- ============================================================================
-
--- Wait for events to be ready before initializing
-AddEventHandler("onResourceStart", function(resourceName)
-    if resourceName == "dce-events" then
-        OnEvidenceStart()
-    end
+-- The EventBus replays sticky events to new subscribers, guaranteeing delivery
+-- even if lifecycle:running was already emitted before this resource loaded.
+DCE:On("lifecycle:running", function(payload)
+    OnEvidenceStart()
 end)
 
 AddEventHandler("onResourceStop", function(resourceName)

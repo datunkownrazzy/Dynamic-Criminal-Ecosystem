@@ -17,7 +17,6 @@
     var territories = [];
     var searchQuery = '';
     var pluginState = 'unloaded';
-    var eventUnsubscribers = [];
     
     /**
      * Fetch locations from server via EventBus
@@ -28,10 +27,13 @@
                 if (response && response.locations) {
                     locations = response.locations;
                     renderLocations();
+                } else {
+                    renderLocationsState('World location data is not currently available.');
                 }
             })
             .catch(function(err) {
                 console.error('[WorldManager] Failed to fetch locations:', err);
+                renderLocationsState('Unable to load world location data. The world service did not return usable data.');
             });
     }
     
@@ -44,10 +46,13 @@
                 if (response && response.territories) {
                     territories = response.territories;
                     renderTerritories();
+                } else {
+                    renderTerritoriesState('Territory data is not currently available.');
                 }
             })
             .catch(function(err) {
                 console.error('[WorldManager] Failed to fetch territories:', err);
+                renderTerritoriesState('Unable to load territory data. The world service did not return usable data.');
             });
     }
     
@@ -64,13 +69,17 @@
                    loc.type.toLowerCase().includes(searchQuery.toLowerCase());
         });
         
-        container.innerHTML = filtered.map(function(loc) {
+        container.innerHTML = filtered.length ? filtered.map(function(loc) {
+            var coordinates = loc.coordinates || {};
+            var x = Number(coordinates.x || 0).toFixed(2);
+            var y = Number(coordinates.y || 0).toFixed(2);
+            var z = Number(coordinates.z || 0).toFixed(2);
             return '<div class="location-item" data-id="' + loc.id + '">' +
-                '<div class="location-name">' + loc.name + '</div>' +
-                '<div class="location-coords">(' + loc.x.toFixed(2) + ', ' + loc.y.toFixed(2) + ', ' + loc.z.toFixed(2) + ')</div>' +
-                '<div class="location-type">' + loc.type + '</div>' +
+                '<div class="location-name">' + (loc.name || loc.id) + '</div>' +
+                '<div class="location-coords">(' + x + ', ' + y + ', ' + z + ')</div>' +
+                '<div class="location-type">' + (loc.type || 'Unspecified') + '</div>' +
             '</div>';
-        }).join('');
+        }).join('') : '<div class="page-state empty">No active world locations.</div>';
     }
     
     /**
@@ -80,43 +89,23 @@
         var container = document.getElementById('territories-list');
         if (!container) return;
         
-        container.innerHTML = territories.map(function(territory) {
-            return '<div class="territory-item" data-id="' + territory.id + '" style="border-left: 4px solid ' + territory.color + '">' +
-                '<div class="territory-name">' + territory.name + '</div>' +
+        container.innerHTML = territories.length ? territories.map(function(territory) {
+            return '<div class="territory-item" data-id="' + territory.id + '">' +
+                '<div class="territory-name">' + (territory.name || territory.id) + '</div>' +
                 '<div class="territory-owner">Owner: ' + (territory.owner || 'Unclaimed') + '</div>' +
-                '<div class="territory-heat">Heat: ' + territory.heat + '</div>' +
+                '<div class="territory-heat">Heat: ' + (territory.heat == null ? 'Unavailable' : territory.heat) + '</div>' +
             '</div>';
-        }).join('');
+        }).join('') : '<div class="page-state empty">No active territories.</div>';
     }
-    
-    // Plugin subscription to EventBus for live updates
-    function subscribeToEvents() {
-        // Subscribe to location updates
-        var unsubLoc = DCE.Bus && DCE.Bus.on && DCE.Bus.on('world:location:created', function(data) {
-            locations.push(data.location);
-            renderLocations();
-        });
-        if (unsubLoc) eventUnsubscribers.push(unsubLoc);
-        
-        // Subscribe to territory updates
-        var unsubTer = DCE.Bus && DCE.Bus.on && DCE.Bus.on('world:territory:updated', function(data) {
-            var idx = territories.findIndex(function(t) { return t.id === data.territory.id; });
-            if (idx >= 0) {
-                territories[idx] = data.territory;
-            } else {
-                territories.push(data.territory);
-            }
-            renderTerritories();
-        });
-        if (unsubTer) eventUnsubscribers.push(unsubTer);
+
+    function renderLocationsState(message) {
+        var container = document.getElementById('locations-list');
+        if (container) container.innerHTML = '<div class="page-state unavailable">' + message + '</div>';
     }
-    
-    // Unsubscribe from all events
-    function unsubscribeFromEvents() {
-        eventUnsubscribers.forEach(function(unsub) {
-            if (typeof unsub === 'function') unsub();
-        });
-        eventUnsubscribers = [];
+
+    function renderTerritoriesState(message) {
+        var container = document.getElementById('territories-list');
+        if (container) container.innerHTML = '<div class="page-state unavailable">' + message + '</div>';
     }
     
     DCE.Plugins['world-manager'] = {
@@ -139,9 +128,6 @@
         Start: function() {
             console.log('[WorldManager] Start');
             pluginState = 'started';
-            subscribeToEvents();
-            fetchLocations();
-            fetchTerritories();
             DCE.NUI.post('dce-cc:plugin:started', { pluginId: 'world-manager' }).catch(function() {});
         },
         
@@ -154,7 +140,6 @@
         // Lifecycle: Destroy (called on cleanup)
         Destroy: function() {
             console.log('[WorldManager] Destroy');
-            unsubscribeFromEvents();
             pluginState = 'destroyed';
         },
         

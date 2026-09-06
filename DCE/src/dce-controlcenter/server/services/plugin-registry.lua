@@ -2,31 +2,34 @@
 -- SOLE OWNER: Plugin registration, discovery, validation, lifecycle tracking
 -- All plugins register here. No other module may track plugin state.
 -- Per ADR-0026: Plugin Registry registers with DCE Core via Registry
+--
+-- SPRINT 1.11.1 FIX: Removed polling loop, removed cached EventBus/Logger,
+-- removed direct EventBus:Emit) calls, uses canonical lifecycle events.
+---@diagnostic disable: undefined-global
 
 local PluginRegistry = {}
-local dceCoreReady = false
-local Logger = nil
-local EventBus = nil
 local DCE = nil
 
 -- Plugin storage
 local registeredPlugins = {} -- id -> manifest
 local activePlugins = {}     -- id -> instance
 
-local function ConnectToCore()
-    if dceCoreReady then return true end
-    if GetResourceState('dce-core') ~= 'started' then return false end
-    DCE = exports['dce-core']:GetDCEAPI()
-    if not DCE then return false end
-    EventBus = DCE.GetService and DCE.GetService("EventBus")
-    Logger = DCE.GetService and DCE.GetService("Logger")
-    dceCoreReady = true
-    return true
+local function AcquireSDK()
+    local success, api = pcall(function()
+        if exports and exports['dce-core'] and exports['dce-core'].GetDCEAPI then
+            return exports['dce-core']:GetDCEAPI()
+        end
+        return nil
+    end)
+    if success then
+        DCE = api
+    end
+    return DCE
 end
 
 local function log(level, message, ...)
-    if Logger and Logger.Log then
-        Logger.Log("plugin-registry", level, message, ...)
+    if DCE and DCE.Log then
+        DCE:Log("plugin-registry", level, message, ...)
     else
         print(("[DCE PluginRegistry] %s: %s"):format(level, message:format(...)))
     end
@@ -52,28 +55,29 @@ end
 ---@param manifest table Plugin manifest (id, name, version, description, author, dependencies)
 ---@return boolean success, string|nil error
 function PluginRegistry.Register(manifest)
-    ConnectToCore()
-    
+    if not DCE then
+        log("error", "Cannot register plugin - SDK not acquired")
+        return false, "SDK not available"
+    end
+
     local valid, err = ValidateManifest(manifest)
     if not valid then
         log("error", "Invalid plugin manifest: %s", err or "unknown")
         return false, err
     end
-    
+
     if registeredPlugins[manifest.id] then
         log("warn", "Plugin already registered, updating: %s", manifest.id)
     end
-    
+
     registeredPlugins[manifest.id] = manifest
     log("info", "Plugin registered: %s v%s", manifest.id, manifest.version)
-    
-    if EventBus then
-        EventBus.Emit("plugin:registered", {
-            eventVersion = 1, timestamp = os.time(), source = "plugin-registry",
-            payload = { id = manifest.id, name = manifest.name, version = manifest.version }
-        })
-    end
-    
+
+    DCE:Emit("plugin:registered", {
+        eventVersion = 1, timestamp = os.time(), source = "plugin-registry",
+        payload = { id = manifest.id, name = manifest.name, version = manifest.version }
+    })
+
     return true, nil
 end
 
@@ -118,8 +122,8 @@ function PluginRegistry.Unregister(pluginId)
     registeredPlugins[pluginId] = nil
     activePlugins[pluginId] = nil
     log("info", "Plugin unregistered: %s", tostring(pluginId))
-    if EventBus then
-        EventBus.Emit("plugin:unregistered", {
+    if DCE then
+        DCE:Emit("plugin:unregistered", {
             eventVersion = 1, timestamp = os.time(), source = "plugin-registry",
             payload = { id = pluginId }
         })
@@ -137,7 +141,7 @@ function PluginRegistry.ValidateDependencies(pluginId)
     local manifest = registeredPlugins[pluginId]
     if not manifest then return false, "Plugin not registered" end
     if not manifest.dependencies then return true, nil end
-    
+
     for _, depId in ipairs(manifest.dependencies) do
         if not registeredPlugins[depId] then
             return false, ("Missing dependency: %s"):format(depId)
@@ -158,17 +162,16 @@ end
 -- ============================================================================
 
 function PluginRegistry.Init()
-    ConnectToCore()
-    if not dceCoreReady then
-        log("error", "Cannot init - dce-core not ready")
+    if not DCE then
+        log("error", "Cannot init - SDK not acquired")
         return false
     end
-    
-    if DCE and DCE.RegisterService then
-        DCE.RegisterService("PluginRegistry", PluginRegistry)
+
+    if DCE.RegisterService then
+        DCE:RegisterService("PluginRegistry", PluginRegistry)
         log("info", "Registered with DCE Core")
     end
-    
+
     log("info", "Plugin Registry ready")
     return true
 end
@@ -180,19 +183,20 @@ function PluginRegistry.Shutdown()
 end
 
 -- ============================================================================
--- Resource Lifecycle
+-- Lifecycle — Subscribe to Canonical Lifecycle Events
 -- ============================================================================
 
-AddEventHandler('onResourceStart', function(resourceName)
-    if GetCurrentResourceName() ~= resourceName then return end
-    local attempts = 0
-    while not ConnectToCore() and attempts < 50 do
-        Wait(100); attempts = attempts + 1
+Citizen.CreateThread(function()
+    Citizen.Wait(0)
+    DCE = AcquireSDK()
+    if DCE then
+        DCE:On("lifecycle:running", function(payload)
+            PluginRegistry.Init()
+        end)
     end
-    SetTimeout(0, function() PluginRegistry.Init() end)
 end)
 
-AddEventHandler('onResourceStop', function(resourceName)
+AddEventHandler("onResourceStop", function(resourceName)
     if GetCurrentResourceName() ~= resourceName then return end
     PluginRegistry.Shutdown()
 end)

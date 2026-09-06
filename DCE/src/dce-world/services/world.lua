@@ -28,7 +28,7 @@ function WorldService.Initialize()
     end
 
     if DCE and DCE.Log then
-        DCE.Log("world", "info", "World Engine initializing...")
+        DCE:Log("world", "info", "World Engine initializing...")
     end
 
     -- Load region definitions
@@ -37,7 +37,7 @@ function WorldService.Initialize()
         if Region.New then
             regions[id] = Region.New(id, data)
             if DCE and DCE.Log then
-                DCE.Log("world", "info", "  Region loaded: %s (%s)", id, data.displayName)
+                DCE:Log("world", "info", "  Region loaded: %s (%s)", id, data.displayName)
             end
         end
     end
@@ -54,7 +54,7 @@ function WorldService.Initialize()
     end
 
     if DCE and DCE.Log then
-        DCE.Log("world", "info", "World Engine initialized with %d regions", #regions)
+        DCE:Log("world", "info", "World Engine initialized with %d regions", #regions)
     end
     isInitialized = true
 end
@@ -149,7 +149,7 @@ function WorldService.Layer0Tick()
     end
 
     if DCE and DCE.Emit then
-        DCE.Emit("world:tick:started", {
+        DCE:Emit("world:tick:started", {
             eventName = "world:tick:started",
             eventVersion = 1,
             timestamp = os.time(),
@@ -166,7 +166,7 @@ function WorldService.Layer0Tick()
     -- Emit events for significantly changed regions
     for regionId, state in pairs(changedRegions) do
         if DCE and DCE.Emit then
-            DCE.Emit("world:region:state_changed", {
+            DCE:Emit("world:region:state_changed", {
                 eventName = "world:region:state_changed",
                 eventVersion = 1,
                 timestamp = os.time(),
@@ -177,7 +177,7 @@ function WorldService.Layer0Tick()
     end
 
     if DCE and DCE.Emit then
-        DCE.Emit("world:tick:completed", {
+        DCE:Emit("world:tick:completed", {
             eventName = "world:tick:completed",
             eventVersion = 1,
             timestamp = os.time(),
@@ -198,7 +198,7 @@ function WorldService.Layer1Tick()
     end
 
     if DCE and DCE.Emit then
-        DCE.Emit("world:tick:started", {
+        DCE:Emit("world:tick:started", {
             eventName = "world:tick:started",
             eventVersion = 1,
             timestamp = os.time(),
@@ -214,7 +214,7 @@ function WorldService.Layer1Tick()
 
     for _, promo in ipairs(promotions) do
         if DCE and DCE.Emit then
-            DCE.Emit("world:region:layer_changed", {
+            DCE:Emit("world:region:layer_changed", {
                 eventName = "world:region:layer_changed",
                 eventVersion = 1,
                 timestamp = os.time(),
@@ -225,7 +225,7 @@ function WorldService.Layer1Tick()
     end
 
     if DCE and DCE.Emit then
-        DCE.Emit("world:tick:completed", {
+        DCE:Emit("world:tick:completed", {
             eventName = "world:tick:completed",
             eventVersion = 1,
             timestamp = os.time(),
@@ -248,7 +248,7 @@ function WorldService.TimeTick()
     local newTime = TimeSim.Tick(worldState)
     if newTime then
         if DCE and DCE.Emit then
-            DCE.Emit("world:time:changed", {
+            DCE:Emit("world:time:changed", {
                 eventName = "world:time:changed",
                 eventVersion = 1,
                 timestamp = os.time(),
@@ -268,7 +268,7 @@ function WorldService.WeatherTick()
     local newWeather = WeatherSim.Tick(worldState)
     if newWeather then
         if DCE and DCE.Emit then
-            DCE.Emit("world:weather:changed", {
+            DCE:Emit("world:weather:changed", {
                 eventName = "world:weather:changed",
                 eventVersion = 1,
                 timestamp = os.time(),
@@ -286,7 +286,7 @@ end
 --- Clean up all world state.
 function WorldService.Shutdown()
     if DCE and DCE.Log then
-        DCE.Log("world", "info", "World Engine shutting down...")
+        DCE:Log("world", "info", "World Engine shutting down...")
     end
 
     if Layer1 and Layer1.Clear then
@@ -301,7 +301,7 @@ function WorldService.Shutdown()
     isInitialized = false
 
     if DCE and DCE.Log then
-        DCE.Log("world", "info", "World Engine shutdown complete")
+        DCE:Log("world", "info", "World Engine shutdown complete")
     end
 end
 

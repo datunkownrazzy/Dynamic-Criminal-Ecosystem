@@ -41,9 +41,9 @@ function Phase6.Run()
     end
 
     -- Get services via SDK
-    local EB = dce.GetService("EventBus")
-    local S = dce.GetService("Scheduler")
-    local PA = dce.GetService("PluginArchitecture")
+    local EB = dce:GetService("EventBus")
+    local S = dce:GetService("Scheduler")
+    local PA = dce:GetService("PluginManager")
 
     -- ====================================
     -- Test 1: Event Handler Cleanup (Subscription Tracking)
@@ -51,7 +51,7 @@ function Phase6.Run()
 
     local initialEventCount = 0
     if EB and EB.ListEvents then
-        initialEventCount = #(EB.ListEvents() or {})
+        initialEventCount = #(EB:ListEvents() or {})
         H().RecordSuccess(result, H().Assert(true,
             "Initial event count: " .. initialEventCount))
     end
@@ -59,7 +59,7 @@ function Phase6.Run()
     -- Subscribe and unsubscribe many times
     local subIds = {}
     for i = 1, 100 do
-        local id = dce.On("test:memory:handler:" .. i, function() end)
+        local id = dce:On("test:memory:handler:" .. i, function() end)
         if id then table.insert(subIds, id) end
     end
     H().RecordSuccess(result, H().Assert(#subIds == 100,
@@ -67,13 +67,13 @@ function Phase6.Run()
 
     -- Unsubscribe all
     for i = 1, 100 do
-        dce.Off("test:memory:handler:" .. i, subIds[i])
+        dce:Off("test:memory:handler:" .. i, subIds[i])
     end
 
     if EB and EB.ListEvents then
-        local remaining = #(EB.ListEvents() or {})
+        local remaining = #(EB:ListEvents() or {})
         local leakers = 0
-        for _, name in ipairs(EB.ListEvents() or {}) do
+        for _, name in ipairs(EB:ListEvents() or {}) do
             if name:find("^test:memory:handler:") then
                 leakers = leakers + 1
             end
@@ -87,25 +87,25 @@ function Phase6.Run()
     -- ====================================
 
     if S then
-        local initialTasks = #(S.ListTasks() or {})
+        local initialTasks = #(S:ListTasks() or {})
 
         -- Schedule and unschedule many tasks
         for i = 1, 50 do
-            S.Schedule("test:memory:task:" .. i, 10000, function() end)
+            S:Schedule("test:memory:task:" .. i, 10000, function() end)
         end
 
-        local afterSchedule = #(S.ListTasks() or {})
+        local afterSchedule = #(S:ListTasks() or {})
         H().RecordSuccess(result, H().Assert(afterSchedule >= 50,
             "50 tasks scheduled: " .. afterSchedule))
 
         -- Unschedule all
         for i = 1, 50 do
-            S.Unschedule("test:memory:task:" .. i)
+            S:Unschedule("test:memory:task:" .. i)
         end
 
-        local afterCleanup = #(S.ListTasks() or {})
+        local afterCleanup = #(S:ListTasks() or {})
         local taskLeakers = 0
-        for _, t in ipairs(S.ListTasks() or {}) do
+        for _, t in ipairs(S:ListTasks() or {}) do
             if t.name:find("^test:memory:task:") then
                 taskLeakers = taskLeakers + 1
             end
@@ -120,7 +120,7 @@ function Phase6.Run()
 
     if PA then
         for i = 1, 50 do
-            dce.RegisterPlugin({
+            dce:RegisterPlugin({
                 name = "test:memory:plugin:" .. i,
                 version = "1.0.0",
                 description = "Memory test plugin",
@@ -128,13 +128,13 @@ function Phase6.Run()
             })
         end
 
-        local afterReg = #(PA.List() or {})
+        local afterReg = #(PA:List() or {})
         H().RecordSuccess(result, H().Assert(afterReg >= 50,
             "50 plugins registered: " .. afterReg))
 
-        PA.Clear()
+        PA:Clear()
 
-        local afterClear = #(PA.List() or {})
+        local afterClear = #(PA:List() or {})
         H().RecordSuccess(result, H().Assert(afterClear == 0,
             "Plugins cleared: " .. afterClear .. " remaining"))
     end
@@ -143,27 +143,23 @@ function Phase6.Run()
     -- Test 4: Registry Service Cleanup
     -- ====================================
 
-    local R = dce.GetService("CoreRegistry")
+    local R = dce:GetService("CoreRegistry")
     if R then
-        local initialCount = #(R.ListServices() or {})
+        local initialCount = #(R:ListServices() or {})
         H().RecordSuccess(result, H().Assert(initialCount >= 0,
             "Registry has " .. initialCount .. " services"))
     end
 
     -- ====================================
-    -- Test 5: Event Bus Metrics Reset
+    -- Test 5: Event Bus Cleanup Verification
     -- ====================================
 
-    if EB and EB.GetMetrics then
-        local metrics = EB.GetMetrics()
-        H().RecordSuccess(result, H().Assert(metrics ~= nil, "Event bus metrics available"))
-    end
-
-    if EB and EB.ResetMetrics then
-        EB.ResetMetrics()
-        local afterReset = EB.GetMetrics()
-        H().RecordSuccess(result, H().Assert(afterReset.totalDispatches == 0,
-            "Metrics reset: totalDispatches = " .. tostring(afterReset.totalDispatches)))
+    -- Canonical EventBus has no GetMetrics/ResetMetrics. Verify listener
+    -- count via the canonical query API instead.
+    if EB and EB.GetListenerCount then
+        local count = EB:GetListenerCount("test:memory:handler:1")
+        H().RecordSuccess(result, H().Assert(count == 0,
+            "Listener count for cleaned handler: " .. tostring(count)))
     end
 
     -- ====================================
@@ -173,19 +169,19 @@ function Phase6.Run()
     -- Combined: create events, tasks, plugins, services simultaneously
     local stressHandlers = {}
     for i = 1, 20 do
-        local id = dce.On("test:memory:stress:" .. i, function() end)
+        local id = dce:On("test:memory:stress:" .. i, function() end)
         stressHandlers[i] = id
     end
 
     for i = 1, 20 do
         if stressHandlers[i] then
-            dce.Off("test:memory:stress:" .. i, stressHandlers[i])
+            dce:Off("test:memory:stress:" .. i, stressHandlers[i])
         end
     end
 
     if EB and EB.ListEvents then
         local remaining = 0
-        for _, name in ipairs(EB.ListEvents() or {}) do
+        for _, name in ipairs(EB:ListEvents() or {}) do
             if name:find("^test:memory:stress:") then
                 remaining = remaining + 1
             end

@@ -52,7 +52,7 @@
 ---@field decode fun(jsonString:string):any
 
 ---@class ExportsTable
----@field [string] fun(...:any):any
+---@field [string] table<string, fun(...:any):any>
 
 -- Runtime globals (declared here, also in .luarc.json diagnostics.globals for LuaLS discovery)
 ---@type vector3

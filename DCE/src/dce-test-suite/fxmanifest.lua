@@ -19,8 +19,12 @@ author 'DCE Validation Team'
 description 'DCE Sprint 1.10 Platform Validation & Integration Readiness'
 version '1.0.0'
 
-shared_scripts {
-    '@dce-core/shared/globals.lua',
+-- CRITICAL: dce-core MUST be a declared dependency.
+-- The test suite calls exports['dce-core']:GetDCEAPI() at module load time.
+-- Per FiveM resource manifest semantics, dependencies guarantees dce-core
+-- reaches fully-started BEFORE this resource executes any script.
+dependencies {
+    'dce-core',
 }
 
 server_scripts {
@@ -39,4 +43,11 @@ server_scripts {
     'phase-8-startup-scalability.lua',
     'phase-9-sdk-docs-validation.lua',
     'phase-10-certification.lua',
+}
+
+-- Client scripts: Sprint 1.11.13 — Client GetDCEAPI export registration test.
+-- Runs on the CLIENT VM to prove dce-core exposes GetDCEAPI from the client
+-- resource environment and that a consumer can retrieve the canonical SDK.
+client_scripts {
+    'phase-11-client-export.lua',
 }

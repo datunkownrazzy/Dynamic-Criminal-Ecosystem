@@ -11,15 +11,15 @@ local function ConnectToCore()
     if GetResourceState('dce-core') ~= 'started' then return false end
     local DCE = exports['dce-core']:GetDCEAPI()
     if not DCE then return false end
-    EventBus = DCE.GetService and DCE.GetService("EventBus")
-    Logger = DCE.GetService and DCE.GetService("Logger")
+    EventBus = DCE.GetService and DCE:GetService("EventBus")
+    Logger = DCE.GetService and DCE:GetService("Logger")
     dceCoreReady = true
     return true
 end
 
 local function log(level, message, ...)
     if Logger and Logger.Log then
-        Logger.Log("org-adapter", level, message, ...)
+        Logger:Log("org-adapter", level, message, ...)
     else
         print(("[DCE OrgAdapter] %s: %s"):format(level, message:format(...)))
     end

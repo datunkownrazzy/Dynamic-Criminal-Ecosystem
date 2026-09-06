@@ -1,4 +1,4 @@
--- DCE Control Center v2 - Authoritative Rebuild
+-- DCE Control Center V1 - Authoritative Implementation
 -- True Lazy Initialization: Bootstrap exists -> Nothing happens -> /dce -> Everything initializes
 -- Follows CC-v2-COMPLETE-ARCHITECTURE.md exactly
 -- Per ADR-0026: Only bootstrap.js loads at resource start. All other JS is lazy loaded.
@@ -8,8 +8,8 @@ fx_version 'cerulean'
 game 'gta5'
 
 author 'DCE Team'
-description 'Dynamic Criminal Ecosystem - Control Center v2'
-version '2.0.0'
+description 'Dynamic Criminal Ecosystem - Control Center V1'
+version '1.11.7'
 
 dependencies {
     'dce-core',

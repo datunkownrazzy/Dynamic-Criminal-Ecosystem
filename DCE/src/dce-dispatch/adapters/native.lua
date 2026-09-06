@@ -56,7 +56,7 @@ function NativeAdapter.CreateCall(callData)
     end
 
     if DCE and DCE.Log then
-        DCE.Log("dispatch", "info", "Native adapter: call %s dispatched to %d players",
+        DCE:Log("dispatch", "info", "Native adapter: call %s dispatched to %d players",
             callData.id, #players)
     end
 end

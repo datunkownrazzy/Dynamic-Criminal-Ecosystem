@@ -70,7 +70,7 @@ function Layer1.Tick(regions)
                     toLayer = 1,
                 })
                 if DCE and DCE.Log then
-                    DCE.Log("world", "info", "Layer promotion: %s 0 -> 1 (player nearby)", regionId)
+                    DCE:Log("world", "info", "Layer promotion: %s 0 -> 1 (player nearby)", regionId)
                 end
             end
 
@@ -97,7 +97,7 @@ function Layer1.Tick(regions)
                         })
                         promotedRegions[regionId] = nil
                         if DCE and DCE.Log then
-                            DCE.Log("world", "info", "Layer demotion: %s 1 -> 0 (no players nearby)", regionId)
+                            DCE:Log("world", "info", "Layer demotion: %s 1 -> 0 (no players nearby)", regionId)
                         end
                     end
                 end

@@ -40,8 +40,8 @@ function Phase5.Run()
     end
 
     -- Get internal services via SDK
-    local R = dce.GetService("CoreRegistry")
-    local PA = dce.GetService("PluginArchitecture")
+    local R = dce:GetService("CoreRegistry")
+    local PA = dce:GetService("PluginManager")
 
     -- ====================================
     -- Test 1: Register / Unregister Cycle (100x)
@@ -50,7 +50,7 @@ function Phase5.Run()
     local cycles = 100
     for i = 1, cycles do
         local svcName = "test:reg:cycle:" .. i
-        local ok = dce.RegisterService(svcName, {
+        local ok = dce:RegisterService(svcName, {
             Name = svcName,
             id = i,
         })
@@ -59,19 +59,19 @@ function Phase5.Run()
         end
 
         -- Verify it exists
-        local has = dce.HasService(svcName)
+        local has = dce:HasService(svcName)
         if not has then
             H().RecordFailure(result, svcName .. " not found after registration")
         end
 
         -- Unregister
-        local unregOk = dce.UnregisterService(svcName)
+        local unregOk = dce:UnregisterService(svcName)
         if not unregOk then
             H().RecordFailure(result, "Failed to unregister " .. svcName)
         end
 
         -- Verify it's gone
-        local hasAfter = dce.HasService(svcName)
+        local hasAfter = dce:HasService(svcName)
         if hasAfter then
             H().RecordFailure(result, svcName .. " still exists after unregister")
         end
@@ -83,16 +83,16 @@ function Phase5.Run()
     -- Test 2: Override Protection
     -- ====================================
 
-    dce.RegisterService("test:reg:protected", { Name = "original" })
-    local ok = dce.RegisterService("test:reg:protected", { Name = "override" })
+    dce:RegisterService("test:reg:protected", { Name = "original" })
+    local ok = dce:RegisterService("test:reg:protected", { Name = "override" })
     H().RecordSuccess(result, H().Assert(ok == false,
         "Override without flag rejected"))
 
-    local ok = dce.RegisterService("test:reg:protected", { Name = "override" }, { override = true })
+    local ok = dce:RegisterService("test:reg:protected", { Name = "override" }, { override = true })
     H().RecordSuccess(result, H().Assert(ok == true,
         "Override with flag accepted"))
 
-    dce.UnregisterService("test:reg:protected")
+    dce:UnregisterService("test:reg:protected")
 
     -- ====================================
     -- Test 3: Plugin Registration / Unregistration
@@ -101,7 +101,7 @@ function Phase5.Run()
     if PA then
         for i = 1, 50 do
             local pName = "test:plugin:reg:" .. i
-            local ok, _ = dce.RegisterPlugin({
+            local ok, _ = dce:RegisterPlugin({
                 name = pName,
                 version = "1.0.0",
                 description = "Registry integrity test plugin",
@@ -113,69 +113,45 @@ function Phase5.Run()
             end
         end
 
-        local pluginList = PA.List()
-        H().RecordSuccess(result, H().AssertTable(pluginList, "Plugin list is table"))
+        local pluginList = PA:List()
+        H().RecordSuccess(result, H().Assert(pluginList ~= nil, "Plugin list is table"))
         if pluginList then
             -- Verify no duplicates
             local seen = {}
             local duplicates = 0
             for _, p in ipairs(pluginList) do
-                if seen[p.name] then
+                if seen[p] then
                     duplicates = duplicates + 1
                 end
-                seen[p.name] = true
+                seen[p] = true
             end
             H().RecordSuccess(result, H().Assert(duplicates == 0,
                 "No duplicate plugins: " .. duplicates))
         end
 
-        PA.Clear()
-        H().RecordSuccess(result, H().Assert(true, "Plugin architecture cleared"))
+        PA:Clear()
+        H().RecordSuccess(result, H().Assert(true, "Plugin manager cleared"))
     end
 
     -- ====================================
     -- Test 4: SDK Registration API Integrity
     -- ====================================
 
-    -- Register many organizations (simulated - these are just SDK calls)
+    -- Canonical pattern (Sprint 1.11.7): adapter/organization/behavior
+    -- registration is performed via DCE:RegisterService per consumer ownership.
+    -- The obsolete SDK methods (RegisterOrganization/RegisterDispatchAdapter/
+    -- RegisterEvidenceAdapter/RegisterMDTAdapter/RegisterBehavior) were removed.
+    local svcRegions = 0
     for i = 1, 50 do
-        dce.RegisterOrganization({
-            id = "test-org-" .. i,
-            name = "Test Org " .. i,
-            type = "test",
-            territory = "zone-" .. (i % 10 + 1),
+        local ok = dce:RegisterService("test:reg:svc:" .. i, {
+            Name = "test-svc-" .. i,
+            id = i,
         })
+        if ok then svcRegions = svcRegions + 1 end
+        dce:UnregisterService("test:reg:svc:" .. i)
     end
-    H().RecordSuccess(result, H().Assert(true,
-        "50 organization registrations completed"))
-
-    -- Register many adapters
-    for i = 1, 50 do
-        dce.RegisterDispatchAdapter({
-            Name = "test-dispatch-" .. i,
-            Version = "1.0.0",
-        })
-        dce.RegisterEvidenceAdapter({
-            Name = "test-evidence-" .. i,
-            Version = "1.0.0",
-        })
-        dce.RegisterMDTAdapter({
-            Name = "test-mdt-" .. i,
-            Version = "1.0.0",
-        })
-    end
-    H().RecordSuccess(result, H().Assert(true,
-        "150 adapter registrations (50 each) completed"))
-
-    -- Register many behaviors
-    for i = 1, 50 do
-        dce.RegisterBehavior({
-            type = "test-behavior-" .. i,
-            priority = i % 5,
-        })
-    end
-    H().RecordSuccess(result, H().Assert(true,
-        "50 behavior registrations completed"))
+    H().RecordSuccess(result, H().Assert(svcRegions == 50,
+        "50 register/unregister cycles via canonical DCE:RegisterService"))
 
     -- ====================================
     -- Test 5: Service Existence Consistency
@@ -184,16 +160,16 @@ function Phase5.Run()
     -- Core services that should always be available
     local coreServices = {"CoreRegistry", "Logger", "EventBus", "Scheduler"}
     for _, svcName in ipairs(coreServices) do
-        local has = dce.HasService(svcName)
+        local has = dce:HasService(svcName)
         H().RecordSuccess(result, H().Assert(has == true,
             "Core service exists: " .. svcName))
-        local svc = dce.GetService(svcName)
+        local svc = dce:GetService(svcName)
         H().RecordSuccess(result, H().AssertNotNil(svc,
             "Core service retrievable: " .. svcName))
     end
 
     -- Service that should NOT exist
-    local has = dce.HasService("NonExistent")
+    local has = dce:HasService("NonExistent")
     H().RecordSuccess(result, H().Assert(has == false,
         "Non-existent service reported as missing"))
 

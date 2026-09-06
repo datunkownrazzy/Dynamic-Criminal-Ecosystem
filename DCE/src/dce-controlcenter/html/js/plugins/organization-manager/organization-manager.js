@@ -18,7 +18,6 @@
     var searchQuery = '';
     var currentOrgId = null;
     var pluginState = 'unloaded';
-    var eventUnsubscribers = [];
     
     /**
      * Fetch organizations from server
@@ -29,10 +28,13 @@
                 if (response && response.organizations) {
                     organizations = response.organizations;
                     renderOrganizations();
+                } else {
+                    renderOrganizationsState('Organization data is not currently available.');
                 }
             })
             .catch(function(err) {
                 console.error('[OrganizationManager] Failed to fetch organizations:', err);
+                renderOrganizationsState('Unable to load organization data. The organization service did not return usable data.');
             });
     }
     
@@ -45,10 +47,13 @@
                 if (response && response.members) {
                     members = response.members;
                     renderMembers();
+                } else {
+                    renderMembersState('Member data is not currently available.');
                 }
             })
             .catch(function(err) {
                 console.error('[OrganizationManager] Failed to fetch members:', err);
+                renderMembersState('Unable to load member data. The organization service did not return usable data.');
             });
     }
     
@@ -64,13 +69,13 @@
                    org.name.toLowerCase().includes(searchQuery.toLowerCase());
         });
         
-        container.innerHTML = filtered.map(function(org) {
+        container.innerHTML = filtered.length ? filtered.map(function(org) {
             return '<div class="org-item" data-id="' + org.id + '">' +
                 '<div class="org-name">' + org.name + '</div>' +
                 '<div class="org-leader">Leader: ' + (org.leaderName || 'Unassigned') + '</div>' +
                 '<div class="org-heat">Heat: ' + org.heat + '</div>' +
             '</div>';
-        }).join('');
+        }).join('') : '<div class="page-state empty">No active organizations.</div>';
         
         // Add click handlers
         container.querySelectorAll('.org-item').forEach(function(item) {
@@ -88,13 +93,23 @@
         var container = document.getElementById('members-list');
         if (!container) return;
         
-        container.innerHTML = members.map(function(member) {
+        container.innerHTML = members.length ? members.map(function(member) {
             return '<div class="member-item" data-id="' + member.id + '">' +
                 '<div class="member-name">' + member.name + '</div>' +
                 '<div class="member-rank">Rank: ' + member.rank + '</div>' +
                 '<div class="member-status">Status: ' + member.status + '</div>' +
             '</div>';
-        }).join('');
+        }).join('') : '<div class="page-state empty">No members are available for this organization.</div>';
+    }
+
+    function renderOrganizationsState(message) {
+        var container = document.getElementById('orgs-list');
+        if (container) container.innerHTML = '<div class="page-state unavailable">' + message + '</div>';
+    }
+
+    function renderMembersState(message) {
+        var container = document.getElementById('members-list');
+        if (container) container.innerHTML = '<div class="page-state unavailable">' + message + '</div>';
     }
     
     /**
@@ -103,50 +118,6 @@
     function selectOrganization(orgId) {
         currentOrgId = orgId;
         fetchMembers(orgId);
-    }
-    
-    /**
-     * Create new organization
-     */
-    function createOrganization(name) {
-        return DCE.NUI.post('organization:create', { name: name })
-            .then(function(response) {
-                if (response && response.organization) {
-                    organizations.push(response.organization);
-                    renderOrganizations();
-                }
-            })
-            .catch(function(err) {
-                console.error('[OrganizationManager] Failed to create organization:', err);
-            });
-    }
-    
-    // Plugin subscription to EventBus for live updates
-    function subscribeToEvents() {
-        // Subscribe to organization updates
-        var unsubOrg = DCE.Bus && DCE.Bus.on && DCE.Bus.on('organization:created', function(data) {
-            organizations.push(data.organization);
-            renderOrganizations();
-        });
-        if (unsubOrg) eventUnsubscribers.push(unsubOrg);
-        
-        // Subscribe to heat changes
-        var unsubHeat = DCE.Bus && DCE.Bus.on && DCE.Bus.on('organization:heat:changed', function(data) {
-            var idx = organizations.findIndex(function(o) { return o.id === data.organizationId; });
-            if (idx >= 0) {
-                organizations[idx].heat = data.heat;
-                renderOrganizations();
-            }
-        });
-        if (unsubHeat) eventUnsubscribers.push(unsubHeat);
-    }
-    
-    // Unsubscribe from all events
-    function unsubscribeFromEvents() {
-        eventUnsubscribers.forEach(function(unsub) {
-            if (typeof unsub === 'function') unsub();
-        });
-        eventUnsubscribers = [];
     }
     
     DCE.Plugins['organization-manager'] = {
@@ -169,8 +140,6 @@
         Start: function() {
             console.log('[OrganizationManager] Start');
             pluginState = 'started';
-            subscribeToEvents();
-            fetchOrganizations();
             DCE.NUI.post('dce-cc:plugin:started', { pluginId: 'organization-manager' }).catch(function() {});
         },
         
@@ -183,7 +152,6 @@
         // Lifecycle: Destroy (called on cleanup)
         Destroy: function() {
             console.log('[OrganizationManager] Destroy');
-            unsubscribeFromEvents();
             pluginState = 'destroyed';
         },
         
@@ -196,8 +164,7 @@
                         '<button class="tab" data-tab="members">Members</button>' +
                     '</div>' +
                     '<div class="toolbar">' +
-                        '<input type="text" class="form-control" placeholder="Search organizations..." id="org-search" style="flex: 1;">' +
-                        '<button class="btn btn-primary" id="btn-add-org">+ Add</button>' +
+                        '<input type="text" class="form-control" placeholder="Search organizations..." id="org-search">' +
                     '</div>' +
                     '<div class="tab-content" id="orgs-tab">' +
                         '<div class="orgs-list" id="orgs-list">' +
@@ -232,15 +199,6 @@
                 searchInput.addEventListener('input', function(e) {
                     searchQuery = e.target.value;
                     renderOrganizations();
-                });
-            }
-            
-            // Setup add button
-            var addBtn = container.querySelector('#btn-add-org');
-            if (addBtn) {
-                addBtn.addEventListener('click', function() {
-                    var name = prompt('Organization name:');
-                    if (name) createOrganization(name);
                 });
             }
             

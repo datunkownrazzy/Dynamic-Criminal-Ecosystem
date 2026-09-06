@@ -42,8 +42,8 @@
         render: function(container) {
             container.innerHTML = `
                 <div class="card">
-                    <div class="card-header">Scenario Manager</div>
-                    <div class="loading">Scenario orchestration and events</div>
+                    <div class="card-header">Scenarios</div>
+                    <div class="page-state unavailable"><strong>Scenario data unavailable</strong><span>There are no scenario records available to display.</span></div>
                 </div>
             `;
         },

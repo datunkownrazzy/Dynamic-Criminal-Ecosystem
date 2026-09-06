@@ -8,7 +8,7 @@ local DCE = nil
 
 local function GetService(serviceName)
     if not DCE then return nil end
-    return DCE.GetService and DCE.GetService(serviceName)
+    return DCE.GetService and DCE:GetService(serviceName)
 end
 
 local function ConnectToCore()
@@ -25,7 +25,7 @@ RegisterNUICallback('dce-cc:session:started', function(data, cb)
 end)
 
 RegisterNUICallback('dce-cc:session:closed', function(data, cb)
-    TriggerServerEvent('dce-cc:session:closed', {})
+    TriggerServerEvent('dce-cc:session:close')
     cb({ status = "ok" })
 end)
 
@@ -39,13 +39,11 @@ RegisterNUICallback('dce-cc:window:allClosed', function(data, cb)
 end)
 
 RegisterNUICallback('dce-cc:workspace:save', function(data, cb)
-    local WM = GetService("WorkspaceManager")
-    if WM and data and data.sessionId then
-        WM.SaveWorkspace(GetPlayerServerId(PlayerId()), {
+    if data and data.sessionId then
+        TriggerServerEvent('dce-cc:workspace:save', {
             windows = data.windows or {},
             sessionId = data.sessionId
         })
-        print("[DCE SessionController] Workspace saved for session: " .. tostring(data.sessionId))
     end
     cb({ status = "ok" })
 end)

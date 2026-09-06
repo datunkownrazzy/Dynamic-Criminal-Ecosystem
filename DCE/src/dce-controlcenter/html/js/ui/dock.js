@@ -16,6 +16,7 @@
         
         // Initialize dock with plugins (called on application boot)
         init: function() {
+            if (DCE.Dock._initialized) return;
             const dock = document.getElementById('dock');
             if (!dock) return;
             
@@ -37,35 +38,45 @@
                 const content = dock.querySelector('.dock-content');
                 if (!content) return;
                 
-                // Add separator if not exists
-                let separator = content.querySelector('.dock-separator');
-                if (!separator) {
-                    separator = document.createElement('div');
-                    separator.className = 'dock-separator';
-                    content.appendChild(separator);
-                }
-                
-                // Remove all existing plugin buttons
-                const existingButtons = content.querySelectorAll('[data-plugin]');
-                existingButtons.forEach(function(btn) {
-                    btn.remove();
-                });
-                
-                // Add buttons for each plugin (before separator)
+                content.replaceChildren();
                 const fragment = document.createDocumentFragment();
+                var operationsLabel = document.createElement('div');
+                operationsLabel.className = 'dock-section-label';
+                operationsLabel.textContent = 'Operations';
+                fragment.appendChild(operationsLabel);
+                var homeButton = document.createElement('button');
+                homeButton.className = 'dock-btn';
+                homeButton.setAttribute('data-destination', 'home');
+                homeButton.textContent = 'Home';
+                fragment.appendChild(homeButton);
+
                 plugins.forEach(function(plugin) {
+                    var destination = DCE.Dock._navigationDestination(plugin.id);
+                    if (!destination) return;
                     const btn = document.createElement('button');
                     btn.className = 'dock-btn';
-                    btn.setAttribute('data-plugin', plugin.id);
+                    btn.setAttribute('data-destination', plugin.id);
                     btn.title = plugin.displayName || plugin.name;
-                    btn.textContent = plugin.icon || '🔧';
+                    btn.textContent = destination;
                     fragment.appendChild(btn);
                 });
-                
-                // Insert buttons before separator
-                if (separator.parentNode) {
-                    separator.parentNode.insertBefore(fragment, separator);
-                }
+                var administrationLabel = document.createElement('div');
+                administrationLabel.className = 'dock-section-label';
+                administrationLabel.textContent = 'Administration';
+                fragment.appendChild(administrationLabel);
+                [
+                    ['configuration', 'Configuration'],
+                    ['integrations', 'Integrations'],
+                    ['runtime', 'Runtime'],
+                    ['diagnostics', 'Diagnostics']
+                ].forEach(function(item) {
+                    var btn = document.createElement('button');
+                    btn.className = 'dock-btn';
+                    btn.setAttribute('data-destination', item[0]);
+                    btn.textContent = item[1];
+                    fragment.appendChild(btn);
+                });
+                content.appendChild(fragment);
                 
             } catch (err) {
                 console.error('[DCE Dock] Failed to load plugins:', err);
@@ -91,27 +102,35 @@
             });
             return plugins;
         },
+
+        _navigationDestination: function(pluginId) {
+            var destinations = {
+                'world-manager': 'World',
+                'organization-manager': 'Organizations',
+                'scenario-manager': 'Scenarios',
+                'dispatch-manager': 'Dispatch',
+                'evidence-manager': 'Evidence',
+                'economy-manager': 'Economy',
+                'ai-manager': 'Intelligence'
+            };
+            return destinations[pluginId] || null;
+        },
         
         // Handle click events (delegated)
         handleDockClick: function(e) {
             const btn = e.target.closest('.dock-btn');
             if (!btn) return;
-            
-            const pluginId = btn.getAttribute('data-plugin');
-            if (pluginId) {
-                // Open window - DCE.Application will manage state
-                if (DCE.Windows && DCE.Windows.openWindow) {
-                    DCE.Windows.openWindow(pluginId);
-                } else {
-                    console.warn('[DCE Dock] Windows not initialized');
-                }
+
+            const destination = btn.getAttribute('data-destination');
+            if (destination && DCE.Desktop && DCE.Desktop.navigate) {
+                DCE.Desktop.navigate(destination);
             }
         },
         
         // Set active button
         setActive: function(pluginId) {
             document.querySelectorAll('.dock-btn').forEach(function(btn) {
-                btn.classList.toggle('active', btn.getAttribute('data-plugin') === pluginId);
+                btn.classList.toggle('active', btn.getAttribute('data-destination') === pluginId);
             });
         }
     };

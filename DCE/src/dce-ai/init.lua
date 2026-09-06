@@ -1,46 +1,33 @@
--- DCE AI Director & Organizations - Resource Entry Point
--- Registers both the Organizations and AI Director services.
--- Per ADR-0001: they share this resource but are registered as separate services.
--- Defensive nil-check patterns are intentional for FiveM resource timing safety per ADR-0001
+-- DCE AI Director & Organizations — Sprint 1.11.6 FiveM Loader Compliance
+--
+-- PLATFORM CONSUMER.
+-- Does NOT own runtime state. Does NOT poll. Does NOT retry.
+--
+-- SDK acquisition is DIRECT and UNCONDITIONAL:
+--   local DCE = exports['dce-core']:GetDCEAPI()
+--
+-- Deterministic because fxmanifest.lua declares dependencies { 'dce-core' },
+-- which per the FiveM resource manifest reference REQUIRES dce-core to load
+-- and fully start BEFORE this resource executes any script.
+---
+---@diagnostic disable: undefined-global
 
--- Resource Lifecycle
 -- ============================================================================
+-- SDK Acquisition — Direct, single call, no polling, no retries
+-- ============================================================================
+local DCE = exports['dce-core']:GetDCEAPI()
+
+if not DCE then
+    error("dce-ai: exports['dce-core']:GetDCEAPI() returned nil. Add 'dce-core' to dependencies and ensure it starts first.")
+end
 
 local initialized = false
 
-local function GetDCEAPI()
-    local DCEAPI = nil
-    local attempts = 0
-    while not DCEAPI and attempts < 50 do
-        attempts = attempts + 1
-        Citizen.Wait(100)
-        local success, api = pcall(function()
-            if exports and exports['dce-core'] and exports['dce-core'].GetDCEAPI then
-                return exports['dce-core']:GetDCEAPI()
-            end
-            return nil
-        end)
-        if success then
-            DCEAPI = api
-        end
-    end
-    return DCEAPI
-end
-
 local function OnAIStart()
-    local DCEAPI = GetDCEAPI()
-    if not DCEAPI then
-        print("^1[DCE AI] FATAL: Could not obtain DCE API from dce-core^0")
-        return
-    end
-    -- _G.DCE is owned by dce-core; use the API locally
-    -- Do NOT overwrite _G.DCE to prevent race conditions
+    if initialized then return end
 
-    if DCE and DCE.Log then
-        DCE.Log("ai", "info", "=== DCE AI Director & Organizations Starting ===")
-    end
+    DCE:Log("ai", "info", "=== DCE AI Director & Organizations Starting ===")
 
-    -- Initialize services (DCEOrganizationsService and DCEAIDirectorService are set by their files at load time)
     if DCEOrganizationsService and DCEOrganizationsService.Initialize then
         DCEOrganizationsService.Initialize()
     end
@@ -48,85 +35,58 @@ local function OnAIStart()
         DCEAIDirectorService.Initialize()
     end
 
-    -- Register the Organizations service
-    -- Defensive patterns: return nil OR actual value for service timing safety
-    if DCE and DCE.RegisterService then
-        DCE.RegisterService("Organizations", {
-            GetState = function(orgId) return DCEOrganizationsService and DCEOrganizationsService.GetState(orgId) end,
-            GetIdentity = function(orgId) return DCEOrganizationsService and DCEOrganizationsService.GetIdentity(orgId) end,
-            GetLeadership = function(orgId) return DCEOrganizationsService and DCEOrganizationsService.GetLeadership(orgId) end,
-            GetAllOrgIds = function() return DCEOrganizationsService and DCEOrganizationsService.GetAllOrgIds() end,
-            GetOrgState = function(orgId) return DCEOrganizationsService and DCEOrganizationsService.GetOrgState(orgId) end,
-            GetAllOrgStates = function() return DCEOrganizationsService and DCEOrganizationsService.GetAllOrgStates() end,
-            SetOrganizationState = function(orgId, newState) return DCEOrganizationsService and DCEOrganizationsService.SetOrganizationState(orgId, newState) end,
-            AddHeat = function(orgId, amount) if DCEOrganizationsService and DCEOrganizationsService.AddHeat then DCEOrganizationsService.AddHeat(orgId, amount) end end,
-            AddMoney = function(orgId, amount) if DCEOrganizationsService and DCEOrganizationsService.AddMoney then DCEOrganizationsService.AddMoney(orgId, amount) end end,
-        })
-    end
+    DCE:RegisterService("Organizations", {
+        GetState = function(orgId) return DCEOrganizationsService and DCEOrganizationsService.GetState(orgId) end,
+        GetIdentity = function(orgId) return DCEOrganizationsService and DCEOrganizationsService.GetIdentity(orgId) end,
+        GetLeadership = function(orgId) return DCEOrganizationsService and DCEOrganizationsService.GetLeadership(orgId) end,
+        GetAllOrgIds = function() return DCEOrganizationsService and DCEOrganizationsService.GetAllOrgIds() end,
+        GetOrgState = function(orgId) return DCEOrganizationsService and DCEOrganizationsService.GetOrgState(orgId) end,
+        GetAllOrgStates = function() return DCEOrganizationsService and DCEOrganizationsService.GetAllOrgStates() end,
+        SetOrganizationState = function(orgId, newState) return DCEOrganizationsService and DCEOrganizationsService.SetOrganizationState(orgId, newState) end,
+        AddHeat = function(orgId, amount) if DCEOrganizationsService and DCEOrganizationsService.AddHeat then DCEOrganizationsService.AddHeat(orgId, amount) end end,
+        AddMoney = function(orgId, amount) if DCEOrganizationsService and DCEOrganizationsService.AddMoney then DCEOrganizationsService.AddMoney(orgId, amount) end end,
+    })
 
-    -- Register the AI Director service
-    if DCE and DCE.RegisterService then
-        DCE.RegisterService("AIDirector", {
-            Tick = function() return DCEAIDirectorService and DCEAIDirectorService.Tick() end,
-            EvaluateOrganization = function(orgId) return DCEAIDirectorService and DCEAIDirectorService.EvaluateOrganization(orgId) end,
-            GetActiveDecision = function(orgId) return DCEAIDirectorService and DCEAIDirectorService.GetActiveDecision(orgId) end,
-            ClearDecision = function(orgId) if DCEAIDirectorService and DCEAIDirectorService.ClearDecision then DCEAIDirectorService.ClearDecision(orgId) end end,
-        })
-    end
+    DCE:RegisterService("AIDirector", {
+        Tick = function() return DCEAIDirectorService and DCEAIDirectorService.Tick() end,
+        EvaluateOrganization = function(orgId) return DCEAIDirectorService and DCEAIDirectorService.EvaluateOrganization(orgId) end,
+        GetActiveDecision = function(orgId) return DCEAIDirectorService and DCEAIDirectorService.GetActiveDecision(orgId) end,
+        ClearDecision = function(orgId) if DCEAIDirectorService and DCEAIDirectorService.ClearDecision then DCEAIDirectorService.ClearDecision(orgId) end end,
+    })
 
-    -- Schedule AI Director tick (time-sliced)
-    local Config = _G.Config or {}
-    local directorTickInterval = 5000
-    if Config.AI and Config.AI.DirectorTickInterval then
-        directorTickInterval = Config.AI.DirectorTickInterval
-    end
-    if DCE and DCE.Schedule then
-        DCE.Schedule("ai:director:tick", directorTickInterval, function()
-            if DCEAIDirectorService and DCEAIDirectorService.Tick then
-                DCEAIDirectorService.Tick()
-            end
-        end, { immediate = true })
-    end
+    local tickInterval = DCE:GetConfig("AI.DirectorTickInterval", 5000)
+    DCE:Schedule("ai:director:tick", tickInterval, function()
+        if DCEAIDirectorService and DCEAIDirectorService.Tick then
+            DCEAIDirectorService.Tick()
+        end
+    end, { immediate = true })
 
     initialized = true
-    if DCE and DCE.Log then
-        DCE.Log("ai", "info", "=== DCE AI Director & Organizations Started ===")
-    end
+    DCE:Log("ai", "info", "=== DCE AI Director & Organizations Started ===")
 end
 
 local function OnAIStop()
-    -- Safely clean up - DCE may be nil if core shut down first
-    if DCE and DCE.Log then
-        DCE.Log("ai", "info", "=== DCE AI Director & Organizations Stopping ===")
-    end
-    
-    if DCE and DCE.UnregisterService then
-        DCE.UnregisterService("AIDirector")
-        DCE.UnregisterService("Organizations")
-    end
-    
+    if not DCE then return end
+    DCE:Log("ai", "info", "=== DCE AI Director & Organizations Stopping ===")
+    DCE:UnregisterService("AIDirector")
+    DCE:UnregisterService("Organizations")
     if DCEAIDirectorService and DCEAIDirectorService.Shutdown then
         DCEAIDirectorService.Shutdown()
     end
     if DCEOrganizationsService and DCEOrganizationsService.Shutdown then
         DCEOrganizationsService.Shutdown()
     end
-    
     initialized = false
-    if DCE and DCE.Log then
-        DCE.Log("ai", "info", "=== DCE AI Director & Organizations Stopped ===")
-    end
+    DCE:Log("ai", "info", "=== DCE AI Director & Organizations Stopped ===")
 end
 
 -- ============================================================================
--- Lifecycle Hooks
+-- Lifecycle — Unconditional sticky subscription
 -- ============================================================================
-
--- Wait for world to be ready before initializing (AI depends on World service)
-AddEventHandler("onResourceStart", function(resourceName)
-    if resourceName == "dce-world" then
-        OnAIStart()
-    end
+-- The EventBus replays sticky events to new subscribers, guaranteeing delivery
+-- even if lifecycle:running was already emitted before this resource loaded.
+DCE:On("lifecycle:running", function(payload)
+    OnAIStart()
 end)
 
 AddEventHandler("onResourceStop", function(resourceName)

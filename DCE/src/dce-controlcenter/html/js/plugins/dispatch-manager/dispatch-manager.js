@@ -43,14 +43,7 @@
             container.innerHTML = `
                 <div class="card">
                     <div class="card-header">Dispatch Manager</div>
-                    <div class="tab-bar">
-                        <button class="tab active" data-tab="stations">Stations</button>
-                        <button class="tab" data-tab="zones">Zones</button>
-                        <button class="tab" data-tab="incidents">Incidents</button>
-                    </div>
-                    <div id="dispatch-content" style="margin-top: 12px;">
-                        <div class="loading">Loading dispatch data...</div>
-                    </div>
+                    <div class="page-state unavailable"><strong>Dispatch unavailable</strong><span>The dispatch service is not currently providing call data.</span></div>
                 </div>
             `;
         },

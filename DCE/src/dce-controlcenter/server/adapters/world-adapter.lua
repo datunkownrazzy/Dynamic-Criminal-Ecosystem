@@ -14,15 +14,15 @@ local function ConnectToCore()
     if GetResourceState('dce-core') ~= 'started' then return false end
     local DCE = exports['dce-core']:GetDCEAPI()
     if not DCE then return false end
-    EventBus = DCE.GetService and DCE.GetService("EventBus")
-    Logger = DCE.GetService and DCE.GetService("Logger")
+    EventBus = DCE.GetService and DCE:GetService("EventBus")
+    Logger = DCE.GetService and DCE:GetService("Logger")
     dceCoreReady = true
     return true
 end
 
 local function log(level, message, ...)
     if Logger and Logger.Log then
-        Logger.Log("world-adapter", level, message, ...)
+        Logger:Log("world-adapter", level, message, ...)
     else
         print(("[DCE WorldAdapter] %s: %s"):format(level, message:format(...)))
     end
@@ -53,7 +53,7 @@ function WorldAdapter.SetTime(hour, minute)
     -- Server-side time setting via EventBus to World subsystem
     -- Client-only NetworkOverrideClockTime is NEVER called here
     if EventBus then
-        EventBus.Emit("world:settime", {
+        EventBus:Emit("world:settime", {
             eventVersion = 1, timestamp = os.time(), source = "world-adapter",
             payload = { hour = hour, minute = minute }
         })
@@ -71,7 +71,7 @@ function WorldAdapter.SetWeather(weatherType)
     -- Server-side weather setting via EventBus to World subsystem
     -- Client-only ClearOverrideWeather/SetWeatherTypePersist are NEVER called here
     if EventBus then
-        EventBus.Emit("world:setweather", {
+        EventBus:Emit("world:setweather", {
             eventVersion = 1, timestamp = os.time(), source = "world-adapter",
             payload = { weather = weatherType }
         })

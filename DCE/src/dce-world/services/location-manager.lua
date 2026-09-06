@@ -16,7 +16,7 @@ end
 --- Log helper
 local function log(level, msg, ...)
     if logger then
-        logger.Log("location-manager", level, msg, ...)
+        logger:Log("location-manager", level, msg, ...)
     end
 end
 
@@ -200,7 +200,7 @@ function LocationManager.CreateLocation(locationData)
     
     -- Emit event for real-time update
     if DCE and DCE.Emit then
-        DCE.Emit("location:created", {
+        DCE:Emit("location:created", {
             eventName = "location:created",
             eventVersion = 1,
             timestamp = os.time(),
@@ -235,7 +235,7 @@ function LocationManager.UpdateLocation(id, locationData)
     
     -- Emit event
     if DCE and DCE.Emit then
-        DCE.Emit("location:updated", {
+        DCE:Emit("location:updated", {
             eventName = "location:updated",
             eventVersion = 1,
             timestamp = os.time(),
@@ -260,7 +260,7 @@ function LocationManager.DeleteLocation(id)
     
     -- Emit event
     if DCE and DCE.Emit then
-        DCE.Emit("location:deleted", {
+        DCE:Emit("location:deleted", {
             eventName = "location:deleted",
             eventVersion = 1,
             timestamp = os.time(),
