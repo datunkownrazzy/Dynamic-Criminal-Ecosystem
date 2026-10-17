@@ -77,15 +77,45 @@ function ConfigurationService:New(eventBus, logger)
         -- Callable contract (FiveM cross-resource FunctionRef safe): the authorize
         -- callback originates in the Control Center resource and crosses the export
         -- boundary into dce-core, where it arrives as a callable FunctionRef TABLE.
-        -- Reuse this file's existing isCallable() gate — the same contract
-        -- RegisterTarget applies to cross-resource target methods. Rejects nil,
-        -- non-callable tables and arbitrary values; never accepts plain tables.
-        if not isCallable(authorize) or not authorize(source, request.target, request.operation) then
-            print(("[CC-TRACE] AUTHORIZE_DENIED source=%s target=%s operation=%s authorizeType=%s")
-                :format(tostring(source), tostring(request.target),
-                        tostring(request.operation), type(authorize)))
+        -- Reuse this file's existing isCallable() gate. Add differential diagnostic
+        -- to distinguish NOT_CALLABLE vs CALLBACK_FALSE vs CALLBACK_ERROR vs AUTHORIZED
+        -- while preserving authorization semantics and the cached-authorized contract.
+        local authorizeType = type(authorize)
+        local mtAuthorize = getmetatable(authorize)
+        local hasMetatable = (mtAuthorize ~= nil)
+        local callType = hasMetatable and type(mtAuthorize.__call) or "nil"
+        local callable = isCallable(authorize)
+
+        print(("[CC-TRACE] AUTHORIZE_INSPECT source=%s target=%s operation=%s authorizeType=%s hasMetatable=%s callType=%s callable=%s")
+            :format(tostring(source), tostring(request.target), tostring(request.operation),
+                    authorizeType, tostring(hasMetatable), tostring(callType), tostring(callable)))
+
+        if not callable then
+            print(("[CC-TRACE] AUTHORIZE_DENIED reason=NOT_CALLABLE source=%s target=%s operation=%s authorizeType=%s")
+                :format(tostring(source), tostring(request.target), tostring(request.operation), authorizeType))
             return result("PERMISSION_DENIED", "Permission denied", request)
         end
+
+        -- Callable: attempt invocation
+        local invokeOk, decision = pcall(authorize, source, request.target, request.operation)
+        print(("[CC-TRACE] AUTHORIZE_INVOKE ok=%s decision=%s")
+            :format(tostring(invokeOk), tostring(decision)))
+
+        if not invokeOk then
+            print(("[CC-TRACE] AUTHORIZE_INVOKE_ERROR error=%s source=%s target=%s")
+                :format(tostring(decision), tostring(source), tostring(request.target)))
+            print(("[CC-TRACE] AUTHORIZE_DENIED reason=CALLBACK_ERROR source=%s target=%s operation=%s")
+                :format(tostring(source), tostring(request.target), tostring(request.operation)))
+            return result("PERMISSION_DENIED", "Permission denied", request)
+        end
+
+        if not decision then
+            print(("[CC-TRACE] AUTHORIZE_DENIED reason=CALLBACK_FALSE source=%s target=%s operation=%s decision=%s")
+                :format(tostring(source), tostring(request.target), tostring(request.operation), tostring(decision)))
+            return result("PERMISSION_DENIED", "Permission denied", request)
+        end
+
+        -- Authorized
         print(("[CC-TRACE] AUTHORIZE_OK source=%s target=%s")
             :format(tostring(source), tostring(request.target)))
 
