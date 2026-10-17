@@ -153,6 +153,57 @@ body.cc-open {
     outline: none;
 }
 
+.context-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin: 12px 0;
+}
+
+.editor-panel {
+    margin-top: 16px;
+    padding: 14px;
+    border: 1px solid var(--cc-border);
+    border-radius: 6px;
+    background: var(--cc-bg-secondary);
+}
+
+.editor-heading {
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.editor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.editor-grid label {
+    display: grid;
+    gap: 4px;
+    color: var(--cc-text-secondary);
+}
+
+.editor-status {
+    min-height: 18px;
+    margin-top: 10px;
+    color: var(--cc-text-secondary);
+}
+
+.editor-status.error {
+    color: var(--cc-danger);
+}
+
+.editor-status.applying {
+    color: var(--cc-warning);
+}
+
+.editor-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
 .page-heading h1,
 .home-view h1 {
     margin: 0 0 6px;

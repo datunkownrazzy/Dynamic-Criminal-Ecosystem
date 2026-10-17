@@ -6,11 +6,31 @@ local LocationManager = {}
 local locations = {}         -- id -> Location object
 local providers = {}         -- providerName -> provider module
 local logger
+local eventEmitter
+local managedLocations = {}
+local locationRevisions = {}
+local storagePath = "data/hot-locations.json"
 
 --- Initialize the location manager
-function LocationManager.Init(log)
+function LocationManager.Init(log, emit)
     logger = log
-    _G.DCELocationManager = LocationManager
+    eventEmitter = emit
+
+    local content = LoadResourceFile(GetCurrentResourceName(), storagePath)
+    if not content or content == "" then return end
+
+    local ok, document = pcall(json.decode, content)
+    if not ok or type(document) ~= "table" or type(document.locations) ~= "table" then
+        log("error", "Unable to load hot location storage")
+        return
+    end
+    for id, entry in pairs(document.locations) do
+        if type(entry) == "table" and type(entry.data) == "table" then
+            locations[id] = entry.data
+            managedLocations[id] = true
+            locationRevisions[id] = tonumber(entry.revision) or 1
+        end
+    end
 end
 
 --- Log helper
@@ -18,6 +38,36 @@ local function log(level, msg, ...)
     if logger then
         logger:Log("location-manager", level, msg, ...)
     end
+end
+
+local function copy(value)
+    if type(value) ~= "table" then return value end
+    local result = {}
+    for key, item in pairs(value) do
+        result[key] = copy(item)
+    end
+    return result
+end
+
+local function emit(eventName, payload)
+    if eventEmitter then
+        eventEmitter(eventName, {
+            eventName = eventName,
+            eventVersion = 1,
+            timestamp = os.time(),
+            source = "location-manager",
+            payload = payload,
+        })
+    end
+end
+
+local function persist(records)
+    local ok, encoded = pcall(json.encode, { version = 1, locations = records })
+    if not ok or type(encoded) ~= "string" then return false, "Unable to encode location storage" end
+    if not SaveResourceFile(GetCurrentResourceName(), storagePath, encoded, #encoded) then
+        return false, "Unable to persist location storage"
+    end
+    return true
 end
 
 --- Register a location provider
@@ -301,6 +351,121 @@ function LocationManager.DeleteTerritory(id)
     return LocationManager.DeleteLocation(id)
 end
 
+function LocationManager.GetLocationRevision(id)
+    return locationRevisions[id]
+end
+
+function LocationManager.GetHotSnapshot(id)
+    local location = locations[id]
+    return location and copy(location) or nil
+end
+
+function LocationManager.ValidateHotChange(id, operation, patch, locationType)
+    log("info", "[CC-TRACE] VALIDATION_ENTER id=%s operation=%s locationType=%s",
+        tostring(id), tostring(operation), tostring(locationType))
+    if operation ~= "create" and operation ~= "update" and operation ~= "delete" then
+        return false, nil, "Unsupported location operation"
+    end
+    if operation == "delete" then return true, {} end
+
+    local normalized = {}
+    local allowed = {
+        id = true, name = true, provider = true, type = true, coordinates = true,
+        heading = true, metadata = true, exits = true, entryZones = true, exitZones = true,
+        active = true, owner = locationType == "territory",
+    }
+    for key, value in pairs(patch) do
+        if not allowed[key] then return false, nil, "Unsupported location field: " .. tostring(key) end
+        normalized[key] = copy(value)
+    end
+
+    local targetId = id or normalized.id
+    if type(targetId) ~= "string" or not targetId:match("^[%w_-]+$") or #targetId > 64 then
+        return false, nil, "Location id must contain only letters, numbers, underscores, or hyphens"
+    end
+    if operation == "create" and locations[targetId] then return false, nil, "Location already exists" end
+    if operation == "update" and not locations[targetId] then return false, nil, "Location not found" end
+    if operation == "create" and (type(normalized.name) ~= "string" or #normalized.name == 0 or #normalized.name > 100) then
+        return false, nil, "Location name is required and must be 100 characters or fewer"
+    end
+    if normalized.name and (type(normalized.name) ~= "string" or #normalized.name > 100) then
+        return false, nil, "Location name must be 100 characters or fewer"
+    end
+    if normalized.coordinates then
+        local coordinates = normalized.coordinates
+        if type(coordinates) ~= "table" or type(coordinates.x) ~= "number"
+            or type(coordinates.y) ~= "number" or type(coordinates.z) ~= "number"
+            or math.abs(coordinates.x) > 10000 or math.abs(coordinates.y) > 10000 or math.abs(coordinates.z) > 2000 then
+            return false, nil, "Coordinates must be valid world coordinates"
+        end
+    elseif operation == "create" then
+        return false, nil, "Coordinates are required"
+    end
+    if normalized.heading and (type(normalized.heading) ~= "number" or normalized.heading < 0 or normalized.heading >= 360) then
+        return false, nil, "Heading must be between 0 and 359.999"
+    end
+    if normalized.provider and type(normalized.provider) ~= "string" then return false, nil, "Provider must be a string" end
+    if normalized.type and type(normalized.type) ~= "string" then return false, nil, "Type must be a string" end
+    normalized.id = targetId
+    normalized.type = locationType == "territory" and "territory" or (normalized.type or "generic")
+    log("info", "[CC-TRACE] VALIDATION_OK targetId=%s operation=%s", tostring(targetId), tostring(operation))
+    return true, normalized
+end
+
+function LocationManager.ApplyHotChange(id, operation, patch, locationType)
+    local targetId = id or patch.id
+    log("info", "[CC-TRACE] MUTATION_ENTER targetId=%s operation=%s", tostring(targetId), tostring(operation))
+    local nextLocations = copy(locations)
+    local nextManaged = copy(managedLocations)
+    local nextRevisions = copy(locationRevisions)
+
+    if operation == "create" then
+        nextLocations[targetId] = patch
+        nextManaged[targetId] = true
+        nextRevisions[targetId] = 1
+    elseif operation == "update" then
+        for key, value in pairs(patch) do
+            if key ~= "id" then nextLocations[targetId][key] = value end
+        end
+        nextManaged[targetId] = true
+        nextRevisions[targetId] = (nextRevisions[targetId] or 0) + 1
+    else
+        nextLocations[targetId] = nil
+        nextManaged[targetId] = nil
+        nextRevisions[targetId] = nil
+    end
+
+    local records = {}
+    for managedId, _ in pairs(nextManaged) do
+        records[managedId] = { revision = nextRevisions[managedId], data = nextLocations[managedId] }
+    end
+    log("info", "[CC-TRACE] PERSIST_ENTER path=%s", storagePath)
+    local persisted, persistenceError = persist(records)
+    log("info", "[CC-TRACE] PERSIST_RESULT ok=%s error=%s",
+        tostring(persisted), tostring(persistenceError))
+    if not persisted then
+        return false, { code = "PERSISTENCE_ERROR", message = persistenceError }
+    end
+
+    locations = nextLocations
+    managedLocations = nextManaged
+    locationRevisions = nextRevisions
+    emit("location:" .. (operation == "create" and "created" or operation == "update" and "updated" or "deleted"), {
+        id = targetId,
+        locationType = locationType,
+        location = copy(locations[targetId]),
+    })
+    log("info", "[CC-TRACE] RESULT targetId=%s revision=%s persisted=true",
+        tostring(targetId), tostring(locationRevisions[targetId]))
+    return true, {
+        targetId = targetId,
+        revision = locationRevisions[targetId],
+        snapshot = copy(locations[targetId]),
+        runtimeApplied = true,
+        persisted = true,
+    }
+end
+
 --- Shutdown the location manager
 --- Called during resource stop for cleanup
 function LocationManager.Shutdown()
@@ -308,5 +473,11 @@ function LocationManager.Shutdown()
     providers = {}
     log("info", "Location Manager shutdown complete")
 end
+
+-- Publish at file scope, matching sibling dce-world modules (_G.DCEWorldService,
+-- _G.DCELayer0, _G.DCELayer1, _G.DCETimeSim, _G.DCEWorldState). init.lua gates
+-- LocationManager.Init() on this global already existing, so publishing it from
+-- inside Init() leaves it permanently nil and every caller dead.
+_G.DCELocationManager = LocationManager
 
 return LocationManager

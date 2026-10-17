@@ -43,6 +43,7 @@ server_scripts {
     'phase-8-startup-scalability.lua',
     'phase-9-sdk-docs-validation.lua',
     'phase-10-certification.lua',
+    'phase-12-hot-configuration.lua',
 }
 
 -- Client scripts: Sprint 1.11.13 — Client GetDCEAPI export registration test.

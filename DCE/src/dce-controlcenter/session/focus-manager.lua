@@ -17,6 +17,7 @@ local DCE = nil
 local FOCUS_STATES = { RELEASED = "released", PENDING = "pending", ACQUIRED = "acquired" }
 local currentState = FOCUS_STATES.RELEASED
 local currentSessionId = nil
+local gameInputAllowed = false
 
 local function ConnectToCore()
     if dceCoreReady then return true end
@@ -67,7 +68,7 @@ function FocusManager.RequestFocus(sessionId, reason)
     logFocusChange(true, true, previous, "FocusManager.RequestFocus", reason or "unknown")
     
     if SetNuiFocus then SetNuiFocus(true, true) end
-    if SetNuiFocusKeepInput then SetNuiFocusKeepInput(false) end
+    if SetNuiFocusKeepInput then SetNuiFocusKeepInput(gameInputAllowed) end
     
     currentState = FOCUS_STATES.ACQUIRED
     currentSessionId = sessionId
@@ -84,6 +85,7 @@ function FocusManager.ReleaseFocus(caller, reason)
     
     if SetNuiFocus then SetNuiFocus(false, false) end
     if SetNuiFocusKeepInput then SetNuiFocusKeepInput(false) end
+    gameInputAllowed = false
     
     currentState = FOCUS_STATES.RELEASED
     currentSessionId = nil
@@ -107,9 +109,18 @@ function FocusManager.GetFocusedSession()
     return currentSessionId
 end
 
+function FocusManager.SetGameInputAllowed(allowed)
+    gameInputAllowed = allowed == true
+    if currentState == FOCUS_STATES.ACQUIRED and SetNuiFocusKeepInput then
+        SetNuiFocusKeepInput(gameInputAllowed)
+    end
+    return true
+end
+
 function FocusManager.Reset()
     currentState = FOCUS_STATES.RELEASED
     currentSessionId = nil
+    gameInputAllowed = false
 end
 
 -- ============================================================================

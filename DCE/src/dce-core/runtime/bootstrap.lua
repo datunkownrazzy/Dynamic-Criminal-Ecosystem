@@ -32,6 +32,7 @@ function Bootstrap:Run()
     local Scheduler = DCE_INTERNAL.Scheduler
     local PluginManager = DCE_INTERNAL.PluginManager
     local ConfigManager = DCE_INTERNAL.ConfigManager
+    local ConfigurationService = DCE_INTERNAL.ConfigurationService
     local SDKBuilder = DCE_INTERNAL.SDKBuilder
 
     -- ============================================================================
@@ -111,7 +112,8 @@ function Bootstrap:Run()
         RuntimeState:SetFailed(state, "ConfigManager creation failed")
         return nil
     end
-    logger:LogInfo("bootstrap", "PluginManager & ConfigManager initialized")
+    local configurationService = ConfigurationService:New(eventBus, logger)
+    logger:LogInfo("bootstrap", "PluginManager, ConfigManager & ConfigurationService initialized")
 
     -- ============================================================================
     -- PHASE 7: Create and Freeze SDK
@@ -147,6 +149,7 @@ function Bootstrap:Run()
     sdk:RegisterService("Registry", registry)
     sdk:RegisterService("PluginManager", pluginManager)
     sdk:RegisterService("ConfigManager", configManager)
+    sdk:RegisterService("ConfigurationService", configurationService)
 
     logger:LogInfo("bootstrap", "Core services registered: %s", table.concat(registry:List(), ", "))
 
@@ -207,6 +210,7 @@ function Bootstrap:Run()
         scheduler = scheduler,
         pluginManager = pluginManager,
         configManager = configManager,
+        configurationService = configurationService,
         sdk = sdk,
     }
 end

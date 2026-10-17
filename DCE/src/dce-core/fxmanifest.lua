@@ -57,6 +57,7 @@ server_scripts {
     'runtime/scheduler.lua',
     'runtime/plugin-manager.lua',
     'runtime/config-manager.lua',
+    'runtime/configuration-service.lua',
     'runtime/sdk.lua',
     'runtime/bootstrap.lua',
     'init.lua',

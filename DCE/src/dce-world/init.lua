@@ -50,7 +50,11 @@ local function OnWorldStart()
 
     -- Initialize and register the location manager
     if DCELocationManager and DCELocationManager.Init then
-        DCELocationManager.Init()
+        DCELocationManager.Init(function(module, level, message, ...)
+            DCE:Log(module, level, message, ...)
+        end, function(eventName, payload)
+            DCE:Emit(eventName, payload)
+        end)
     end
 
     DCE:RegisterService("LocationManager", {
@@ -68,7 +72,55 @@ local function OnWorldStart()
         UpdateTerritory = function(id, data) return DCELocationManager and DCELocationManager.UpdateTerritory(id, data) end,
         DeleteTerritory = function(id) return DCELocationManager and DCELocationManager.DeleteTerritory(id) end,
         RegisterLocation = function(location) return DCELocationManager and DCELocationManager.RegisterLocation(location) end,
+        GetLocationRevision = function(id) return DCELocationManager and DCELocationManager.GetLocationRevision(id) end,
+        GetHotSnapshot = function(id) return DCELocationManager and DCELocationManager.GetHotSnapshot(id) end,
     })
+
+    local configurationService = DCE:GetService("ConfigurationService")
+    if configurationService then
+        local function registerLocationTarget(targetName, locationType)
+            local registered, registerError = configurationService:RegisterTarget(targetName, {
+                GetSnapshot = function(id)
+                    local snap = DCELocationManager.GetHotSnapshot(id)
+                    DCE:Log("world", "info", "[CC-TRACE] SNAPSHOT id=%s found=%s",
+                        tostring(id), tostring(snap ~= nil))
+                    return snap
+                end,
+                GetRevision = function(id) return DCELocationManager.GetLocationRevision(id) end,
+                GetCapabilities = function()
+                    if locationType == "location" then
+                        return {
+                            state = "available",
+                            actions = { "create", "update", "delete" },
+                            persisted = true,
+                        }
+                    end
+                    return {
+                        state = "unavailable",
+                        actions = {},
+                        message = "Territory hot editing has no verified area-geometry contract in V1.",
+                    }
+                end,
+                ValidateChange = function(id, operation, patch)
+                    DCE:Log("world", "info", "[CC-TRACE] VALIDATION_ENTER id=%s operation=%s",
+                        tostring(id), tostring(operation))
+                    return DCELocationManager.ValidateHotChange(id, operation, patch, locationType)
+                end,
+                ApplyChange = function(id, operation, patch)
+                    DCE:Log("world", "info", "[CC-TRACE] MUTATION_ENTER id=%s operation=%s",
+                        tostring(id), tostring(operation))
+                    return DCELocationManager.ApplyHotChange(id, operation, patch, locationType)
+                end,
+            })
+            if not registered then
+                DCE:Log("world", "error", "Failed to register %s: %s", targetName, tostring(registerError))
+            end
+        end
+        registerLocationTarget("world.location", "location")
+        registerLocationTarget("world.territory", "territory")
+    else
+        DCE:Log("world", "warn", "ConfigurationService unavailable; world hot editing disabled")
+    end
 
     -- Schedule simulation ticks via canonical Scheduler
     local layer0Interval = DCE:GetConfig("World.Layer0Interval", 30000)

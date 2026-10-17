@@ -43,6 +43,7 @@
 ---@field GetResourceState fun(resourceName:string):"missing"|"started"|"starting"|"stopped"
 ---@field GetCurrentResourceName fun():string
 ---@field LoadResourceFile fun(resourceName:string, file:string):string|nil
+---@field SaveResourceFile fun(resourceName:string, file:string, data:string, dataLength:number):boolean
 
 ---@class ResourceEnvironment
 ---@field source number The current resource name (available in server scripts)
@@ -129,6 +130,9 @@ GetCurrentResourceName = nil
 
 ---@type fun(resourceName:string, file:string):string|nil
 LoadResourceFile = nil
+
+---@type fun(resourceName:string, file:string, data:string, dataLength:number):boolean
+SaveResourceFile = nil
 
 ---@type fun():number
 GetGameTimer = nil

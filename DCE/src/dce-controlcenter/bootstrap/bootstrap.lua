@@ -11,6 +11,7 @@ local DCE = nil
 local initialized = false
 local pendingRequests = {}
 local nextRequestId = 0
+local placement = nil
 
 -- ============================================================================
 -- SDK Acquisition — Single Call, No Polling
@@ -100,6 +101,28 @@ local function RequestServerData(dataType, cb)
     })
 end
 
+local function RequestConfigurationChange(request, cb)
+    nextRequestId = nextRequestId + 1
+    local requestId = (GetGameTimer and GetGameTimer() or os.time()) .. ":" .. nextRequestId
+    pendingRequests[requestId] = cb
+    TriggerServerEvent('dce-cc:server:configuration-request', {
+        requestId = requestId,
+        request = request,
+    })
+    SetTimeout(10000, function()
+        if pendingRequests[requestId] then
+            pendingRequests[requestId] = nil
+            cb({
+                code = "TIMEOUT",
+                message = "No authoritative response was received.",
+                runtimeApplied = false,
+                persisted = false,
+                restartRequired = false,
+            })
+        end
+    end)
+end
+
 RegisterNUICallback('world-locations:get', function(data, cb)
     RequestServerData('world-locations', cb)
 end)
@@ -108,8 +131,110 @@ RegisterNUICallback('world-territories:get', function(data, cb)
     RequestServerData('world-territories', cb)
 end)
 
+RegisterNUICallback('world-placement:start', function(data, cb)
+    local ped = PlayerPedId and PlayerPedId() or 0
+    if not ped or ped == 0 or not GetEntityCoords or not GetEntityHeading then
+        cb({ code = "CAPTURE_UNAVAILABLE", message = "The player position is unavailable." })
+        return
+    end
+    local coords = GetEntityCoords(ped)
+    local heading = GetEntityHeading(ped)
+    if not coords or type(heading) ~= "number" then
+        cb({ code = "CAPTURE_UNAVAILABLE", message = "The player position is unavailable." })
+        return
+    end
+    placement = {
+        ---@diagnostic disable-next-line: undefined-field
+        coordinates = { x = coords.x, y = coords.y, z = coords.z },
+        heading = heading,
+    }
+    local FM = GetService("FocusManager")
+    if FM and FM.SetGameInputAllowed then
+        FM.SetGameInputAllowed(true)
+    end
+    cb({ code = "SUCCESS" })
+end)
+
+RegisterNUICallback('world-placement:cancel', function(data, cb)
+    placement = nil
+    local FM = GetService("FocusManager")
+    if FM and FM.SetGameInputAllowed then
+        FM.SetGameInputAllowed(false)
+    end
+    cb({ code = "SUCCESS" })
+end)
+
+RegisterNUICallback('world-placement:reset', function(data, cb)
+    local ped = PlayerPedId and PlayerPedId() or 0
+    if not ped or ped == 0 or not GetEntityCoords or not GetEntityHeading then
+        cb({ code = "CAPTURE_UNAVAILABLE", message = "The player position is unavailable." })
+        return
+    end
+    local coords = GetEntityCoords(ped)
+    local heading = GetEntityHeading(ped)
+    placement = {
+        ---@diagnostic disable-next-line: undefined-field
+        coordinates = { x = coords.x, y = coords.y, z = coords.z },
+        heading = heading,
+    }
+    cb({ code = "SUCCESS" })
+end)
+
+RegisterNUICallback('world-placement:capture', function(data, cb)
+    local ped = PlayerPedId and PlayerPedId() or 0
+    if not ped or ped == 0 or not GetEntityCoords or not GetEntityHeading then
+        cb({ code = "CAPTURE_UNAVAILABLE", message = "The player position is unavailable." })
+        return
+    end
+
+    local coords = placement and placement.coordinates or GetEntityCoords(ped)
+    local heading = placement and placement.heading or GetEntityHeading(ped)
+    if not coords or type(heading) ~= "number" then
+        cb({ code = "CAPTURE_UNAVAILABLE", message = "The player position is unavailable." })
+        return
+    end
+
+    cb({
+        code = "SUCCESS",
+        ---@diagnostic disable-next-line: undefined-field
+        coordinates = { x = coords.x, y = coords.y, z = coords.z },
+        heading = heading,
+    })
+end)
+
+Citizen.CreateThread(function()
+    while true do
+        if placement and IsControlPressed and DrawMarker then
+            local coordinates = placement.coordinates
+            local speed = IsControlPressed(0, 21) and 0.2 or 0.05
+            if IsControlPressed(0, 172) then coordinates.y = coordinates.y + speed end
+            if IsControlPressed(0, 173) then coordinates.y = coordinates.y - speed end
+            if IsControlPressed(0, 174) then coordinates.x = coordinates.x - speed end
+            if IsControlPressed(0, 175) then coordinates.x = coordinates.x + speed end
+            if IsControlPressed(0, 10) then coordinates.z = coordinates.z + speed end
+            if IsControlPressed(0, 11) then coordinates.z = coordinates.z - speed end
+            if IsControlPressed(0, 44) then placement.heading = (placement.heading - 1) % 360 end
+            if IsControlPressed(0, 38) then placement.heading = (placement.heading + 1) % 360 end
+            DrawMarker(1, coordinates.x, coordinates.y, coordinates.z - 1.0, 0.0, 0.0, 0.0,
+                0.0, 0.0, placement.heading, 1.0, 1.0, 0.25, 40, 180, 120, 160,
+                false, true, 2, false, nil, nil, false)
+            Citizen.Wait(0)
+        else
+            Citizen.Wait(250)
+        end
+    end
+end)
+
 RegisterNUICallback('organization-list:get', function(data, cb)
     RequestServerData('organizations', cb)
+end)
+
+RegisterNUICallback('configuration:get', function(data, cb)
+    RequestServerData('configuration', cb)
+end)
+
+RegisterNUICallback('world-configuration:apply', function(data, cb)
+    RequestConfigurationChange(data, cb)
 end)
 
 RegisterNetEvent('dce-cc:client:data-response')
@@ -119,6 +244,11 @@ AddEventHandler('dce-cc:client:data-response', function(response)
     if not cb then return end
     pendingRequests[response.requestId] = nil
     cb(response)
+end)
+
+RegisterNetEvent('dce-cc:client:configuration-changed')
+AddEventHandler('dce-cc:client:configuration-changed', function(change)
+    Bootstrap.NotifyNUI('configuration:changed', change)
 end)
 
 -- ============================================================================
@@ -146,6 +276,7 @@ AddEventHandler("onClientResourceStop", function(resourceName)
     if FM and FM.EmergencyRelease then
         FM.EmergencyRelease("resource_stop")
     end
+    placement = nil
     Bootstrap.isReady = false
 end)
 

@@ -138,6 +138,13 @@
         handleKeydown: function(event) {
             if (event.key !== 'Escape' || DCE.Desktop.state !== DESKTOP_STATES.VISIBLE) return;
 
+            if (DCE.Plugins && DCE.Plugins['world-manager'] && DCE.Plugins['world-manager'].cancelPlacement) {
+                if (DCE.Plugins['world-manager'].cancelPlacement()) {
+                    event.preventDefault();
+                    return;
+                }
+            }
+
             if (DCE.CommandPalette && DCE.CommandPalette._visible) {
                 DCE.CommandPalette.hide();
                 return;
@@ -171,7 +178,6 @@
                 'diagnostics': 'Diagnostics'
             };
             var unavailablePages = {
-                configuration: 'Runtime configuration editing is not backed by a V1 server contract.',
                 integrations: 'Adapter discovery and administration are not exposed by the available V1 contracts.',
                 runtime: 'Detailed service, plugin, scheduler, and session inspection is not exposed by the available V1 contracts.',
                 diagnostics: 'Diagnostic history and developer tools are not exposed by the available V1 contracts.'
@@ -194,8 +200,7 @@
                         '</div>' +
                         '<section class="quick-actions" aria-labelledby="quick-actions-title">' +
                             '<h2 id="quick-actions-title">Quick actions</h2>' +
-                            '<div><button type="button" class="btn" data-destination="world-manager">View world status</button>' +
-                            '<button type="button" class="btn secondary" data-destination="organization-manager">View organizations</button></div>' +
+                            '<div><button type="button" class="btn" data-destination="world-manager">View world status</button></div>' +
                         '</section>' +
                         '<section class="state-list" aria-label="DCE data availability">' +
                             '<div><strong>Organizations</strong><span>Organization data is not currently available.</span></div>' +
@@ -212,6 +217,36 @@
                 });
                 if (breadcrumb) breadcrumb.textContent = 'Home';
                 if (statusText) statusText.textContent = 'Active';
+            } else if (destination === 'configuration') {
+                content.innerHTML =
+                    '<section class="page-state"><h1>Configuration</h1>' +
+                    '<p>Loading server configuration capabilities...</p></section>';
+                if (breadcrumb) breadcrumb.textContent = 'Configuration';
+                if (statusText) statusText.textContent = 'Loading';
+                DCE.NUI.post('configuration:get', {}).then(function(response) {
+                    if (!response || response.status !== 'ok') {
+                        content.innerHTML = '<section class="page-state unavailable"><h1>Configuration</h1><p>' +
+                            ((response && response.message) || 'Runtime configuration editing is not backed by a V1 server contract.') +
+                            '</p></section>';
+                        if (statusText) statusText.textContent = 'Unavailable';
+                        return;
+                    }
+                    var targets = response.targets || [];
+                    var items = targets.length ? targets.map(function(target) {
+                        var details = (target.actions || []).join(', ') || 'No hot actions';
+                        var state = target.restartRequired ? 'Restart required' : target.state;
+                        return '<div><strong>' + target.target + '</strong><span>' + state + ': ' + details + '</span></div>';
+                    }).join('') : '<div><strong>No editable targets</strong><span>No V1 configuration target is currently registered.</span></div>';
+                    content.innerHTML = '<section class="page-state"><h1>Configuration</h1><section class="state-list">' + items +
+                        '</section><div class="quick-actions"><div><button type="button" class="btn" data-destination="world-manager">Manage world locations</button></div></div></section>';
+                    content.querySelector('[data-destination="world-manager"]').addEventListener('click', function() {
+                        DCE.Desktop.navigate('world-manager');
+                    });
+                    if (statusText) statusText.textContent = targets.length ? 'Active' : 'Unavailable';
+                }).catch(function() {
+                    content.innerHTML = '<section class="page-state unavailable"><h1>Configuration</h1><p>Unable to read authoritative configuration capabilities.</p></section>';
+                    if (statusText) statusText.textContent = 'Unavailable';
+                });
             } else {
                 var plugin = DCE.Plugins && DCE.Plugins[destination];
                 if (!plugin || !plugin.render) {
