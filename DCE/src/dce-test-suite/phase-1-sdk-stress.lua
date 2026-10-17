@@ -259,7 +259,7 @@ function Phase1.Run(suite)
 
     -- DCE.GetVersion
     local version = dce:GetVersion()
-    H().RecordSuccess(result, H().AssertEqual(version, "1.11.7",
+    H().RecordSuccess(result, H().AssertEqual(version, "1.0.0",
         "DCE:GetVersion() returns canonical version"))
 
     local snapshot = dce:GetSnapshot()

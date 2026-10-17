@@ -222,7 +222,7 @@ function ControlCenterService.RequestConfigurationChange(source, requestId, requ
                 restartRequired = false,
             }
         else
-            log("info", "[CC-TRACE] APPLY_CALL source=%s target=%s operation=%s authorized=%s",
+            log("info", "Configuration apply source=%s target=%s operation=%s authorized=%s",
                 tostring(source), tostring(request and request.target),
                 tostring(request and request.operation), tostring(authorized))
             local ok, result = pcall(function()
@@ -230,14 +230,8 @@ function ControlCenterService.RequestConfigurationChange(source, requestId, requ
                     return authorized
                 end)
             end)
-            log("info", "[CC-TRACE] APPLY_OK=%s", tostring(ok))
-            if ok then
-                log("info", "[CC-TRACE] APPLY_RESULT code=%s message=%s targetId=%s runtimeApplied=%s persisted=%s",
-                    tostring(result and result.code), tostring(result and result.message),
-                    tostring(result and result.targetId), tostring(result and result.runtimeApplied),
-                    tostring(result and result.persisted))
-            else
-                log("error", "[CC-TRACE] APPLY_ERROR %s", tostring(result))
+            if not ok then
+                log("error", "Configuration apply failed: %s", tostring(result))
             end
             response = ok and result or {
                 code = "RUNTIME_APPLY_ERROR",
@@ -254,8 +248,6 @@ function ControlCenterService.RequestConfigurationChange(source, requestId, requ
             response.message = "You do not have permission to modify world locations."
         end
     response.requestId = requestId
-    log("info", "[CC-TRACE] RESPONSE source=%s requestId=%s code=%s message=%s",
-        tostring(source), tostring(requestId), tostring(response.code), tostring(response.message))
     TriggerClientEvent('dce-cc:client:data-response', source, response)
     return response.code == "SUCCESS"
 end

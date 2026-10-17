@@ -123,7 +123,7 @@ function SDKBuilder:Build(runtimeState, registry, eventBus, scheduler, pluginMan
     -- ============================================================================
 
     function sdk:GetVersion()
-        return "1.11.7"
+        return "1.0.0"
     end
 
     function sdk:IsReady()
@@ -187,8 +187,8 @@ function SDKBuilder:Build(runtimeState, registry, eventBus, scheduler, pluginMan
     setmetatable(sdk, sdkMeta)
 
     -- SDK identity markers
-    sdk.__sdk_id = "DCE_SDK_v1.11.7"
-    sdk.__sdk_version = "1.11.7"
+    sdk.__sdk_id = "DCE_SDK_v1.0.0"
+    sdk.__sdk_version = "1.0.0"
     sdk.__sdk_api_list = {
         "RegisterService", "GetService", "HasService", "UnregisterService", "ListServices",
         "On", "Once", "Off", "Emit",

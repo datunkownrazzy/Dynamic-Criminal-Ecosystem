@@ -89,10 +89,10 @@ local function RunClientExportTest()
     end
 
     -- 5. SDK identity == DCE_SDK_v1.11.7
-    Check(dce.__sdk_id == "DCE_SDK_v1.11.7",
-        "SDK identity == DCE_SDK_v1.11.7 (got: " .. tostring(dce.__sdk_id) .. ")")
-    Check(dce.__sdk_version == "1.11.7",
-        "SDK version == 1.11.7 (got: " .. tostring(dce.__sdk_version) .. ")")
+    Check(dce.__sdk_id == "DCE_SDK_v1.0.0",
+        "SDK identity == DCE_SDK_v1.0.0 (got: " .. tostring(dce.__sdk_id) .. ")")
+    Check(dce.__sdk_version == "1.0.0",
+        "SDK version == 1.0.0 (got: " .. tostring(dce.__sdk_version) .. ")")
 
     -- 6. Core SDK methods are callable (contract, not type())
     local requiredMethods = {
@@ -122,8 +122,8 @@ local function RunClientExportTest()
     local vOk, vErr = pcall(function()
         version = dce:GetVersion()
     end)
-    Check(vOk and version == "1.11.7",
-        "GetVersion() == 1.11.7 (got: " .. tostring(version) .. ")")
+    Check(vOk and version == "1.0.0",
+        "GetVersion() == 1.0.0 (got: " .. tostring(version) .. ")")
 
     -- 8. IsReady works from the client boundary
     local ready = nil

@@ -26,14 +26,14 @@
         Initialize: function() {
             console.log('[ServerMonitor] Initialize');
             pluginState = 'initialized';
-            DCE.NUI.post('dce-cc:plugin:initialized', { pluginId: 'server-monitor' }).catch(function() {});
+
         },
         
         // Lifecycle: Start (called on activation)
         Start: function() {
             console.log('[ServerMonitor] Start');
             pluginState = 'started';
-            DCE.NUI.post('dce-cc:plugin:started', { pluginId: 'server-monitor' }).catch(function() {});
+
         },
         
         // Lifecycle: Stop (called on shutdown)

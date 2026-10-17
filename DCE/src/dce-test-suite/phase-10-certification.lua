@@ -72,7 +72,7 @@ function Phase10.Run()
 
     -- Verify DCE.GetVersion returns the canonical frozen version
     local version = dce:GetVersion()
-    local apiStable = version == "1.11.7"
+    local apiStable = version == "1.0.0"
     H().RecordSuccess(result, H().Assert(apiStable,
         "Exit Criterion 2: API stability - version " .. tostring(version)))
 
@@ -212,7 +212,7 @@ function Phase10.Run()
 
     local exitCriteria = {
         {"SDK completeness (via canonical SDK)", sdkComplete},
-        {"API stability (version 1.11.7)", apiStable},
+        {"API stability (version 1.0.0)", apiStable},
         {"Performance metrics available", perfOk},
         {"No memory leaks", noLeaks},
         {"Lifecycle correctness", lifecycleOk},
@@ -239,7 +239,7 @@ function Phase10.Run()
 
     if allPassed then
         print("^2[DCE Phase 10] ============================================^0")
-        print("^2[DCE Phase 10]  DCE Core v1.11.7^0")
+        print("^2[DCE Phase 10]  DCE Core v1.0.0^0")
         print("^2[DCE Phase 10]  PLATFORM CERTIFIED^0")
         print("^2[DCE Phase 10]  ARCHITECTURE LOCKED^0")
         print("^2[DCE Phase 10]  SDK FROZEN^0")

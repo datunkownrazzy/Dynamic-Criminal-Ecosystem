@@ -415,5 +415,5 @@
         DCE.PluginHost._registry = [];
     };
     
-    console.log('[DCE PluginHost] Loaded (v2.0.0)');
+    console.log('[DCE PluginHost] Loaded (v1.0.0)');
 })();

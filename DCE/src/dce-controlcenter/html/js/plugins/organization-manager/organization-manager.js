@@ -133,14 +133,14 @@
         Initialize: function() {
             console.log('[OrganizationManager] Initialize');
             pluginState = 'initialized';
-            DCE.NUI.post('dce-cc:plugin:initialized', { pluginId: 'organization-manager' }).catch(function() {});
+
         },
         
         // Lifecycle: Start (called on activation)
         Start: function() {
             console.log('[OrganizationManager] Start');
             pluginState = 'started';
-            DCE.NUI.post('dce-cc:plugin:started', { pluginId: 'organization-manager' }).catch(function() {});
+
         },
         
         // Lifecycle: Stop (called on shutdown)

@@ -10,7 +10,7 @@
     window.DCE = window.DCE || {};
     
     DCE.Dock = {
-        _sourceVersion: 'v1.11.7-nav-diagnostics-1',
+        _sourceVersion: 'v1.0.0-nav-diagnostics-1',
         // Dock button registry
         _buttons: new Map(),
         _initialized: false,

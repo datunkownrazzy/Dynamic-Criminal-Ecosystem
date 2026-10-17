@@ -42,7 +42,7 @@ function RuntimeState:New()
     local state = {
         -- Identity
         id = nil,
-        version = "1.11.7",
+        version = "1.0.0",
         creationTime = nil,
         bootID = nil,
 

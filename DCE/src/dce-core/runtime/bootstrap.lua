@@ -141,7 +141,7 @@ function Bootstrap:Run()
         ListServices = function() return registry:List() end,
         ListPlugins = function() return pluginManager:List() end,
         ListTasks = function() return scheduler:ListTasks() end,
-        GetDCEVersion = function() return "1.11.7" end,
+        GetDCEVersion = function() return "1.0.0" end,
     })
     sdk:RegisterService("Logger", logger)
     sdk:RegisterService("EventBus", eventBus)
@@ -175,7 +175,7 @@ function Bootstrap:Run()
         timestamp = GetGameTimer and GetGameTimer() or 0,
         source = "dce-core",
         payload = {
-            version = "1.11.7",
+            version = "1.0.0",
             bootID = state.bootID,
             runtimeID = state.id,
         },
@@ -185,7 +185,7 @@ function Bootstrap:Run()
     -- Mark Running
     -- ============================================================================
     RuntimeState:SetPhase(state, "RUNNING")
-    logger:LogInfo("bootstrap", "=== DCE v1.11.7 Platform Running ===")
+    logger:LogInfo("bootstrap", "=== DCE v1.0.0 Platform Running ===")
 
     -- Emit lifecycle:running as a sticky event
     eventBus:Sticky("lifecycle:running")
@@ -193,7 +193,7 @@ function Bootstrap:Run()
         timestamp = GetGameTimer and GetGameTimer() or 0,
         source = "dce-core",
         payload = {
-            version = "1.11.7",
+            version = "1.0.0",
             bootID = state.bootID,
         },
     })

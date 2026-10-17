@@ -81,10 +81,7 @@ local function OnWorldStart()
         local function registerLocationTarget(targetName, locationType)
             local registered, registerError = configurationService:RegisterTarget(targetName, {
                 GetSnapshot = function(id)
-                    local snap = DCELocationManager.GetHotSnapshot(id)
-                    DCE:Log("world", "info", "[CC-TRACE] SNAPSHOT id=%s found=%s",
-                        tostring(id), tostring(snap ~= nil))
-                    return snap
+                    return DCELocationManager.GetHotSnapshot(id)
                 end,
                 GetRevision = function(id) return DCELocationManager.GetLocationRevision(id) end,
                 GetCapabilities = function()
@@ -102,13 +99,9 @@ local function OnWorldStart()
                     }
                 end,
                 ValidateChange = function(id, operation, patch)
-                    DCE:Log("world", "info", "[CC-TRACE] VALIDATION_ENTER id=%s operation=%s",
-                        tostring(id), tostring(operation))
                     return DCELocationManager.ValidateHotChange(id, operation, patch, locationType)
                 end,
                 ApplyChange = function(id, operation, patch)
-                    DCE:Log("world", "info", "[CC-TRACE] MUTATION_ENTER id=%s operation=%s",
-                        tostring(id), tostring(operation))
                     return DCELocationManager.ApplyHotChange(id, operation, patch, locationType)
                 end,
             })

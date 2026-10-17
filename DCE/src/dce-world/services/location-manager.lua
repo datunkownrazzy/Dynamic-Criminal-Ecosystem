@@ -50,7 +50,7 @@ local function copy(value)
 end
 
 local function validationFailure(message)
-    log("info", "[CC-TRACE] VALIDATION_DENIED reason=%s", tostring(message))
+    log("info", "Location validation rejected: %s", tostring(message))
     return false, nil, message
 end
 
@@ -354,8 +354,6 @@ function LocationManager.GetHotSnapshot(id)
 end
 
 function LocationManager.ValidateHotChange(id, operation, patch, locationType)
-    log("info", "[CC-TRACE] VALIDATION_ENTER id=%s operation=%s locationType=%s",
-        tostring(id), tostring(operation), tostring(locationType))
     if operation ~= "create" and operation ~= "update" and operation ~= "delete" then
         return validationFailure("Unsupported location operation")
     end
@@ -401,13 +399,11 @@ function LocationManager.ValidateHotChange(id, operation, patch, locationType)
     if normalized.type and type(normalized.type) ~= "string" then return validationFailure("Type must be a string") end
     normalized.id = targetId
     normalized.type = locationType == "territory" and "territory" or (normalized.type or "generic")
-    log("info", "[CC-TRACE] VALIDATION_OK targetId=%s operation=%s", tostring(targetId), tostring(operation))
     return true, normalized
 end
 
 function LocationManager.ApplyHotChange(id, operation, patch, locationType)
     local targetId = id or patch.id
-    log("info", "[CC-TRACE] MUTATION_ENTER targetId=%s operation=%s", tostring(targetId), tostring(operation))
     local nextLocations = copy(locations)
     local nextManaged = copy(managedLocations)
     local nextRevisions = copy(locationRevisions)
@@ -432,26 +428,24 @@ function LocationManager.ApplyHotChange(id, operation, patch, locationType)
     for managedId, _ in pairs(nextManaged) do
         records[managedId] = { revision = nextRevisions[managedId], data = nextLocations[managedId] }
     end
-    log("info", "[CC-TRACE] PERSIST_ENTER path=%s", storagePath)
     local persisted, persistenceError = persist(records)
-    log("info", "[CC-TRACE] PERSIST_RESULT ok=%s error=%s",
-        tostring(persisted), tostring(persistenceError))
     if not persisted then
+        log("error", "Location persistence failed: %s", tostring(persistenceError))
         return false, { code = "PERSISTENCE_ERROR", message = persistenceError }
     end
 
     locations = nextLocations
     managedLocations = nextManaged
     locationRevisions = nextRevisions
-    emit("location:" .. (operation == "create" and "created" or operation == "update" and "updated" or "deleted"), {
-        id = targetId,
-        locationType = locationType,
-        location = copy(locations[targetId]),
-    })
-    log("info", "[CC-TRACE] RESULT targetId=%s revision=%s persisted=true",
-        tostring(targetId), tostring(locationRevisions[targetId]))
+    if eventEmitter then
+        eventEmitter("location:" .. (operation == "create" and "created" or operation == "update" and "updated" or "deleted"), {
+            id = targetId,
+            locationType = locationType,
+            location = copy(locations[targetId]),
+        })
+    end
     return true, {
-        targetId = targetId,
+        targetId = targetId,":
         revision = locationRevisions[targetId],
         snapshot = copy(locations[targetId]),
         runtimeApplied = true,

@@ -86,38 +86,28 @@ function ConfigurationService:New(eventBus, logger)
         local callType = hasMetatable and type(mtAuthorize.__call) or "nil"
         local callable = isCallable(authorize)
 
-        print(("[CC-TRACE] AUTHORIZE_INSPECT source=%s target=%s operation=%s authorizeType=%s hasMetatable=%s callType=%s callable=%s")
-            :format(tostring(source), tostring(request.target), tostring(request.operation),
-                    authorizeType, tostring(hasMetatable), tostring(callType), tostring(callable)))
-
         if not callable then
-            print(("[CC-TRACE] AUTHORIZE_DENIED reason=NOT_CALLABLE source=%s target=%s operation=%s authorizeType=%s")
-                :format(tostring(source), tostring(request.target), tostring(request.operation), authorizeType))
+            print(("[DCE] Configuration authorization denied: not callable source=%s target=%s operation=%s")
+                :format(tostring(source), tostring(request.target), tostring(request.operation)))
             return result("PERMISSION_DENIED", "Permission denied", request)
         end
 
         -- Callable: attempt invocation
         local invokeOk, decision = pcall(authorize, source, request.target, request.operation)
-        print(("[CC-TRACE] AUTHORIZE_INVOKE ok=%s decision=%s")
-            :format(tostring(invokeOk), tostring(decision)))
 
         if not invokeOk then
-            print(("[CC-TRACE] AUTHORIZE_INVOKE_ERROR error=%s source=%s target=%s")
-                :format(tostring(decision), tostring(source), tostring(request.target)))
-            print(("[CC-TRACE] AUTHORIZE_DENIED reason=CALLBACK_ERROR source=%s target=%s operation=%s")
+            print(("[DCE] Configuration authorization denied: callback error source=%s target=%s operation=%s")
                 :format(tostring(source), tostring(request.target), tostring(request.operation)))
             return result("PERMISSION_DENIED", "Permission denied", request)
         end
 
         if not decision then
-            print(("[CC-TRACE] AUTHORIZE_DENIED reason=CALLBACK_FALSE source=%s target=%s operation=%s decision=%s")
-                :format(tostring(source), tostring(request.target), tostring(request.operation), tostring(decision)))
+            print(("[DCE] Configuration authorization denied: callback false source=%s target=%s operation=%s")
+                :format(tostring(source), tostring(request.target), tostring(request.operation)))
             return result("PERMISSION_DENIED", "Permission denied", request)
         end
 
         -- Authorized
-        print(("[CC-TRACE] AUTHORIZE_OK source=%s target=%s")
-            :format(tostring(source), tostring(request.target)))
 
         local target = targets[request.target]
         if not target then

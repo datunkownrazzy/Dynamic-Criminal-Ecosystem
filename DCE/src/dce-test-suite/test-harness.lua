@@ -232,8 +232,8 @@ function Harness.ValidateSDK()
     -- Version check via canonical SDK (colon-call)
     local version = canonicalDCE:GetVersion()
     Harness.RecordSuccess(results, Harness.AssertString(version, "DCE.GetVersion returns string"))
-    Harness.RecordSuccess(results, Harness.Assert(version == "1.11.7",
-        "Expected version 1.11.7, got " .. tostring(version)))
+    Harness.RecordSuccess(results, Harness.Assert(version == "1.0.0",
+        "Expected version 1.0.0, got " .. tostring(version)))
 
     -- Core services accessible via canonical SDK
     local registry = canonicalDCE:GetService("CoreRegistry")

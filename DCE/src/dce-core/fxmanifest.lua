@@ -39,7 +39,7 @@ game 'gta5'
 
 author 'DCE Team'
 description 'Dynamic Criminal Ecosystem - Core Platform Runtime'
-version '1.11.7'
+version '1.0.0'
 
 -- Pure configuration data only. Shared per manifest semantics (both VMs).
 -- No runtime behavior, no globals beyond the Config table.

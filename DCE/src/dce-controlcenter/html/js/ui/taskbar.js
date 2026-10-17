@@ -33,7 +33,7 @@
                     '</div>' +
                     '<div class="status-section right">' +
                         '<span id="status-timestamp"></span>' +
-                        '<span class="status-version">DCE SDK v1.11.7</span>' +
+                        '<span class="status-version">DCE SDK v1.0.0</span>' +
                     '</div>';
                 
                 var desktop = document.getElementById('desktop');

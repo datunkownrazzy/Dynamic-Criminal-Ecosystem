@@ -330,7 +330,7 @@
         Initialize: function() {
             console.log('[WorldManager] Initialize');
             pluginState = 'initialized';
-            DCE.NUI.post('dce-cc:plugin:initialized', { pluginId: 'world-manager' }).catch(function() {});
+
         },
         
         // Lifecycle: Start (called on activation)
@@ -347,7 +347,7 @@
                 };
                 DCE.Runtime.on('configuration:changed', configurationChangedHandler);
             }
-            DCE.NUI.post('dce-cc:plugin:started', { pluginId: 'world-manager' }).catch(function() {});
+
         },
         
         // Lifecycle: Stop (called on shutdown)
@@ -456,6 +456,10 @@
                 if (!panel) return;
                 var draft = drafts[panel.dataset.kind];
                 if (!draft) return;
+                var field = event.target.dataset.field;
+                if (field && draft.record) {
+                    draft.record[field] = event.target.value;
+                }
                 draft.dirty = true;
                 var actions = panel.querySelector('[data-actions]');
                 if (actions) actions.hidden = false;

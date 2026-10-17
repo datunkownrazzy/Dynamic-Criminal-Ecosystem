@@ -169,6 +169,6 @@
         console.log('[DCE Lifecycle] Cleanup complete');
     };
 
-    console.log('[DCE Lifecycle] Module loaded (v2.0.0)');
+    console.log('[DCE Lifecycle] Module loaded (v1.0.0)');
 
 })();

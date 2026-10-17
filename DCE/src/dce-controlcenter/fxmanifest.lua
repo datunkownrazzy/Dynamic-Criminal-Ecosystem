@@ -9,7 +9,7 @@ game 'gta5'
 
 author 'DCE Team'
 description 'Dynamic Criminal Ecosystem - Control Center V1'
-version '1.11.7'
+version '1.0.0'
 
 dependencies {
     'dce-core',
